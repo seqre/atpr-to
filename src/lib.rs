@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod error;
 pub mod generated;
 pub mod resolve;
 pub mod shorten;

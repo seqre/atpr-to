@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Json;
 use axum_extra::extract::cookie::{Cookie, SameSite};
@@ -16,6 +15,7 @@ use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
 use serde::Deserialize;
 use url::Url;
 
+use crate::error;
 use crate::AppState;
 
 pub type OAuthClientType = OAuthClient<JacquardResolver, MemoryAuthStore>;
@@ -75,11 +75,7 @@ pub async fn login(
 
     match state.oauth.start_auth(&body.handle, options).await {
         Ok(auth_url) => Redirect::temporary(&auth_url).into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            format!("Failed to start auth: {e}"),
-        )
-            .into_response(),
+        Err(e) => error::bad_request(&format!("Failed to start auth: {e}")),
     }
 }
 
@@ -117,11 +113,7 @@ pub async fn oauth_callback(
             let jar = jar.add(cookie);
             (jar, Redirect::temporary("/")).into_response()
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("OAuth callback failed: {e}"),
-        )
-            .into_response(),
+        Err(e) => error::internal_error(&format!("OAuth callback failed: {e}")),
     }
 }
 

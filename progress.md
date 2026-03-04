@@ -92,3 +92,25 @@
 **Tests:** 12 passing (3 new)
 - Random code generation: length 6-8, always valid
 - Code validation: accepts valid codes, rejects empty/too-long/special chars
+
+## Step 5: URL Resolution ✅
+
+**Implemented:**
+- `src/resolve.rs` — full GET /@{handle}/{code} handler:
+  1. Parse handle via `Handle::new()`
+  2. Resolve handle → DID via `JacquardResolver::resolve_handle()`
+  3. Resolve DID → DID document via `resolve_did_doc()`, extract `pds_endpoint()`
+  4. Fetch record from PDS via unauthenticated HTTP GET to `com.atproto.repo.getRecord`
+  5. Extract `url` field from record value
+  6. Return HTTP 302 redirect to target URL
+
+**Decisions:**
+- Unauthenticated resolution: uses plain HTTP GET to PDS (no OAuth needed for public records)
+- Uses `JacquardResolver::default()` for identity resolution (DNS + HTTP + PLC directory)
+- Parses getRecord response as `serde_json::Value` to extract URL (simpler than typed deserialization)
+- URL-encodes DID and rkey in query parameters for safety
+
+**Dependencies added:** `reqwest` (json feature), `urlencoding`
+
+**Tests:** 13 passing (1 new)
+- Handle parsing validation (valid handles accepted, single-label rejected)

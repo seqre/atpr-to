@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.8.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie"] }
 chrono = { version = "0.4", features = ["serde"] }
 jacquard = { version = "0.9" }
 jacquard-common = { version = "0.9" }
@@ -15,7 +16,9 @@ inventory = "0.3"
 rustversion = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+rand = "0.8"
 tokio = { version = "1", features = ["macros"] }
+tower = "0.5"
 
 [build-dependencies]
 jacquard-lexicon = { version = "0.9", features = ["codegen"] }

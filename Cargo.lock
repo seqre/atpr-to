@@ -149,6 +149,7 @@ name = "atpr-to"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "axum-extra",
  "chrono",
  "inventory",
  "jacquard",
@@ -156,10 +157,12 @@ dependencies = [
  "jacquard-derive",
  "jacquard-lexicon",
  "lambda_http",
+ "rand 0.8.5",
  "rustversion",
  "serde",
  "serde_json",
  "tokio",
+ "tower",
 ]
 
 [[package]]
@@ -232,6 +235,29 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "sync_wrapper",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "axum-extra"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9963ff19f40c6102c76756ef0a46004c0d58957d87259fc9208ff8441c12ab96"
+dependencies = [
+ "axum",
+ "axum-core",
+ "bytes",
+ "cookie",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "rustversion",
+ "serde_core",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -567,6 +593,17 @@ name = "const-str"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f421161cb492475f1661ddc9815a745a1c894592070661180fdec3d4872e9c3"
+
+[[package]]
+name = "cookie"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
+dependencies = [
+ "percent-encoding",
+ "time",
+ "version_check",
+]
 
 [[package]]
 name = "cordyceps"

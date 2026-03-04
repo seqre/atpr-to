@@ -50,6 +50,7 @@ fn validate_code(code: &str) -> bool {
 }
 
 /// Create a short URL. Requires authentication.
+#[tracing::instrument(skip_all)]
 pub async fn shorten(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,

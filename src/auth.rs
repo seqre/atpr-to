@@ -67,6 +67,7 @@ pub struct LoginRequest {
 }
 
 /// Start OAuth login flow. User submits their handle.
+#[tracing::instrument(skip_all)]
 pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(body): Json<LoginRequest>,

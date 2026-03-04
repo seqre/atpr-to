@@ -71,3 +71,24 @@
 - Session cookie parsing (valid, missing, malformed)
 - OAuth client construction doesn't panic
 - Login route requires POST
+
+## Step 4: URL Shortening ✅
+
+**Implemented:**
+- `src/shorten.rs` — full POST /shorten handler:
+  - Authenticates via session cookie → restores OAuth session
+  - Accepts `{ url, code? }` — generates random 6-8 char code if none given
+  - Validates code format (alphanumeric + `-_`, 1-64 chars) and URL (valid, ≤2048 chars)
+  - Builds `Link` record with `url` and `createdAt`
+  - Writes to PDS via `com.atproto.repo.putRecord` using `XrpcClient::send()`
+  - Returns `{ short_url: "https://atpr.to/@{did}/{code}" }`
+
+**Decisions:**
+- Uses `XrpcClient::send()` directly (not `AgentSessionExt`) — `OAuthSession` doesn't impl `AgentSession`
+- `PutRecord` builder needs `.collection(NSID.to_string())` (Nsid doesn't impl From<&str>)
+- Short URL uses DID for now; handle resolution for display URL is a future improvement
+- `RecordKey::any()` validates the code as a valid atproto record key
+
+**Tests:** 12 passing (3 new)
+- Random code generation: length 6-8, always valid
+- Code validation: accepts valid codes, rejects empty/too-long/special chars

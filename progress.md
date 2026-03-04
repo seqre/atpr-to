@@ -46,3 +46,28 @@
 - Shorten rejects GET (405 Method Not Allowed)
 - Resolve route exists (not 404)
 - OAuth metadata returns 200
+
+## Step 3: OAuth ✅
+
+**Implemented:**
+- `src/auth.rs` — full OAuth module:
+  - `build_oauth_client()` — constructs `OAuthClient<JacquardResolver, MemoryAuthStore>` with atpr.to metadata
+  - `client_metadata()` — serves `/.well-known/oauth-client-metadata.json`
+  - `login()` — POST /login: accepts handle, calls `start_auth()`, redirects to auth URL
+  - `oauth_callback()` — GET /oauth/callback: exchanges code for session, stores DID|session_id in cookie
+  - `parse_session_cookie()` — extracts (DID, session_id) from cookie for session restoration
+- `src/lib.rs` — `AppState` struct holding `OAuthClientType`, shared via `Arc<AppState>`
+- Added `/login` POST route
+
+**Decisions:**
+- `keyset: None` — jacquard auto-generates ES256 keypair (sufficient for `token_endpoint_auth_method: "none"`)
+- Cookie format: `did:plc:xyz|session_id` (pipe separator since DIDs contain colons)
+- `MemoryAuthStore` for now (sessions lost on restart, but fine for Lambda cold starts during dev)
+- Session restoration via `oauth.restore(did, session_id)` — will be used in shorten handler
+
+**Dependencies added:** `time`, `url`
+
+**Tests:** 9 passing (4 new)
+- Session cookie parsing (valid, missing, malformed)
+- OAuth client construction doesn't panic
+- Login route requires POST

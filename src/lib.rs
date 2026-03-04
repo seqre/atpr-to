@@ -3,9 +3,19 @@ pub mod generated;
 pub mod resolve;
 pub mod shorten;
 
+use std::sync::Arc;
+
 use axum::{routing::get, routing::post, Router};
 
+pub struct AppState {
+    pub oauth: auth::OAuthClientType,
+}
+
 pub fn router() -> Router {
+    let state = Arc::new(AppState {
+        oauth: auth::build_oauth_client(),
+    });
+
     Router::new()
         .route("/", get(index))
         .route(
@@ -13,8 +23,10 @@ pub fn router() -> Router {
             get(auth::client_metadata),
         )
         .route("/oauth/callback", get(auth::oauth_callback))
+        .route("/login", post(auth::login))
         .route("/shorten", post(shorten::shorten))
         .route("/@{handle}/{code}", get(resolve::resolve))
+        .with_state(state)
 }
 
 async fn index() -> &'static str {
@@ -69,7 +81,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Should not be 404 (route exists), will be 502 or similar since resolution isn't wired yet
         assert_ne!(response.status(), StatusCode::NOT_FOUND);
     }
 
@@ -87,5 +98,21 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_login_requires_post() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/login")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 }

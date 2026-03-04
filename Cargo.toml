@@ -1,0 +1,21 @@
+[package]
+name = "atpr-to"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.8.8", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+jacquard = { version = "0.9" }
+jacquard-common = { version = "0.9" }
+jacquard-derive = { version = "0.9" }
+jacquard-lexicon = { version = "0.9" }
+lambda_http = "1.0.0"
+inventory = "0.3"
+rustversion = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["macros"] }
+
+[build-dependencies]
+jacquard-lexicon = { version = "0.9", features = ["codegen"] }

@@ -41,7 +41,7 @@ fn generate_code() -> String {
 }
 
 /// Validate a short code: alphanumeric + `-_`, 1-64 chars.
-fn validate_code(code: &str) -> bool {
+pub fn validate_code(code: &str) -> bool {
     !code.is_empty()
         && code.len() <= 64
         && code

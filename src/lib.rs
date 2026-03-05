@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod delete;
 pub mod error;
 pub mod generated;
 pub mod resolve;
@@ -6,7 +7,7 @@ pub mod shorten;
 
 use std::sync::Arc;
 
-use axum::{extract::State, routing::get, routing::post, Router};
+use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
 
 pub struct AppState {
     pub oauth: auth::OAuthClientType,
@@ -34,6 +35,7 @@ pub fn router() -> Router {
         .route("/oauth/callback", get(auth::oauth_callback))
         .route("/login", post(auth::login))
         .route("/shorten", post(shorten::shorten))
+        .route("/shorten/{code}", delete(delete::delete_link))
         .route("/@{handle}/{code}", get(resolve::resolve))
         .with_state(state)
 }
@@ -128,6 +130,40 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_delete_requires_auth() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri("/shorten/abc123")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_delete_method() {
+        let app = router();
+        // GET on a DELETE-only route should be 405
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/shorten/abc123")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[tokio::test]

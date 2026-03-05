@@ -193,3 +193,17 @@
 - Short URL is now `https://atpr.to/@{handle}/{code}` instead of `https://atpr.to/@{did}/{code}`
 
 **Tests:** 17 passing (no new tests — no API shape change, fallback behaviour covered by existing tests)
+
+## Step 12: Delete Link ✅
+
+**New file:** `src/delete.rs`
+**Modified:** `src/lib.rs`, `src/shorten.rs` (`validate_code` made `pub`)
+
+**Implemented:**
+- `DELETE /shorten/{code}` handler: auth check → validate code → restore session → `DeleteRecord` request → 204 No Content
+- Uses same builder pattern as `PutRecord`: `.repo()`, `.collection()`, `.rkey()`, `.build()`
+- Auth errors return 401, invalid codes return 400
+
+**Tests:** 19 passing (2 new)
+- `test_delete_requires_auth` — DELETE without cookie → 401
+- `test_delete_method` — GET /shorten/abc → 405 Method Not Allowed

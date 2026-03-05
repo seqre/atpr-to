@@ -327,6 +327,50 @@
 
 **Tests:** 38 passing (34 unit + 4 integration)
 
+## Step 22B: URL Scheme Whitelist ✅
+
+**Modified:** `src/shorten.rs`
+
+**Implemented:**
+- `pub fn is_allowed_scheme(url_str: &str) -> bool` — returns true only for `http`/`https` schemes
+- Used in `shorten` handler after URL parse check; returns 400 if scheme is not allowed
+- Rejects: `ftp://`, `javascript:`, `data:`, unparseable URLs
+
+**Tests:** +1 (`test_is_allowed_scheme`)
+
+---
+
+## Step 22A: POST /logout ✅
+
+**New file:** `src/logout.rs`
+**Modified:** `src/lib.rs`
+
+**Implemented:**
+- `pub async fn logout(jar: CookieJar) -> impl IntoResponse` — removes `session` cookie, redirects to `/`
+- No auth required; clearing a non-existent cookie is harmless
+- Registered as `POST /logout` in rate-limited layer
+
+**Tests:** +2 (`test_logout_clears_cookie_and_redirects`, `test_logout_without_cookie`)
+
+---
+
+## Step 24B: expires_at in Lexicon ✅
+
+**Modified:** `lexicons/to.atpr.link.json`, `src/shorten.rs`, `src/resolve.rs`, `src/error.rs`
+**Regenerated:** `src/generated/to_atpr/link.rs`
+
+**Implemented:**
+- Added optional `expiresAt` (`datetime`) property to lexicon (not in `required`)
+- Build regenerated: `Link` struct now has `expires_at: Option<Datetime>`, builder has `.maybe_expires_at()`
+- `ShortenRequest` accepts optional `expires_at: Option<String>`; validated as RFC 3339, passed to `Link` builder
+- `resolve_via_slingshot` / `resolve_via_direct` now return `ResolvedLink { url, expires_at }` instead of bare `String`
+- `resolve` handler checks expiry: if `expires_at` is set and in the past → 410 Gone
+- `error::gone()` convenience function added
+
+**Tests:** +3 integration (`test_resolve_expired_link_returns_410`, `test_resolve_future_expiry_redirects`) + 1 unit (`test_gone_status`)
+
+---
+
 ## Pre-Step: CLAUDE.md created ✅
 
 Added `CLAUDE.md` to the repository with project guidance for Claude Code: commands, architecture overview, key design notes, and version control conventions.

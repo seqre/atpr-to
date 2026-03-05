@@ -24,6 +24,8 @@ pub struct ShortenRequest {
     pub url: String,
     /// Optional custom short code; auto-generated if absent.
     pub code: Option<String>,
+    /// Optional expiry datetime (ISO 8601). Link returns 410 after this time.
+    pub expires_at: Option<String>,
 }
 
 /// Response body from `POST /shorten`.
@@ -51,6 +53,13 @@ pub fn validate_code(code: &str) -> bool {
         && code
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Returns `true` if the URL has an allowed scheme (`http` or `https`).
+pub fn is_allowed_scheme(url_str: &str) -> bool {
+    url::Url::parse(url_str)
+        .map(|u| matches!(u.scheme(), "http" | "https"))
+        .unwrap_or(false)
 }
 
 /// Resolve a DID to its primary handle.
@@ -124,6 +133,20 @@ pub async fn shorten(
     if url::Url::parse(&body.url).is_err() {
         return (StatusCode::BAD_REQUEST, "Invalid URL").into_response();
     }
+    if !is_allowed_scheme(&body.url) {
+        return (StatusCode::BAD_REQUEST, "Only http/https URLs are allowed").into_response();
+    }
+
+    // Validate and parse optional expires_at
+    let expires_at_dt: Option<jacquard_common::types::string::Datetime> = match &body.expires_at {
+        Some(s) => match chrono::DateTime::parse_from_rfc3339(s) {
+            Ok(dt) => Some(dt.fixed_offset().into()),
+            Err(_) => {
+                return (StatusCode::BAD_REQUEST, "Invalid expires_at datetime (expected ISO 8601)").into_response();
+            }
+        },
+        None => None,
+    };
 
     // Build the link record
     let link_url = match jacquard_common::types::string::Uri::new(&body.url) {
@@ -140,6 +163,7 @@ pub async fn shorten(
     let record = Link::new()
         .url(link_url)
         .created_at(chrono::Utc::now().fixed_offset())
+        .maybe_expires_at(expires_at_dt)
         .build();
 
     // Serialize to Data for the XRPC request
@@ -238,5 +262,15 @@ mod tests {
         assert!(!validate_code("has spaces"));
         assert!(!validate_code("has/slash"));
         assert!(!validate_code("has.dot"));
+    }
+
+    #[test]
+    fn test_is_allowed_scheme() {
+        assert!(is_allowed_scheme("https://example.com"));
+        assert!(is_allowed_scheme("http://example.com/path?q=1"));
+        assert!(!is_allowed_scheme("ftp://example.com/file.txt"));
+        assert!(!is_allowed_scheme("javascript:void(0)"));
+        assert!(!is_allowed_scheme("data:text/html,<h1>hi</h1>"));
+        assert!(!is_allowed_scheme("not-a-valid-url"));
     }
 }

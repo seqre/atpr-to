@@ -51,6 +51,11 @@ pub fn bad_gateway(message: &str) -> Response {
     error_page(StatusCode::BAD_GATEWAY, "Bad Gateway", message)
 }
 
+/// Return a 410 Gone HTML error response.
+pub fn gone(message: &str) -> Response {
+    error_page(StatusCode::GONE, "Gone", message)
+}
+
 /// Return a 500 Internal Server Error HTML error response.
 pub fn internal_error(message: &str) -> Response {
     error_page(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error", message)
@@ -112,5 +117,15 @@ mod tests {
         let resp = internal_error("something went wrong");
         let (parts, _) = resp.into_parts();
         assert_eq!(parts.status, StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn test_gone_status() {
+        let resp = gone("link expired");
+        let (parts, body) = resp.into_parts();
+        assert_eq!(parts.status, StatusCode::GONE);
+        let html = body_string(body).await;
+        assert!(html.contains("410"));
+        assert!(html.contains("link expired"));
     }
 }

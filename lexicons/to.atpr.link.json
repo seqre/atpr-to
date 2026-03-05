@@ -11,7 +11,8 @@
         "required": ["url", "createdAt"],
         "properties": {
           "url": { "type": "string", "format": "uri", "maxLength": 2048 },
-          "createdAt": { "type": "string", "format": "datetime" }
+          "createdAt": { "type": "string", "format": "datetime" },
+          "expiresAt": { "type": "string", "format": "datetime" }
         }
       }
     }

@@ -7,6 +7,8 @@ pub mod auth;
 pub mod config;
 /// Short URL deletion endpoint.
 pub mod delete;
+/// Session logout endpoint.
+pub mod logout;
 /// HTML error page helpers.
 pub mod error;
 #[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
@@ -63,6 +65,7 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
 
     let rate_limited = Router::new()
         .route("/login", post(auth::login))
+        .route("/logout", post(logout::logout))
         .route("/shorten", post(shorten::shorten))
         .route("/shorten/{code}", delete(delete::delete_link))
         .layer(GovernorLayer::new(governor_config));

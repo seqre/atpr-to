@@ -114,3 +114,41 @@
 
 **Tests:** 13 passing (1 new)
 - Handle parsing validation (valid handles accepted, single-label rejected)
+
+## Step 6: Error Pages ✅
+
+**New file:** `src/error.rs`
+**Modified:** `src/lib.rs`, `src/resolve.rs`, `src/auth.rs`
+
+**Implemented:**
+- `error_page(status, title, message)` — returns styled HTML response with status code, title, message, and back-link
+- Convenience functions: `not_found()`, `bad_request()`, `unauthorized()`, `bad_gateway()`, `internal_error()`
+- Applied to all browser-facing routes (`resolve`, `login`, `oauth_callback`)
+- API routes (`shorten`) keep plain text/JSON errors
+
+**Tests:** 15 passing (2 new)
+- `test_error_page_html` — output contains `<!DOCTYPE html>`, correct title and message
+- `test_error_page_status` — bad_gateway returns 502
+
+## Step 7: Structured Logging ✅
+
+**New dep:** `tracing = "0.1"`
+**Modified:** `src/resolve.rs`, `src/shorten.rs`, `src/auth.rs`, `Cargo.toml`
+
+**Implemented:**
+- `#[tracing::instrument(skip_all)]` on `login` and `shorten` handlers
+- `#[tracing::instrument]` on `resolve` handler
+- `tracing::info_span!` around each resolution step: `resolve_handle`, `resolve_did_doc`, `fetch_record`
+- `tracing::info!` logs elapsed ms after successful resolution
+
+**Tests:** 15 passing (no new tests — logging is infrastructure)
+
+## Step 8: CI Pipeline ✅
+
+**New file:** `.github/workflows/ci.yml`
+
+**Implemented:**
+- Matrix build across `stable` and `nightly` toolchains
+- `continue-on-error: true` for nightly (informational only)
+- Steps: checkout → install Rust → cache deps (Swatinem/rust-cache) → install cargo-nextest → fmt check → clippy (-D warnings) → nextest run
+- Triggers on push/PR to `main`

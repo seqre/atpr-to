@@ -6,7 +6,7 @@ pub mod shorten;
 
 use std::sync::Arc;
 
-use axum::{routing::get, routing::post, Router};
+use axum::{extract::State, routing::get, routing::post, Router};
 
 pub struct AppState {
     pub oauth: auth::OAuthClientType,
@@ -26,6 +26,7 @@ pub fn router() -> Router {
 
     Router::new()
         .route("/", get(index))
+        .route("/health", get(health))
         .route(
             "/.well-known/oauth-client-metadata.json",
             get(auth::client_metadata),
@@ -39,6 +40,25 @@ pub fn router() -> Router {
 
 async fn index() -> &'static str {
     "atpr.to \u{2014} AT Protocol URL Shortener"
+}
+
+async fn health(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
+    let ping_url = format!(
+        "{}/xrpc/com.atproto.identity.resolveHandle?handle=atpr.to",
+        state.slingshot_url.trim_end_matches('/'),
+    );
+
+    let slingshot_status = match state.http.get(&ping_url).send().await {
+        Ok(r) if r.status().is_success() => "ok",
+        _ => "unreachable",
+    };
+
+    let overall = if slingshot_status == "ok" { "ok" } else { "degraded" };
+
+    axum::Json(serde_json::json!({
+        "status": overall,
+        "slingshot": slingshot_status,
+    }))
 }
 
 #[cfg(test)]
@@ -101,6 +121,22 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri("/.well-known/oauth-client-metadata.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_route() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
                     .body(Body::empty())
                     .unwrap(),
             )

@@ -169,3 +169,16 @@
 
 **Tests:** 16 passing (1 new)
 - `test_slingshot_url_construction` — verifies special chars in DIDs/handles are percent-encoded
+
+## Step 10: Health Check ✅
+
+**Modified:** `src/lib.rs`
+
+**Implemented:**
+- `GET /health` handler uses `state.http` and `state.slingshot_url` from `AppState`
+- Pings `{slingshot_url}/xrpc/com.atproto.identity.resolveHandle?handle=atpr.to`
+- Returns 200 `{"status": "ok", "slingshot": "ok"}` if Slingshot responds successfully
+- Returns 200 `{"status": "degraded", "slingshot": "unreachable"}` if Slingshot is down (service still works via fallback)
+
+**Tests:** 17 passing (1 new)
+- `test_health_route` — GET /health returns 200

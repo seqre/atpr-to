@@ -13,8 +13,9 @@ Anyone with a Bluesky (or any atproto) account can create short links — no cen
 ## How it works
 
 1. **Login** — OAuth via AT Protocol. Your session lives in a signed cookie.
-2. **Shorten** — `POST /shorten` writes a `to.atpr.link` record to your PDS via `com.atproto.repo.putRecord`.
-3. **Resolve** — `GET /@handle/code` looks up the record and redirects. Resolution tries [Slingshot](https://github.com/microcosm-blue/slingshot) first, falling back to direct PDS resolution if unavailable.
+2. **Shorten** — `POST /shorten` writes a `to.atpr.link` record to your PDS via `com.atproto.repo.putRecord`. Only `http`/`https` URLs are accepted; an optional `expires_at` (ISO 8601) can be set.
+3. **Resolve** — `GET /@handle/code` looks up the record and redirects. Resolution tries [Slingshot](https://github.com/microcosm-blue/slingshot) first, falling back to direct PDS resolution if unavailable. Returns **410 Gone** if the link has an `expires_at` in the past.
+4. **UI** — `GET /` serves a login form; `GET /dashboard` shows your links with a shorten form and delete buttons.
 
 ---
 
@@ -22,13 +23,17 @@ Anyone with a Bluesky (or any atproto) account can create short links — no cen
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | Landing page |
+| `GET` | `/` | Home page — login form (redirects to `/dashboard` if logged in) |
+| `GET` | `/dashboard` | Dashboard — link list, shorten form, logout (auth required) |
 | `GET` | `/.well-known/oauth-client-metadata.json` | OAuth client metadata |
 | `POST` | `/login` | Start OAuth flow |
+| `POST` | `/logout` | Clear session cookie and redirect to `/` |
 | `GET` | `/oauth/callback` | OAuth callback |
-| `POST` | `/shorten` | Create short URL (auth required) |
+| `GET` | `/links` | List authenticated user's short links as JSON (auth required) |
+| `POST` | `/shorten` | Create short URL — `{ url, code?, expires_at? }` (auth required) |
 | `DELETE` | `/shorten/{code}` | Delete short URL (auth required) |
-| `GET` | `/@{handle}/{code}` | Resolve and redirect |
+| `GET` | `/@{handle}/{code}` | Resolve and redirect (410 if expired) |
+| `GET` | `/@{handle}/{code}/info` | Preview page — destination, creation date, QR code |
 | `GET` | `/@{handle}/{code}/qr` | QR code as SVG |
 | `GET` | `/health` | Health check — pings Slingshot |
 

@@ -207,3 +207,33 @@
 **Tests:** 19 passing (2 new)
 - `test_delete_requires_auth` — DELETE without cookie → 401
 - `test_delete_method` — GET /shorten/abc → 405 Method Not Allowed
+
+## Step 13: QR Code Generation ✅
+
+**New file:** `src/qr.rs`
+**Modified:** `src/lib.rs`, `Cargo.toml`
+**New dep:** `qrcode = "*"`
+
+**Implemented:**
+- `GET /@{handle}/{code}/qr` handler builds `https://atpr.to/@{handle}/{code}`, generates QR via `QrCode::new()`, renders as SVG
+- Returns `Content-Type: image/svg+xml` and `Cache-Control: public, max-age=86400`
+- No `image` crate needed — uses `qrcode::render::svg::Color` directly
+
+**Tests:** 21 passing (2 new)
+- `test_qr_route_returns_svg` — Content-Type is `image/svg+xml`
+- `test_qr_contains_svg_tag` — body contains `<svg`
+
+## Step 17: Unified Auth Extractor (planned)
+
+**Files:** `src/auth.rs`, `src/shorten.rs`, `src/delete.rs`
+
+Extract the duplicated auth check (cookie parse → DID validation → `oauth.restore()`) into a custom Axum `FromRequestParts` extractor, e.g. `AuthSession`. Handler signatures become:
+
+```rust
+pub async fn shorten(auth: AuthSession, ...) -> Response { ... }
+pub async fn delete_link(auth: AuthSession, ...) -> Response { ... }
+```
+
+- Consistent 401 response format across all auth-gated routes
+- Auth logic lives in one place; new endpoints get it for free
+- Removes ~15 lines of boilerplate per handler

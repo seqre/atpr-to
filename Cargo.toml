@@ -23,8 +23,9 @@ tokio = { version = "1", features = ["macros"] }
 tower = "0.5"
 url = "2"
 urlencoding = "2"
-tracing = "0.1.44"
-anyhow = "1.0.102"
+tracing = "0.1"
+anyhow = "1"
+qrcode = "*"
 
 [build-dependencies]
 jacquard-lexicon = { version = "0.9", features = ["codegen"] }

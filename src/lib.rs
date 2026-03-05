@@ -2,6 +2,7 @@ pub mod auth;
 pub mod delete;
 pub mod error;
 pub mod generated;
+pub mod qr;
 pub mod resolve;
 pub mod shorten;
 
@@ -37,6 +38,7 @@ pub fn router() -> Router {
         .route("/shorten", post(shorten::shorten))
         .route("/shorten/{code}", delete(delete::delete_link))
         .route("/@{handle}/{code}", get(resolve::resolve))
+        .route("/@{handle}/{code}/qr", get(qr::qr_code))
         .with_state(state)
 }
 

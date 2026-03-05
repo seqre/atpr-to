@@ -67,8 +67,7 @@ pub fn load() -> Config {
         Err(e) => {
             tracing::warn!("Config load error: {e}, using defaults");
             Config::default()
-        }
-        // coverage:excl-stop
+        } // coverage:excl-stop
     }
 }
 

@@ -1,34 +1,27 @@
+use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 
+#[derive(Template)]
+#[template(path = "error.html")]
+struct ErrorTemplate<'a> {
+    status: u16,
+    title: &'a str,
+    message: &'a str,
+}
+
 /// Build a styled HTML error page.
 pub fn error_page(status: StatusCode, title: &str, message: &str) -> Response {
-    let html = format!(
-        r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{status} — {title}</title>
-<style>
-  body {{ font-family: system-ui, sans-serif; max-width: 40em; margin: 4em auto; padding: 0 1em; color: #333; }}
-  h1 {{ font-size: 2em; margin-bottom: 0.25em; }}
-  .status {{ color: #888; font-size: 0.9em; }}
-  a {{ color: #0066cc; }}
-</style>
-</head>
-<body>
-<h1>{title}</h1>
-<p class="status">{status}</p>
-<p>{message}</p>
-<p><a href="/">← atpr.to</a></p>
-</body>
-</html>"#,
-        status = status.as_u16(),
-        title = title,
-        message = message,
-    );
-    (status, Html(html)).into_response()
+    let tmpl = ErrorTemplate {
+        status: status.as_u16(),
+        title,
+        message,
+    };
+    match tmpl.render() {
+        Ok(html) => (status, Html(html)).into_response(),
+        // Fallback to plain text to avoid infinite recursion if template rendering fails.
+        Err(_) => (status, title.to_string()).into_response(),
+    }
 }
 
 /// Return a 404 Not Found HTML error response.
@@ -58,7 +51,11 @@ pub fn gone(message: &str) -> Response {
 
 /// Return a 500 Internal Server Error HTML error response.
 pub fn internal_error(message: &str) -> Response {
-    error_page(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error", message)
+    error_page(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Internal Server Error",
+        message,
+    )
 }
 
 #[cfg(test)]
@@ -127,5 +124,19 @@ mod tests {
         let html = body_string(body).await;
         assert!(html.contains("410"));
         assert!(html.contains("link expired"));
+    }
+
+    #[tokio::test]
+    async fn test_xss_escaping() {
+        let resp = error_page(
+            StatusCode::BAD_REQUEST,
+            "Bad Request",
+            "<script>alert(1)</script>",
+        );
+        let (_, body) = resp.into_parts();
+        let html = body_string(body).await;
+        assert!(!html.contains("<script>alert(1)</script>"));
+        // Askama escapes < as &#60; and > as &#62;
+        assert!(html.contains("&#60;script&#62;"));
     }
 }

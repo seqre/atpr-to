@@ -46,15 +46,23 @@ pub async fn list_links(auth: AuthSession) -> Response {
 
     let output = match raw_response.into_output() {
         Ok(o) => o,
-        Err(e) => return error::internal_error(&format!("Failed to parse listRecords response: {e}")),
+        Err(e) => {
+            return error::internal_error(&format!("Failed to parse listRecords response: {e}"))
+        }
     };
 
     let links: Vec<serde_json::Value> = output
         .records
         .iter()
-        .map(|record| {
+        .filter_map(|record| {
             let code = rkey_from_at_uri(record.uri.as_ref()).to_string();
-            let value = serde_json::to_value(&record.value).unwrap_or(serde_json::Value::Null);
+            let value = match serde_json::to_value(&record.value) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!(%e, "failed to serialize record");
+                    return None;
+                }
+            };
             let url = value
                 .get("url")
                 .and_then(|u| u.as_str())
@@ -69,12 +77,12 @@ pub async fn list_links(auth: AuthSession) -> Response {
                 .get("expiresAt")
                 .and_then(|e| e.as_str())
                 .map(|s| s.to_string());
-            serde_json::json!({
+            Some(serde_json::json!({
                 "code": code,
                 "url": url,
                 "created_at": created_at,
                 "expires_at": expires_at,
-            })
+            }))
         })
         .collect();
 

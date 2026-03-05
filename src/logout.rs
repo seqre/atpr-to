@@ -42,7 +42,10 @@ mod tests {
             .unwrap_or("");
         // The session cookie should be removed (empty value or max-age=0)
         assert!(
-            set_cookie.contains("session=") && (set_cookie.contains("Max-Age=0") || set_cookie.is_empty() || set_cookie.contains("session=;")),
+            set_cookie.contains("session=")
+                && (set_cookie.contains("Max-Age=0")
+                    || set_cookie.is_empty()
+                    || set_cookie.contains("session=;")),
             "expected session cookie to be cleared, got: {set_cookie}"
         );
 

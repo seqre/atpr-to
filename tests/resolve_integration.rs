@@ -41,17 +41,15 @@ async fn test_resolve_via_slingshot_happy_path() {
         .and(query_param("repo", "did:plc:testdid123"))
         .and(query_param("collection", "to.atpr.link"))
         .and(query_param("rkey", "abc123"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
-                "cid": "bafycid",
-                "value": {
-                    "$type": "to.atpr.link",
-                    "url": "https://example.com/target",
-                    "createdAt": "2024-01-01T00:00:00Z"
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
+            "cid": "bafycid",
+            "value": {
+                "$type": "to.atpr.link",
+                "url": "https://example.com/target",
+                "createdAt": "2024-01-01T00:00:00Z"
+            }
+        })))
         .mount(&mock)
         .await;
 
@@ -102,8 +100,7 @@ async fn test_resolve_slingshot_down_falls_back() {
     assert_ne!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     // Service degrades gracefully: 404 (not found) or 502 (bad gateway)
     assert!(
-        response.status() == StatusCode::NOT_FOUND
-            || response.status() == StatusCode::BAD_GATEWAY,
+        response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::BAD_GATEWAY,
         "expected 404 or 502, got {}",
         response.status()
     );
@@ -191,18 +188,16 @@ async fn test_resolve_expired_link_returns_410() {
 
     Mock::given(method("GET"))
         .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "uri": "at://did:plc:testdid123/to.atpr.link/old",
-                "cid": "bafycid",
-                "value": {
-                    "$type": "to.atpr.link",
-                    "url": "https://example.com/target",
-                    "createdAt": "2020-01-01T00:00:00Z",
-                    "expiresAt": "2020-06-01T00:00:00Z"
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uri": "at://did:plc:testdid123/to.atpr.link/old",
+            "cid": "bafycid",
+            "value": {
+                "$type": "to.atpr.link",
+                "url": "https://example.com/target",
+                "createdAt": "2020-01-01T00:00:00Z",
+                "expiresAt": "2020-06-01T00:00:00Z"
+            }
+        })))
         .mount(&mock)
         .await;
 
@@ -238,18 +233,16 @@ async fn test_resolve_future_expiry_redirects() {
 
     Mock::given(method("GET"))
         .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "uri": "at://did:plc:testdid123/to.atpr.link/future",
-                "cid": "bafycid",
-                "value": {
-                    "$type": "to.atpr.link",
-                    "url": "https://example.com/target",
-                    "createdAt": "2020-01-01T00:00:00Z",
-                    "expiresAt": "2099-01-01T00:00:00Z"
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uri": "at://did:plc:testdid123/to.atpr.link/future",
+            "cid": "bafycid",
+            "value": {
+                "$type": "to.atpr.link",
+                "url": "https://example.com/target",
+                "createdAt": "2020-01-01T00:00:00Z",
+                "expiresAt": "2099-01-01T00:00:00Z"
+            }
+        })))
         .mount(&mock)
         .await;
 
@@ -287,17 +280,15 @@ async fn test_info_page_happy_path() {
 
     Mock::given(method("GET"))
         .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
-                "cid": "bafycid",
-                "value": {
-                    "$type": "to.atpr.link",
-                    "url": "https://example.com/target",
-                    "createdAt": "2024-01-15T10:00:00Z"
-                }
-            })),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
+            "cid": "bafycid",
+            "value": {
+                "$type": "to.atpr.link",
+                "url": "https://example.com/target",
+                "createdAt": "2024-01-15T10:00:00Z"
+            }
+        })))
         .mount(&mock)
         .await;
 
@@ -320,7 +311,10 @@ async fn test_info_page_happy_path() {
         .unwrap();
     let html = String::from_utf8_lossy(&body);
     assert!(html.contains("<!DOCTYPE html>"), "expected HTML document");
-    assert!(html.contains("https://example.com/target"), "expected destination URL");
+    assert!(
+        html.contains("https://example.com/target"),
+        "expected destination URL"
+    );
     assert!(html.contains("<svg"), "expected QR code SVG");
     assert!(html.contains("2024-01-15"), "expected created_at date");
 }

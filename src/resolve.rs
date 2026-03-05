@@ -59,16 +59,28 @@ pub(crate) async fn resolve_via_slingshot(
         anyhow::bail!("Slingshot getRecord returned {}", resp.status());
     }
     let body: serde_json::Value = resp.json().await?;
-    let value = body.get("value").ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing value"))?;
+    let value = body
+        .get("value")
+        .ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing value"))?;
     let url = value
         .get("url")
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing url field"))?
         .to_string();
-    let created_at = value.get("createdAt").and_then(|c| c.as_str()).map(|s| s.to_string());
-    let expires_at = value.get("expiresAt").and_then(|e| e.as_str()).map(|s| s.to_string());
+    let created_at = value
+        .get("createdAt")
+        .and_then(|c| c.as_str())
+        .map(|s| s.to_string());
+    let expires_at = value
+        .get("expiresAt")
+        .and_then(|e| e.as_str())
+        .map(|s| s.to_string());
 
-    Ok(ResolvedLink { url, created_at, expires_at })
+    Ok(ResolvedLink {
+        url,
+        created_at,
+        expires_at,
+    })
 }
 
 /// Resolve via direct 3-hop path: handle → DID → DID doc → PDS getRecord.
@@ -111,16 +123,28 @@ async fn resolve_via_direct(
     }
 
     let body: serde_json::Value = resp.json().await?;
-    let value = body.get("value").ok_or_else(|| anyhow::anyhow!("PDS getRecord missing value"))?;
+    let value = body
+        .get("value")
+        .ok_or_else(|| anyhow::anyhow!("PDS getRecord missing value"))?;
     let url = value
         .get("url")
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("PDS getRecord missing url field"))?
         .to_string();
-    let created_at = value.get("createdAt").and_then(|c| c.as_str()).map(|s| s.to_string());
-    let expires_at = value.get("expiresAt").and_then(|e| e.as_str()).map(|s| s.to_string());
+    let created_at = value
+        .get("createdAt")
+        .and_then(|c| c.as_str())
+        .map(|s| s.to_string());
+    let expires_at = value
+        .get("expiresAt")
+        .and_then(|e| e.as_str())
+        .map(|s| s.to_string());
 
-    Ok(ResolvedLink { url, created_at, expires_at })
+    Ok(ResolvedLink {
+        url,
+        created_at,
+        expires_at,
+    })
 }
 // coverage:excl-stop
 
@@ -148,7 +172,11 @@ pub async fn resolve(
     .await
     {
         Ok(link) => {
-            tracing::info!(path = "slingshot", elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
+            tracing::info!(
+                path = "slingshot",
+                elapsed_ms = start.elapsed().as_millis() as u64,
+                "resolved"
+            );
             link
         }
         Err(slingshot_err) => {
@@ -158,15 +186,17 @@ pub async fn resolve(
                 return error::not_found("Link not found");
             }
             tracing::warn!(err = %slingshot_err, "slingshot failed, falling back to direct");
-            match async {
-                resolve_via_direct(&state.http, &parsed_handle, &code).await
-            }
-            .instrument(tracing::info_span!("direct"))
-            .await
+            match async { resolve_via_direct(&state.http, &parsed_handle, &code).await }
+                .instrument(tracing::info_span!("direct"))
+                .await
             {
                 // coverage:excl-start
                 Ok(link) => {
-                    tracing::info!(path = "direct", elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
+                    tracing::info!(
+                        path = "direct",
+                        elapsed_ms = start.elapsed().as_millis() as u64,
+                        "resolved"
+                    );
                     link
                 }
                 // coverage:excl-stop

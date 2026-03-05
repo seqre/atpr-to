@@ -22,15 +22,18 @@ pub async fn qr_code(
         }
     };
 
-    let svg = qr
-        .render::<svg::Color>()
-        .min_dimensions(200, 200)
-        .build();
+    let svg = qr.render::<svg::Color>().min_dimensions(200, 200).build();
 
     (
         [
-            (header::CONTENT_TYPE, HeaderValue::from_static("image/svg+xml")),
-            (header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=86400")),
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("image/svg+xml"),
+            ),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=86400"),
+            ),
         ],
         svg,
     )

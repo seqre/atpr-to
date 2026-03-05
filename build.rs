@@ -12,8 +12,7 @@ fn main() {
         std::fs::remove_dir_all(output_dir).expect("failed to clean generated dir");
     }
 
-    let corpus =
-        LexiconCorpus::load_from_dir("lexicons/").expect("failed to load lexicons");
+    let corpus = LexiconCorpus::load_from_dir("lexicons/").expect("failed to load lexicons");
 
     let codegen = CodeGenerator::new(&corpus, "crate::generated");
 
@@ -49,7 +48,8 @@ fn fix_builder_paths(dir: &Path) {
         } else if path.extension().is_some_and(|e| e == "rs") {
             let content = std::fs::read_to_string(&path).expect("failed to read file");
             if content.contains("crate::builder_types") {
-                let fixed = content.replace("crate::builder_types", "crate::generated::builder_types");
+                let fixed =
+                    content.replace("crate::builder_types", "crate::generated::builder_types");
                 std::fs::write(&path, fixed).expect("failed to write file");
             }
         }

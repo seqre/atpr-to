@@ -95,7 +95,10 @@ async fn resolve_did_to_handle(
     let resolver = JacquardResolver::default();
     let doc_response = resolver.resolve_did_doc(&did).await.ok()?;
     let doc = doc_response.parse().ok()?;
-    doc.handles().into_iter().next().map(|h| h.as_ref().to_string())
+    doc.handles()
+        .into_iter()
+        .next()
+        .map(|h| h.as_ref().to_string())
 }
 // coverage:excl-stop
 
@@ -142,7 +145,11 @@ pub async fn shorten(
         Some(s) => match chrono::DateTime::parse_from_rfc3339(s) {
             Ok(dt) => Some(dt.fixed_offset().into()),
             Err(_) => {
-                return (StatusCode::BAD_REQUEST, "Invalid expires_at datetime (expected ISO 8601)").into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    "Invalid expires_at datetime (expected ISO 8601)",
+                )
+                    .into_response();
             }
         },
         None => None,
@@ -152,11 +159,7 @@ pub async fn shorten(
     let link_url = match jacquard_common::types::string::Uri::new(&body.url) {
         Ok(u) => u,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid URI: {e}"),
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, format!("Invalid URI: {e}")).into_response();
         }
     };
 
@@ -182,11 +185,7 @@ pub async fn shorten(
     let rkey = match jacquard_common::types::string::RecordKey::any(&code) {
         Ok(r) => r,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid record key: {e}"),
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, format!("Invalid record key: {e}")).into_response();
         }
     };
 
@@ -207,9 +206,10 @@ pub async fn shorten(
         Ok(_response) => {
             // Best-effort: resolve DID → handle for a nicer short URL.
             // Falls back to DID string if resolution fails.
-            let display_ident = resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
-                .await
-                .unwrap_or(did_str);
+            let display_ident =
+                resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
+                    .await
+                    .unwrap_or(did_str);
             let short_url = format!("{}/@{}/{}", state.config.base_url, display_ident, code);
             Json(ShortenResponse { short_url }).into_response()
         }

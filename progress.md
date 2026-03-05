@@ -426,6 +426,25 @@
 
 ---
 
+## Code Quality Improvements ✅
+
+**Modified:** `src/error.rs`, `src/info.rs`, `src/links.rs`, `Cargo.toml`
+**New files:** `templates/error.html`, `templates/info.html`
+
+**Fixes:**
+
+1. **XSS risk in `error_page`** — converted to Askama template (`ErrorTemplate`); all variables auto-escaped. Fallback to plain-text response on template render failure (avoids infinite recursion).
+
+2. **Redundant `html_escape` + double-escape in `info.rs`** — converted to Askama template (`InfoTemplate`). Deleted `html_escape()` function and its unit tests. `qr_svg` uses `|safe` filter (internally-generated SVG). Both new templates extend `base.html`.
+
+3. **Silent error swallowing in `links.rs`** — replaced `.map()` with `.filter_map()` on `serde_json::to_value()`; malformed records are skipped and logged via `tracing::warn!` instead of silently producing `{ url: "" }`.
+
+4. **Pinned wildcard dependency versions in `Cargo.toml`** — `config = "*"` → `"0.15"`, `qrcode = "*"` → `"0.14"` (matching Cargo.lock).
+
+**Tests:** 43 passing (added `test_xss_escaping`; removed `test_html_escape`)
+
+---
+
 ## Pre-Step: CLAUDE.md created ✅
 
 Added `CLAUDE.md` to the repository with project guidance for Claude Code: commands, architecture overview, key design notes, and version control conventions.

@@ -7,17 +7,17 @@ pub mod auth;
 pub mod config;
 /// Short URL deletion endpoint.
 pub mod delete;
+/// HTML error page helpers.
+pub mod error;
+#[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
+/// Auto-generated Lexicon types.
+pub mod generated;
+/// Short URL preview page.
+pub mod info;
 /// Authenticated link listing endpoint.
 pub mod links;
 /// Session logout endpoint.
 pub mod logout;
-/// HTML error page helpers.
-pub mod error;
-/// Short URL preview page.
-pub mod info;
-#[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
-/// Auto-generated Lexicon types.
-pub mod generated;
 /// QR code generation for short URLs.
 pub mod qr;
 /// Short URL resolution and redirect.
@@ -30,7 +30,9 @@ pub mod ui;
 use std::sync::Arc;
 
 use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
-use tower_governor::{governor::GovernorConfigBuilder, key_extractor::GlobalKeyExtractor, GovernorLayer};
+use tower_governor::{
+    governor::GovernorConfigBuilder, key_extractor::GlobalKeyExtractor, GovernorLayer,
+};
 
 /// Shared application state passed to all route handlers.
 pub struct AppState {
@@ -59,7 +61,6 @@ pub fn router() -> Router {
 ///
 /// Useful for testing or when state is constructed externally.
 pub fn router_with_state(state: Arc<AppState>) -> Router {
-
     // Rate limit mutation routes: 2 req/s sustained, burst of 10.
     // On Lambda, state is per-instance; use API Gateway throttling for global limits.
     let governor_config = GovernorConfigBuilder::default()
@@ -104,7 +105,11 @@ async fn health(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Va
         _ => "unreachable",
     };
 
-    let overall = if slingshot_status == "ok" { "ok" } else { "degraded" };
+    let overall = if slingshot_status == "ok" {
+        "ok"
+    } else {
+        "degraded"
+    };
 
     axum::Json(serde_json::json!({
         "status": overall,
@@ -259,12 +264,19 @@ mod tests {
         let state = test_state_with_slingshot(mock.uri()).await;
         let app = router_with_state(state);
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["status"], "ok");
         assert_eq!(json["slingshot"], "ok");
@@ -281,12 +293,19 @@ mod tests {
         let state = test_state_with_slingshot(mock.uri()).await;
         let app = router_with_state(state);
         let response = app
-            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["status"], "degraded");
         assert_eq!(json["slingshot"], "unreachable");

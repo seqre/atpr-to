@@ -23,7 +23,8 @@ use crate::AppState;
 /// Concrete OAuth client type used by this application.
 pub type OAuthClientType = OAuthClient<JacquardResolver, MemoryAuthStore>;
 /// Concrete OAuth session type returned after a successful authorization.
-pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<JacquardResolver, MemoryAuthStore>;
+pub type OAuthSessionType =
+    jacquard::oauth::client::OAuthSession<JacquardResolver, MemoryAuthStore>;
 
 /// Axum extractor that restores an authenticated OAuth session from the session cookie.
 ///
@@ -45,10 +46,13 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
             .await
             .map_err(|e| e.into_response())?;
 
-        let (did_str, session_id) = parse_session_cookie(&jar)
-            .ok_or_else(|| {
-                (axum::http::StatusCode::UNAUTHORIZED, "Authentication required").into_response()
-            })?;
+        let (did_str, session_id) = parse_session_cookie(&jar).ok_or_else(|| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Authentication required",
+            )
+                .into_response()
+        })?;
 
         let did = Did::new(&did_str).map_err(|_| {
             (axum::http::StatusCode::UNAUTHORIZED, "Invalid session").into_response()
@@ -68,8 +72,10 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
 
 /// Build the OAuth client for the given base URL.
 pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
-    let client_id =
-        Url::parse(&format!("{base_url}/.well-known/oauth-client-metadata.json")).unwrap();
+    let client_id = Url::parse(&format!(
+        "{base_url}/.well-known/oauth-client-metadata.json"
+    ))
+    .unwrap();
     let redirect_uri = Url::parse(&format!("{base_url}/oauth/callback")).unwrap();
     let client_uri = Url::parse(base_url).unwrap();
 
@@ -118,10 +124,7 @@ pub struct LoginRequest {
 /// Start OAuth login flow. User submits their handle.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn login(
-    State(state): State<Arc<AppState>>,
-    Json(body): Json<LoginRequest>,
-) -> Response {
+pub async fn login(State(state): State<Arc<AppState>>, Json(body): Json<LoginRequest>) -> Response {
     let options = AuthorizeOptions::default();
 
     match state.oauth.start_auth(&body.handle, options).await {
@@ -196,10 +199,7 @@ mod tests {
 
     #[test]
     fn test_parse_session_cookie_valid() {
-        let jar = CookieJar::new().add(Cookie::new(
-            "session",
-            "did:plc:abc123|sess-id-456",
-        ));
+        let jar = CookieJar::new().add(Cookie::new("session", "did:plc:abc123|sess-id-456"));
         let result = parse_session_cookie(&jar);
         let (did, session_id) = result.unwrap();
         assert_eq!(did, "did:plc:abc123");
@@ -234,7 +234,10 @@ mod tests {
         });
         let result = client_metadata(State(state)).await;
         let json = &result.0;
-        assert!(json["client_id"].as_str().unwrap().contains("/.well-known/"));
+        assert!(json["client_id"]
+            .as_str()
+            .unwrap()
+            .contains("/.well-known/"));
         assert!(json["redirect_uris"].is_array());
         assert_eq!(json["dpop_bound_access_tokens"], true);
         assert_eq!(json["client_name"], "atpr.to URL Shortener");

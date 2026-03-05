@@ -371,6 +371,23 @@
 
 ---
 
+## Step 23A: GET /links — Link Listing ✅
+
+**New file:** `src/links.rs`
+**Modified:** `src/lib.rs`
+
+**Implemented:**
+- `pub fn rkey_from_at_uri(at_uri: &str) -> &str` — extracts the rkey (code) from an AT-URI string
+- `pub async fn list_links(auth: AuthSession) -> Response` — calls `com.atproto.repo.listRecords` on the user's PDS via `session.send()`, converts each record's opaque `Data` value to JSON, returns `{ links: [{ code, url, created_at, expires_at }] }`
+- Route registered as `GET /links` (not rate-limited)
+- Uses `response.into_output()` to deserialize `ListRecordsOutput<'static>` from the XRPC response
+
+**Tests:** +2 (`test_rkey_from_at_uri`, `test_links_requires_auth`)
+
+**Total tests:** 46 (40 unit + 6 integration)
+
+---
+
 ## Pre-Step: CLAUDE.md created ✅
 
 Added `CLAUDE.md` to the repository with project guidance for Claude Code: commands, architecture overview, key design notes, and version control conventions.

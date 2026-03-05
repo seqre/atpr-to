@@ -7,6 +7,8 @@ pub mod auth;
 pub mod config;
 /// Short URL deletion endpoint.
 pub mod delete;
+/// Authenticated link listing endpoint.
+pub mod links;
 /// Session logout endpoint.
 pub mod logout;
 /// HTML error page helpers.
@@ -72,6 +74,7 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
 
     Router::new()
         .route("/", get(index))
+        .route("/links", get(links::list_links))
         .route("/health", get(health))
         .route(
             "/.well-known/oauth-client-metadata.json",

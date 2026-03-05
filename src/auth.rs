@@ -20,7 +20,9 @@ use url::Url;
 use crate::error;
 use crate::AppState;
 
+/// Concrete OAuth client type used by this application.
 pub type OAuthClientType = OAuthClient<JacquardResolver, MemoryAuthStore>;
+/// Concrete OAuth session type returned after a successful authorization.
 pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<JacquardResolver, MemoryAuthStore>;
 
 /// Axum extractor that restores an authenticated OAuth session from the session cookie.
@@ -106,8 +108,10 @@ pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_j
     }))
 }
 
+/// Request body for `POST /login`.
 #[derive(Deserialize)]
 pub struct LoginRequest {
+    /// The user's AT Protocol handle (e.g. `alice.bsky.social`).
     pub handle: String,
 }
 
@@ -125,10 +129,14 @@ pub async fn login(
     }
 }
 
+/// Query parameters received on the OAuth callback redirect.
 #[derive(Deserialize)]
 pub struct OAuthCallbackQuery {
+    /// Authorization code from the authorization server.
     pub code: String,
+    /// State parameter echoed back from the authorization server.
     pub state: Option<String>,
+    /// Issuer identifier, used for PAR/DPoP validation.
     pub iss: Option<String>,
 }
 

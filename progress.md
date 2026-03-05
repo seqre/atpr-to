@@ -302,3 +302,26 @@
 - `just test`, `just lint`, `just fmt`, `just fmt-check`, `just logs`, `just local`
 
 **Tests:** 25 passing (no new tests — deployment config is not unit-testable)
+
+## Pre-Step: CLAUDE.md created ✅
+
+Added `CLAUDE.md` to the repository with project guidance for Claude Code: commands, architecture overview, key design notes, and version control conventions.
+
+**Tests:** 25 passing (no new tests)
+
+## Step 20: Housekeeping — env vars, docs, coverage ✅
+
+**Changes:**
+
+- `src/config.rs` — added `.prefix_separator("__")` to `Environment` builder; env vars now use `ATPR__` consistently. Added `///` doc comments to `Config`, `RateLimitConfig`, and all fields.
+- `src/lib.rs` — added `#![warn(missing_docs)]` + crate-level doc; `///` docs on `AppState`, its fields, `router()`, `router_with_state()`, all `pub mod` declarations; `#[allow(missing_docs)]` on `pub mod generated`.
+- `src/auth.rs` — `///` on `OAuthClientType`, `OAuthSessionType`, `LoginRequest`/`handle`, `OAuthCallbackQuery`/fields.
+- `src/shorten.rs` — `///` on `ShortenRequest`/fields, `ShortenResponse`/field.
+- `src/error.rs` — `///` on `not_found`, `bad_request`, `unauthorized`, `bad_gateway`, `internal_error`.
+- `template.yaml` — renamed `ATPR_BASE_URL`→`ATPR__BASE_URL`, removed SSM resolve for `ATPR__SLINGSHOT_URL`, now plain string.
+- `Config.toml` — updated comment to reference `ATPR__` prefix.
+- `README.md` — renamed env vars to `ATPR__`, removed `aws ssm put-parameter` deploy step.
+- `Justfile` — added `coverage` (cargo-llvm-cov) and `semver` (cargo-semver-checks) recipes.
+- `.github/workflows/ci.yml` — added `coverage` and `semver` jobs running on `stable` after `check`.
+
+**Tests:** 25 passing (21 unit + 4 integration)

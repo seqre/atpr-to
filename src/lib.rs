@@ -1,10 +1,22 @@
+//! atpr.to — AT Protocol URL shortener, deployed on AWS Lambda.
+#![warn(missing_docs)]
+
+/// AT Protocol OAuth login, callback, and session handling.
 pub mod auth;
+/// Application configuration loaded from defaults, `Config.toml`, and `ATPR__` env vars.
 pub mod config;
+/// Short URL deletion endpoint.
 pub mod delete;
+/// HTML error page helpers.
 pub mod error;
+#[allow(missing_docs)]
+/// Auto-generated Lexicon types.
 pub mod generated;
+/// QR code generation for short URLs.
 pub mod qr;
+/// Short URL resolution and redirect.
 pub mod resolve;
+/// Short URL creation endpoint.
 pub mod shorten;
 
 use std::sync::Arc;
@@ -12,12 +24,17 @@ use std::sync::Arc;
 use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
 use tower_governor::{governor::GovernorConfigBuilder, key_extractor::GlobalKeyExtractor, GovernorLayer};
 
+/// Shared application state passed to all route handlers.
 pub struct AppState {
+    /// AT Protocol OAuth client for login and session management.
     pub oauth: auth::OAuthClientType,
+    /// HTTP client for outbound requests (Slingshot relay, DID resolution).
     pub http: reqwest::Client,
+    /// Loaded application configuration.
     pub config: config::Config,
 }
 
+/// Build the application router, loading config from the environment.
 pub fn router() -> Router {
     let config = config::load();
 
@@ -30,6 +47,9 @@ pub fn router() -> Router {
     router_with_state(state)
 }
 
+/// Build the application router from an existing `AppState`.
+///
+/// Useful for testing or when state is constructed externally.
 pub fn router_with_state(state: Arc<AppState>) -> Router {
 
     // Rate limit mutation routes: 2 req/s sustained, burst of 10.

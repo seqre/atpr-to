@@ -17,14 +17,19 @@ use crate::auth::AuthSession;
 use crate::generated::to_atpr::link::Link;
 use crate::AppState;
 
+/// Request body for `POST /shorten`.
 #[derive(Deserialize)]
 pub struct ShortenRequest {
+    /// The destination URL to shorten.
     pub url: String,
+    /// Optional custom short code; auto-generated if absent.
     pub code: Option<String>,
 }
 
+/// Response body from `POST /shorten`.
 #[derive(Serialize)]
 pub struct ShortenResponse {
+    /// The resulting short URL (e.g. `https://atpr.to/@alice/abc123`).
     pub short_url: String,
 }
 

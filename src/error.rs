@@ -31,22 +31,27 @@ pub fn error_page(status: StatusCode, title: &str, message: &str) -> Response {
     (status, Html(html)).into_response()
 }
 
+/// Return a 404 Not Found HTML error response.
 pub fn not_found(message: &str) -> Response {
     error_page(StatusCode::NOT_FOUND, "Not Found", message)
 }
 
+/// Return a 400 Bad Request HTML error response.
 pub fn bad_request(message: &str) -> Response {
     error_page(StatusCode::BAD_REQUEST, "Bad Request", message)
 }
 
+/// Return a 401 Unauthorized HTML error response.
 pub fn unauthorized(message: &str) -> Response {
     error_page(StatusCode::UNAUTHORIZED, "Unauthorized", message)
 }
 
+/// Return a 502 Bad Gateway HTML error response.
 pub fn bad_gateway(message: &str) -> Response {
     error_page(StatusCode::BAD_GATEWAY, "Bad Gateway", message)
 }
 
+/// Return a 500 Internal Server Error HTML error response.
 pub fn internal_error(message: &str) -> Response {
     error_page(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error", message)
 }

@@ -1,9 +1,13 @@
 use serde::Deserialize;
 
+/// Application configuration, loaded from defaults, `Config.toml`, and env vars.
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
+    /// Base URL for short links and OAuth metadata (e.g. `https://atpr.to`).
     pub base_url: String,
+    /// Slingshot relay URL used for fast AT Protocol resolution.
     pub slingshot_url: String,
+    /// Rate limiting parameters for mutation routes.
     pub rate_limit: RateLimitConfig,
 }
 
@@ -17,9 +21,12 @@ impl Default for Config {
     }
 }
 
+/// Rate limiting configuration for mutation routes.
 #[derive(Debug, Deserialize, Clone)]
 pub struct RateLimitConfig {
+    /// Sustained request rate in requests per second.
     pub per_second: u64,
+    /// Maximum burst above the sustained rate.
     pub burst_size: u32,
 }
 
@@ -32,7 +39,7 @@ impl Default for RateLimitConfig {
     }
 }
 
-/// Loads config: compiled defaults → Config.toml (optional) → ATPR_ env vars.
+/// Loads config: compiled defaults → Config.toml (optional) → `ATPR__` env vars.
 /// Falls back to defaults on any error (logs warning).
 pub fn load() -> Config {
     let result = config::Config::builder()
@@ -47,6 +54,7 @@ pub fn load() -> Config {
         .add_source(config::File::with_name("Config").required(false))
         .add_source(
             config::Environment::with_prefix("ATPR")
+                .prefix_separator("__")
                 .separator("__")
                 .try_parsing(true),
         )

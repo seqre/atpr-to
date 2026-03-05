@@ -36,14 +36,14 @@ Anyone with a Bluesky (or any atproto) account can create short links — no cen
 
 ## Configuration
 
-Loading priority (last wins): compiled defaults → `Config.toml` → `ATPR_` environment variables.
+Loading priority (last wins): compiled defaults → `Config.toml` → `ATPR__` environment variables.
 
 | Env var | Default | Description |
 |---------|---------|-------------|
-| `ATPR_BASE_URL` | `https://atpr.to` | Base URL for short links and OAuth metadata |
-| `ATPR_SLINGSHOT_URL` | `https://slingshot.microcosm.blue/` | Slingshot instance for fast resolution |
-| `ATPR_RATE_LIMIT__PER_SECOND` | `2` | Sustained request rate on mutation routes |
-| `ATPR_RATE_LIMIT__BURST_SIZE` | `10` | Burst allowance on mutation routes |
+| `ATPR__BASE_URL` | `https://atpr.to` | Base URL for short links and OAuth metadata |
+| `ATPR__SLINGSHOT_URL` | `https://slingshot.microcosm.blue/` | Slingshot instance for fast resolution |
+| `ATPR__RATE_LIMIT__PER_SECOND` | `2` | Sustained request rate on mutation routes |
+| `ATPR__RATE_LIMIT__BURST_SIZE` | `10` | Burst allowance on mutation routes |
 
 Nested keys use `__` as separator. A `Config.toml` in the working directory is loaded if present (see the committed example).
 
@@ -68,24 +68,13 @@ Nested keys use `__` as separator. A `Config.toml` in the working directory is l
 
 **Prerequisites:** AWS SAM CLI, `cargo-lambda`, ARM64 cross-compilation target.
 
-Store the Slingshot URL in SSM before first deploy:
-
-```sh
-aws ssm put-parameter \
-  --name /atpr-to/slingshot-url \
-  --value "https://slingshot.microcosm.blue/" \
-  --type String
-```
-
-Then:
-
 ```sh
 just deploy        # guided (first time)
 just deploy-fast   # subsequent deploys
 just logs          # tail Lambda logs
 ```
 
-The SAM template deploys a single `provided.al2023` Lambda function on arm64, fronted by an HTTP API Gateway.
+The SAM template deploys a single `provided.al2023` Lambda function on arm64, fronted by an HTTP API Gateway. Override `ATPR__BASE_URL` or `ATPR__SLINGSHOT_URL` via SAM parameter overrides or the Lambda console.
 
 ---
 

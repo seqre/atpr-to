@@ -64,12 +64,12 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
     }
 }
 
-/// Build the OAuth client for atpr.to.
-pub fn build_oauth_client() -> OAuthClientType {
+/// Build the OAuth client for the given base URL.
+pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
     let client_id =
-        Url::parse("https://atpr.to/.well-known/oauth-client-metadata.json").unwrap();
-    let redirect_uri = Url::parse("https://atpr.to/oauth/callback").unwrap();
-    let client_uri = Url::parse("https://atpr.to").unwrap();
+        Url::parse(&format!("{base_url}/.well-known/oauth-client-metadata.json")).unwrap();
+    let redirect_uri = Url::parse(&format!("{base_url}/oauth/callback")).unwrap();
+    let client_uri = Url::parse(base_url).unwrap();
 
     let config = AtprotoClientMetadata::new(
         client_id,
@@ -90,12 +90,13 @@ pub fn build_oauth_client() -> OAuthClientType {
 }
 
 /// Serve OAuth client metadata for atproto OAuth discovery.
-pub async fn client_metadata() -> Json<serde_json::Value> {
+pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let base = &state.config.base_url;
     Json(serde_json::json!({
-        "client_id": "https://atpr.to/.well-known/oauth-client-metadata.json",
+        "client_id": format!("{base}/.well-known/oauth-client-metadata.json"),
         "client_name": "atpr.to URL Shortener",
-        "client_uri": "https://atpr.to",
-        "redirect_uris": ["https://atpr.to/oauth/callback"],
+        "client_uri": base,
+        "redirect_uris": [format!("{base}/oauth/callback")],
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
@@ -202,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_build_oauth_client() {
-        let _client = build_oauth_client();
+        let _client = build_oauth_client("https://atpr.to");
         // Just verify it doesn't panic during construction
     }
 }

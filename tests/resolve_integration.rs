@@ -9,10 +9,14 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Build an AppState pointing Slingshot at the given mock server URL.
 async fn test_state(slingshot_url: String) -> Arc<AppState> {
-    Arc::new(AppState {
-        oauth: atpr_to::auth::build_oauth_client(),
-        http: reqwest::Client::new(),
+    let config = atpr_to::config::Config {
         slingshot_url,
+        ..atpr_to::config::Config::default()
+    };
+    Arc::new(AppState {
+        oauth: atpr_to::auth::build_oauth_client(&config.base_url),
+        http: reqwest::Client::new(),
+        config,
     })
 }
 

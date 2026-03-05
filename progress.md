@@ -270,6 +270,21 @@
 
 **Tests:** 25 passing (no new tests — `test_delete_requires_auth` exercises the extractor rejection path)
 
+## Step 19: README ✅
+
+**New file:** `README.md`
+
+**Content:**
+- Project overview: AT Protocol URL shortener, links stored in user's own PDS
+- How it works: OAuth login → shorten → resolve (Slingshot first, direct fallback)
+- Full API table (9 routes, verified against `src/lib.rs`)
+- Configuration table: all 4 `ATPR_` env vars with defaults (verified against `src/config.rs`)
+- Development commands table (from `Justfile`)
+- Deployment instructions: SSM setup + `just deploy` / `just deploy-fast` / `just logs`
+- Acknowledgements: Jacquard and Microcosm/Slingshot
+
+**Tests:** 25 passing (no new tests — documentation only)
+
 ## Step 16: Deployment Config ✅
 
 **New files:** `template.yaml`, `Justfile`

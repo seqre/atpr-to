@@ -175,10 +175,10 @@ pub async fn shorten(
         Ok(_response) => {
             // Best-effort: resolve DID → handle for a nicer short URL.
             // Falls back to DID string if resolution fails.
-            let display_ident = resolve_did_to_handle(&state.http, &state.slingshot_url, &did_str)
+            let display_ident = resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
                 .await
                 .unwrap_or(did_str);
-            let short_url = format!("https://atpr.to/@{}/{}", display_ident, code);
+            let short_url = format!("{}/@{}/{}", state.config.base_url, display_ident, code);
             Json(ShortenResponse { short_url }).into_response()
         }
         Err(e) => (

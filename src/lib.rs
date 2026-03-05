@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod config;
 pub mod delete;
 pub mod error;
 pub mod generated;
@@ -14,17 +15,16 @@ use tower_governor::{governor::GovernorConfigBuilder, key_extractor::GlobalKeyEx
 pub struct AppState {
     pub oauth: auth::OAuthClientType,
     pub http: reqwest::Client,
-    pub slingshot_url: String,
+    pub config: config::Config,
 }
 
 pub fn router() -> Router {
-    let slingshot_url = std::env::var("SLINGSHOT_URL")
-        .unwrap_or_else(|_| "https://slingshot.microcosm.blue/".to_string());
+    let config = config::load();
 
     let state = Arc::new(AppState {
-        oauth: auth::build_oauth_client(),
+        oauth: auth::build_oauth_client(&config.base_url),
         http: reqwest::Client::new(),
-        slingshot_url,
+        config,
     });
 
     router_with_state(state)
@@ -35,8 +35,8 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
     // Rate limit mutation routes: 2 req/s sustained, burst of 10.
     // On Lambda, state is per-instance; use API Gateway throttling for global limits.
     let governor_config = GovernorConfigBuilder::default()
-        .per_second(2)
-        .burst_size(10)
+        .per_second(state.config.rate_limit.per_second)
+        .burst_size(state.config.rate_limit.burst_size)
         .key_extractor(GlobalKeyExtractor)
         .finish()
         .unwrap();
@@ -68,7 +68,7 @@ async fn index() -> &'static str {
 async fn health(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
     let ping_url = format!(
         "{}/xrpc/com.atproto.identity.resolveHandle?handle=atpr.to",
-        state.slingshot_url.trim_end_matches('/'),
+        state.config.slingshot_url.trim_end_matches('/'),
     );
 
     let slingshot_status = match state.http.get(&ping_url).send().await {

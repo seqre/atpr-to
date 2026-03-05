@@ -25,7 +25,8 @@ Resources:
         - arm64
       Environment:
         Variables:
-          SLINGSHOT_URL: !Sub "{{resolve:ssm:/atpr-to/slingshot-url}}"
+          ATPR_BASE_URL: "https://atpr.to"
+          ATPR_SLINGSHOT_URL: !Sub "{{resolve:ssm:/atpr-to/slingshot-url}}"
       Events:
         Api:
           Type: HttpApi

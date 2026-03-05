@@ -126,7 +126,7 @@ pub async fn resolve(
 
     // Try Slingshot first
     let url = match async {
-        resolve_via_slingshot(&state.http, &state.slingshot_url, &handle, &code).await
+        resolve_via_slingshot(&state.http, &state.config.slingshot_url, &handle, &code).await
     }
     .instrument(tracing::info_span!("slingshot"))
     .await

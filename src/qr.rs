@@ -1,12 +1,19 @@
-use axum::extract::Path;
+use std::sync::Arc;
+
+use axum::extract::{Path, State};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use qrcode::render::svg;
 use qrcode::QrCode;
 
+use crate::AppState;
+
 /// Generate a QR code for a short URL, returned as SVG.
-pub async fn qr_code(Path((handle, code)): Path<(String, String)>) -> Response {
-    let url = format!("https://atpr.to/@{}/{}", handle, code);
+pub async fn qr_code(
+    State(state): State<Arc<AppState>>,
+    Path((handle, code)): Path<(String, String)>,
+) -> Response {
+    let url = format!("{}/@{}/{}", state.config.base_url, handle, code);
 
     let qr = match QrCode::new(url.as_bytes()) {
         Ok(q) => q,

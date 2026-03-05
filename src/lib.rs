@@ -13,6 +13,8 @@ pub mod links;
 pub mod logout;
 /// HTML error page helpers.
 pub mod error;
+/// Short URL preview page.
+pub mod info;
 #[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
 /// Auto-generated Lexicon types.
 pub mod generated;
@@ -86,6 +88,7 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .route("/oauth/callback", get(auth::oauth_callback))
         .merge(rate_limited)
         .route("/@{handle}/{code}", get(resolve::resolve))
+        .route("/@{handle}/{code}/info", get(info::info))
         .route("/@{handle}/{code}/qr", get(qr::qr_code))
         .with_state(state)
 }

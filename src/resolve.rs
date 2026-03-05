@@ -14,6 +14,8 @@ use crate::AppState;
 pub(crate) struct ResolvedLink {
     /// The destination URL to redirect to.
     pub url: String,
+    /// Creation datetime string (ISO 8601).
+    pub created_at: Option<String>,
     /// Optional expiry datetime string (ISO 8601).
     pub expires_at: Option<String>,
 }
@@ -63,12 +65,10 @@ pub(crate) async fn resolve_via_slingshot(
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing url field"))?
         .to_string();
-    let expires_at = value
-        .get("expiresAt")
-        .and_then(|e| e.as_str())
-        .map(|s| s.to_string());
+    let created_at = value.get("createdAt").and_then(|c| c.as_str()).map(|s| s.to_string());
+    let expires_at = value.get("expiresAt").and_then(|e| e.as_str()).map(|s| s.to_string());
 
-    Ok(ResolvedLink { url, expires_at })
+    Ok(ResolvedLink { url, created_at, expires_at })
 }
 
 /// Resolve via direct 3-hop path: handle → DID → DID doc → PDS getRecord.
@@ -117,12 +117,10 @@ async fn resolve_via_direct(
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("PDS getRecord missing url field"))?
         .to_string();
-    let expires_at = value
-        .get("expiresAt")
-        .and_then(|e| e.as_str())
-        .map(|s| s.to_string());
+    let created_at = value.get("createdAt").and_then(|c| c.as_str()).map(|s| s.to_string());
+    let expires_at = value.get("expiresAt").and_then(|e| e.as_str()).map(|s| s.to_string());
 
-    Ok(ResolvedLink { url, expires_at })
+    Ok(ResolvedLink { url, created_at, expires_at })
 }
 // coverage:excl-stop
 

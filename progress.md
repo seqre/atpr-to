@@ -371,6 +371,23 @@
 
 ---
 
+## Step 24A: Preview Page GET /@{handle}/{code}/info ✅
+
+**New file:** `src/info.rs`
+**Modified:** `src/lib.rs`, `src/resolve.rs`, `tests/resolve_integration.rs`
+
+**Implemented:**
+- `pub fn html_escape(s: &str) -> String` — escapes `&`, `<`, `>`, `"` for safe HTML output
+- `pub async fn info(state, path) -> Response` — resolves via Slingshot; renders HTML preview with destination URL, `createdAt`, optional `expiresAt`, and QR code SVG; returns 404 on missing record, 502 on upstream error
+- `ResolvedLink` extended with `created_at: Option<String>` field (extracted in both Slingshot and direct paths)
+- Route `GET /@{handle}/{code}/info` registered before the resolve catch-all
+
+**Tests:** +4 (1 unit `test_html_escape` + 3 integration: happy path with URL/SVG/date assertions, 404, 502)
+
+**Total tests:** 52 (43 unit + 9 integration)
+
+---
+
 ## Step 23B: HTML UI ✅
 
 **New files:** `src/ui.rs`, `templates/base.html`, `templates/home.html`, `templates/dashboard.html`

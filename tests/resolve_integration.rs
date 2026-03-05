@@ -270,3 +270,121 @@ async fn test_resolve_future_expiry_redirects() {
     let location = response.headers().get("location").unwrap();
     assert_eq!(location, "https://example.com/target");
 }
+
+#[tokio::test]
+async fn test_info_page_happy_path() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .and(query_param("handle", "alice.test"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
+                "cid": "bafycid",
+                "value": {
+                    "$type": "to.atpr.link",
+                    "url": "https://example.com/target",
+                    "createdAt": "2024-01-15T10:00:00Z"
+                }
+            })),
+        )
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/abc123/info")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let html = String::from_utf8_lossy(&body);
+    assert!(html.contains("<!DOCTYPE html>"), "expected HTML document");
+    assert!(html.contains("https://example.com/target"), "expected destination URL");
+    assert!(html.contains("<svg"), "expected QR code SVG");
+    assert!(html.contains("2024-01-15"), "expected created_at date");
+}
+
+#[tokio::test]
+async fn test_info_page_not_found() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/nosuchcode/info")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("<!DOCTYPE html>"));
+}
+
+#[tokio::test]
+async fn test_info_page_slingshot_error() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/abc123/info")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+}

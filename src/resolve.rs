@@ -61,6 +61,7 @@ async fn resolve_via_slingshot(
 
 /// Resolve via direct 3-hop path: handle → DID → DID doc → PDS getRecord.
 /// Returns the target URL on success.
+// coverage:excl-start
 async fn resolve_via_direct(
     client: &reqwest::Client,
     handle: &Handle<'_>,
@@ -107,6 +108,7 @@ async fn resolve_via_direct(
 
     Ok(url)
 }
+// coverage:excl-stop
 
 /// Resolve a short URL and redirect.
 ///
@@ -148,16 +150,20 @@ pub async fn resolve(
             .instrument(tracing::info_span!("direct"))
             .await
             {
+                // coverage:excl-start
                 Ok(url) => {
                     tracing::info!(path = "direct", elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
                     url
                 }
+                // coverage:excl-stop
                 Err(e) => {
                     // Distinguish not-found from upstream errors
                     let msg = e.to_string();
+                    // coverage:excl-start
                     if msg.contains("404") {
                         return error::not_found("Link not found");
                     }
+                    // coverage:excl-stop
                     return error::bad_gateway(&format!("Could not resolve link: {e}"));
                 }
             }

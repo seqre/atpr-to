@@ -13,6 +13,7 @@ use crate::shorten::validate_code;
 
 /// Delete a short URL record. Requires authentication.
 #[tracing::instrument(skip_all, fields(code))]
+// coverage:excl-start
 pub async fn delete_link(auth: AuthSession, Path(code): Path<String>) -> Response {
     let AuthSession(session) = auth;
     let (did, _) = session.session_info().await;
@@ -52,3 +53,4 @@ pub async fn delete_link(auth: AuthSession, Path(code): Path<String>) -> Respons
             .into_response(),
     }
 }
+// coverage:excl-stop

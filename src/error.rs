@@ -85,4 +85,32 @@ mod tests {
         let html = body_string(body).await;
         assert!(html.contains("502"));
     }
+
+    #[tokio::test]
+    async fn test_not_found_status() {
+        let resp = not_found("page missing");
+        let (parts, _) = resp.into_parts();
+        assert_eq!(parts.status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_bad_request_status() {
+        let resp = bad_request("invalid input");
+        let (parts, _) = resp.into_parts();
+        assert_eq!(parts.status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_status() {
+        let resp = unauthorized("not logged in");
+        let (parts, _) = resp.into_parts();
+        assert_eq!(parts.status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_internal_error_status() {
+        let resp = internal_error("something went wrong");
+        let (parts, _) = resp.into_parts();
+        assert_eq!(parts.status, StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }

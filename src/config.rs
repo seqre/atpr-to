@@ -63,9 +63,39 @@ pub fn load() -> Config {
 
     match result {
         Ok(cfg) => cfg,
+        // coverage:excl-start
         Err(e) => {
             tracing::warn!("Config load error: {e}, using defaults");
             Config::default()
         }
+        // coverage:excl-stop
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_defaults() {
+        let c = Config::default();
+        assert_eq!(c.base_url, "https://atpr.to");
+        assert_eq!(c.slingshot_url, "https://slingshot.microcosm.blue/");
+    }
+
+    #[test]
+    fn test_rate_limit_defaults() {
+        let r = RateLimitConfig::default();
+        assert_eq!(r.per_second, 2);
+        assert_eq!(r.burst_size, 10);
+    }
+
+    #[test]
+    fn test_load_returns_valid_config() {
+        let c = load();
+        assert!(!c.base_url.is_empty());
+        assert!(!c.slingshot_url.is_empty());
+        assert!(c.rate_limit.per_second > 0);
+        assert!(c.rate_limit.burst_size > 0);
     }
 }

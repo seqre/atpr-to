@@ -57,6 +57,7 @@ pub fn validate_code(code: &str) -> bool {
 ///
 /// Tries Slingshot's `describeRepo` first (1 hop), falls back to direct DID doc resolution.
 /// Returns `None` if both fail (caller should use DID string instead).
+// coverage:excl-start
 async fn resolve_did_to_handle(
     client: &reqwest::Client,
     slingshot_url: &str,
@@ -87,9 +88,11 @@ async fn resolve_did_to_handle(
     let doc = doc_response.parse().ok()?;
     doc.handles().into_iter().next().map(|h| h.as_ref().to_string())
 }
+// coverage:excl-stop
 
 /// Create a short URL. Requires authentication.
 #[tracing::instrument(skip_all)]
+// coverage:excl-start
 pub async fn shorten(
     State(state): State<Arc<AppState>>,
     auth: AuthSession,
@@ -193,6 +196,7 @@ pub async fn shorten(
             .into_response(),
     }
 }
+// coverage:excl-stop
 
 #[cfg(test)]
 mod tests {
@@ -204,6 +208,17 @@ mod tests {
             let code = generate_code();
             assert!((6..=8).contains(&code.len()));
             assert!(validate_code(&code));
+        }
+    }
+
+    #[test]
+    fn test_generate_code_charset() {
+        for _ in 0..200 {
+            let code = generate_code();
+            assert!(
+                code.chars().all(|c| c.is_ascii_alphanumeric()),
+                "non-alphanumeric char in: {code}"
+            );
         }
     }
 

@@ -9,7 +9,7 @@ pub mod config;
 pub mod delete;
 /// HTML error page helpers.
 pub mod error;
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
 /// Auto-generated Lexicon types.
 pub mod generated;
 /// QR code generation for short URLs.
@@ -109,8 +109,22 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
+
+    async fn test_state_with_slingshot(slingshot_url: String) -> std::sync::Arc<AppState> {
+        let cfg = config::Config {
+            slingshot_url,
+            ..config::Config::default()
+        };
+        std::sync::Arc::new(AppState {
+            oauth: auth::build_oauth_client(&cfg.base_url),
+            http: reqwest::Client::new(),
+            config: cfg,
+        })
+    }
 
     #[tokio::test]
     async fn test_index_route() {
@@ -221,6 +235,89 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_health_ok() {
+        let mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "did": "did:plc:test" })),
+            )
+            .mount(&mock)
+            .await;
+
+        let state = test_state_with_slingshot(mock.uri()).await;
+        let app = router_with_state(state);
+        let response = app
+            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["status"], "ok");
+        assert_eq!(json["slingshot"], "ok");
+    }
+
+    #[tokio::test]
+    async fn test_health_degraded() {
+        let mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&mock)
+            .await;
+
+        let state = test_state_with_slingshot(mock.uri()).await;
+        let app = router_with_state(state);
+        let response = app
+            .oneshot(Request::builder().uri("/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["status"], "degraded");
+        assert_eq!(json["slingshot"], "unreachable");
+    }
+
+    #[tokio::test]
+    async fn test_auth_session_invalid_did() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri("/shorten/abc123")
+                    .header("cookie", "session=notadid|session123")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_auth_session_expired() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri("/shorten/abc123")
+                    .header("cookie", "session=did:web:example.com|nonexistent_session")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

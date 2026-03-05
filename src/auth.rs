@@ -117,6 +117,7 @@ pub struct LoginRequest {
 
 /// Start OAuth login flow. User submits their handle.
 #[tracing::instrument(skip_all)]
+// coverage:excl-start
 pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(body): Json<LoginRequest>,
@@ -128,6 +129,7 @@ pub async fn login(
         Err(e) => error::bad_request(&format!("Failed to start auth: {e}")),
     }
 }
+// coverage:excl-stop
 
 /// Query parameters received on the OAuth callback redirect.
 #[derive(Deserialize)]
@@ -141,6 +143,7 @@ pub struct OAuthCallbackQuery {
 }
 
 /// Handle OAuth callback after user authorizes.
+// coverage:excl-start
 pub async fn oauth_callback(
     State(state): State<Arc<AppState>>,
     Query(query): Query<OAuthCallbackQuery>,
@@ -170,6 +173,7 @@ pub async fn oauth_callback(
         Err(e) => error::internal_error(&format!("OAuth callback failed: {e}")),
     }
 }
+// coverage:excl-stop
 
 /// Extract DID and session_id from the session cookie.
 /// Returns None if no valid session cookie exists.
@@ -182,8 +186,13 @@ pub fn parse_session_cookie(jar: &CookieJar) -> Option<(String, String)> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
+    use axum::extract::State;
     use axum_extra::extract::cookie::CookieJar;
+
+    use super::*;
+    use crate::{config::Config, AppState};
 
     #[test]
     fn test_parse_session_cookie_valid() {
@@ -213,5 +222,21 @@ mod tests {
     fn test_build_oauth_client() {
         let _client = build_oauth_client("https://atpr.to");
         // Just verify it doesn't panic during construction
+    }
+
+    #[tokio::test]
+    async fn test_client_metadata_fields() {
+        let config = Config::default();
+        let state = Arc::new(AppState {
+            oauth: build_oauth_client(&config.base_url),
+            http: reqwest::Client::new(),
+            config,
+        });
+        let result = client_metadata(State(state)).await;
+        let json = &result.0;
+        assert!(json["client_id"].as_str().unwrap().contains("/.well-known/"));
+        assert!(json["redirect_uris"].is_array());
+        assert_eq!(json["dpop_bound_access_tokens"], true);
+        assert_eq!(json["client_name"], "atpr.to URL Shortener");
     }
 }

@@ -49,6 +49,20 @@ fn validate_code(code: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
+/// Resolve a DID to its primary handle via the DID document's `alsoKnownAs` field.
+/// Returns `None` if resolution fails (caller should fall back to DID string).
+async fn resolve_did_to_handle(did_str: &str) -> Option<String> {
+    use jacquard::identity::resolver::IdentityResolver;
+    use jacquard::identity::JacquardResolver;
+    use jacquard_common::types::did::Did;
+
+    let did = Did::new(did_str).ok()?;
+    let resolver = JacquardResolver::default();
+    let doc_response = resolver.resolve_did_doc(&did).await.ok()?;
+    let doc = doc_response.parse().ok()?;
+    doc.handles().into_iter().next().map(|h| h.as_ref().to_string())
+}
+
 /// Create a short URL. Requires authentication.
 #[tracing::instrument(skip_all)]
 pub async fn shorten(
@@ -154,9 +168,10 @@ pub async fn shorten(
     // Send the request
     match session.send(request).await {
         Ok(_response) => {
-            // Get handle from DID for the short URL
-            // For now, use the DID string; resolve will accept handles
-            let short_url = format!("https://atpr.to/@{}/{}", did_str, code);
+            // Best-effort: resolve DID → handle for a nicer short URL.
+            // Falls back to DID string if resolution fails.
+            let display_ident = resolve_did_to_handle(&did_str).await.unwrap_or(did_str);
+            let short_url = format!("https://atpr.to/@{}/{}", display_ident, code);
             Json(ShortenResponse { short_url }).into_response()
         }
         Err(e) => (

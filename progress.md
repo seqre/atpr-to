@@ -182,3 +182,14 @@
 
 **Tests:** 17 passing (1 new)
 - `test_health_route` — GET /health returns 200
+
+## Step 11: Handle Display in Shorten Response ✅
+
+**Modified:** `src/shorten.rs`
+
+**Implemented:**
+- `resolve_did_to_handle(did_str)` — async helper: calls `JacquardResolver::resolve_did_doc()`, parses DID doc, extracts first handle from `alsoKnownAs` via `doc.handles()`
+- After successful `putRecord`, calls `resolve_did_to_handle` best-effort; falls back to DID string on any error
+- Short URL is now `https://atpr.to/@{handle}/{code}` instead of `https://atpr.to/@{did}/{code}`
+
+**Tests:** 17 passing (no new tests — no API shape change, fallback behaviour covered by existing tests)

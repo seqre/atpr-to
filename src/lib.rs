@@ -10,11 +10,18 @@ use axum::{routing::get, routing::post, Router};
 
 pub struct AppState {
     pub oauth: auth::OAuthClientType,
+    pub http: reqwest::Client,
+    pub slingshot_url: String,
 }
 
 pub fn router() -> Router {
+    let slingshot_url = std::env::var("SLINGSHOT_URL")
+        .unwrap_or_else(|_| "https://slingshot.microcosm.blue/".to_string());
+
     let state = Arc::new(AppState {
         oauth: auth::build_oauth_client(),
+        http: reqwest::Client::new(),
+        slingshot_url,
     });
 
     Router::new()

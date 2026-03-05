@@ -152,3 +152,20 @@
 - `continue-on-error: true` for nightly (informational only)
 - Steps: checkout → install Rust → cache deps (Swatinem/rust-cache) → install cargo-nextest → fmt check → clippy (-D warnings) → nextest run
 - Triggers on push/PR to `main`
+
+## Step 9: Slingshot Integration ✅
+
+**Modified:** `src/resolve.rs`, `src/lib.rs`, `Cargo.toml`
+**New dep:** `anyhow = "1"`
+
+**Implemented:**
+- `AppState` now holds `http: reqwest::Client` (shared, connection-pooled) and `slingshot_url: String`
+- `slingshot_url` from `SLINGSHOT_URL` env var, default `https://slingshot.microcosm.blue/`
+- `resolve_via_slingshot(client, slingshot_url, handle, code)` — 2-hop: resolveHandle → getRecord
+- `resolve_via_direct(client, handle, code)` — original 3-hop: handle → DID → DID doc → PDS getRecord
+- `resolve` handler tries Slingshot first; on any error, logs warning and falls back to direct
+- Handler now takes `State(state): State<Arc<AppState>>` and uses shared `state.http` client
+- Tracing spans preserved on both paths
+
+**Tests:** 16 passing (1 new)
+- `test_slingshot_url_construction` — verifies special chars in DIDs/handles are percent-encoded

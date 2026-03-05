@@ -1,4 +1,6 @@
-use axum::extract::Path;
+use std::sync::Arc;
+
+use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use jacquard::identity::resolver::IdentityResolver;
 use jacquard::identity::JacquardResolver;
@@ -6,108 +8,163 @@ use jacquard_common::types::string::Handle;
 use tracing::Instrument;
 
 use crate::error;
+use crate::AppState;
 
-/// Resolve a short URL and redirect.
-///
-/// Flow: handle → DID → PDS endpoint → getRecord → extract URL → 302 redirect
-#[tracing::instrument(fields(handle, code))]
-pub async fn resolve(Path((handle, code)): Path<(String, String)>) -> Response {
-    let start = std::time::Instant::now();
+/// Try to resolve via Slingshot (2-hop: resolveHandle + getRecord).
+/// Returns the target URL on success.
+async fn resolve_via_slingshot(
+    client: &reqwest::Client,
+    slingshot_url: &str,
+    handle: &str,
+    code: &str,
+) -> anyhow::Result<String> {
+    let base = slingshot_url.trim_end_matches('/');
 
-    // Parse and validate handle
-    let handle = match Handle::new(&handle) {
-        Ok(h) => h,
-        Err(e) => {
-            return error::bad_request(&format!("Invalid handle: {e}"));
-        }
-    };
+    // Hop 1: resolveHandle
+    let resolve_url = format!(
+        "{}/xrpc/com.atproto.identity.resolveHandle?handle={}",
+        base,
+        urlencoding::encode(handle),
+    );
+    let resp = client.get(&resolve_url).send().await?;
+    if !resp.status().is_success() {
+        anyhow::bail!("Slingshot resolveHandle returned {}", resp.status());
+    }
+    let body: serde_json::Value = resp.json().await?;
+    let did = body
+        .get("did")
+        .and_then(|d| d.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Slingshot resolveHandle missing did field"))?
+        .to_string();
 
-    // Resolve handle → DID
+    // Hop 2: getRecord
+    let record_url = format!(
+        "{}/xrpc/com.atproto.repo.getRecord?repo={}&collection=to.atpr.link&rkey={}",
+        base,
+        urlencoding::encode(&did),
+        urlencoding::encode(code),
+    );
+    let resp = client.get(&record_url).send().await?;
+    if !resp.status().is_success() {
+        anyhow::bail!("Slingshot getRecord returned {}", resp.status());
+    }
+    let body: serde_json::Value = resp.json().await?;
+    let url = body
+        .get("value")
+        .and_then(|v| v.get("url"))
+        .and_then(|u| u.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing url field"))?
+        .to_string();
+
+    Ok(url)
+}
+
+/// Resolve via direct 3-hop path: handle → DID → DID doc → PDS getRecord.
+/// Returns the target URL on success.
+async fn resolve_via_direct(
+    client: &reqwest::Client,
+    handle: &Handle<'_>,
+    code: &str,
+) -> anyhow::Result<String> {
     let resolver = JacquardResolver::default();
-    let did = match async { resolver.resolve_handle(&handle).await }
+
+    let did = async { resolver.resolve_handle(handle).await }
         .instrument(tracing::info_span!("resolve_handle"))
-        .await
-    {
-        Ok(d) => d,
-        Err(e) => {
-            return error::not_found(&format!("Could not resolve handle: {e}"));
-        }
-    };
+        .await?;
 
-    // Resolve DID → DID document → PDS endpoint
-    let doc_response = match async { resolver.resolve_did_doc(&did).await }
+    let doc_response = async { resolver.resolve_did_doc(&did).await }
         .instrument(tracing::info_span!("resolve_did_doc"))
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return error::bad_gateway(&format!("Could not resolve DID document: {e}"));
-        }
-    };
+        .await?;
 
-    let doc = match doc_response.parse() {
-        Ok(d) => d,
-        Err(e) => {
-            return error::bad_gateway(&format!("Could not parse DID document: {e}"));
-        }
-    };
+    let doc = doc_response.parse()?;
 
-    let pds_url = match doc.pds_endpoint() {
-        Some(u) => u,
-        None => {
-            return error::bad_gateway("No PDS endpoint found in DID document");
-        }
-    };
+    let pds_url = doc
+        .pds_endpoint()
+        .ok_or_else(|| anyhow::anyhow!("No PDS endpoint in DID document"))?;
 
-    // Fetch record from PDS (public, unauthenticated)
     let get_record_url = format!(
         "{}xrpc/com.atproto.repo.getRecord?repo={}&collection=to.atpr.link&rkey={}",
         pds_url,
         urlencoding::encode(did.as_ref()),
-        urlencoding::encode(&code),
+        urlencoding::encode(code),
     );
 
-    let client = reqwest::Client::new();
-    let resp = match async { client.get(&get_record_url).send().await }
+    let resp = async { client.get(&get_record_url).send().await }
         .instrument(tracing::info_span!("fetch_record"))
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return error::bad_gateway(&format!("Failed to fetch record from PDS: {e}"));
-        }
-    };
+        .await?;
 
     if !resp.status().is_success() {
-        return error::not_found(&format!("Record not found (PDS returned {})", resp.status()));
+        anyhow::bail!("PDS getRecord returned {}", resp.status());
     }
 
-    // Parse the getRecord response — we need the "value" field which contains our Link record
-    let body: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(e) => {
-            return error::bad_gateway(&format!("Failed to parse PDS response: {e}"));
-        }
-    };
-
-    let url = match body
+    let body: serde_json::Value = resp.json().await?;
+    let url = body
         .get("value")
         .and_then(|v| v.get("url"))
         .and_then(|u| u.as_str())
+        .ok_or_else(|| anyhow::anyhow!("PDS getRecord missing url field"))?
+        .to_string();
+
+    Ok(url)
+}
+
+/// Resolve a short URL and redirect.
+///
+/// Tries Slingshot first (2-hop), falls back to direct resolution (3-hop) on any error.
+#[tracing::instrument(skip(state), fields(handle, code))]
+pub async fn resolve(
+    State(state): State<Arc<AppState>>,
+    Path((handle, code)): Path<(String, String)>,
+) -> Response {
+    let start = std::time::Instant::now();
+
+    // Validate handle
+    let parsed_handle = match Handle::new(&handle) {
+        Ok(h) => h,
+        Err(e) => return error::bad_request(&format!("Invalid handle: {e}")),
+    };
+
+    // Try Slingshot first
+    let url = match async {
+        resolve_via_slingshot(&state.http, &state.slingshot_url, &handle, &code).await
+    }
+    .instrument(tracing::info_span!("slingshot"))
+    .await
     {
-        Some(u) => u.to_string(),
-        None => {
-            return error::bad_gateway("Record missing url field");
+        Ok(url) => {
+            tracing::info!(path = "slingshot", elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
+            url
+        }
+        Err(slingshot_err) => {
+            tracing::warn!(err = %slingshot_err, "slingshot failed, falling back to direct");
+            match async {
+                resolve_via_direct(&state.http, &parsed_handle, &code).await
+            }
+            .instrument(tracing::info_span!("direct"))
+            .await
+            {
+                Ok(url) => {
+                    tracing::info!(path = "direct", elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
+                    url
+                }
+                Err(e) => {
+                    // Distinguish not-found from upstream errors
+                    let msg = e.to_string();
+                    if msg.contains("404") {
+                        return error::not_found("Link not found");
+                    }
+                    return error::bad_gateway(&format!("Could not resolve link: {e}"));
+                }
+            }
         }
     };
 
-    tracing::info!(elapsed_ms = start.elapsed().as_millis() as u64, "resolved");
     Redirect::temporary(&url).into_response()
 }
 
 #[cfg(test)]
 mod tests {
-    use jacquard_common::types::string::Handle;
+    use super::*;
 
     #[test]
     fn test_handle_parsing() {
@@ -115,5 +172,30 @@ mod tests {
         assert!(Handle::new("seqre.dev").is_ok());
         // Single-label handles are invalid per AT Protocol
         assert!(Handle::new("invalid").is_err());
+    }
+
+    #[test]
+    fn test_slingshot_url_construction() {
+        // Verify special chars in handles/DIDs are percent-encoded
+        let handle = "user.with.dots.bsky.social";
+        let did = "did:plc:abc+def/ghi";
+        let code = "my-code_1";
+        let base = "https://slingshot.microcosm.blue";
+
+        let resolve_url = format!(
+            "{}/xrpc/com.atproto.identity.resolveHandle?handle={}",
+            base,
+            urlencoding::encode(handle),
+        );
+        assert!(resolve_url.contains("user.with.dots.bsky.social")); // dots are safe
+
+        let record_url = format!(
+            "{}/xrpc/com.atproto.repo.getRecord?repo={}&collection=to.atpr.link&rkey={}",
+            base,
+            urlencoding::encode(did),
+            urlencoding::encode(code),
+        );
+        assert!(record_url.contains("did%3Aplc%3Aabc%2Bdef%2Fghi"));
+        assert!(record_url.contains("my-code_1"));
     }
 }

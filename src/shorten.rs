@@ -4,7 +4,6 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use axum_extra::extract::CookieJar;
 use jacquard::api::com_atproto::repo::put_record::PutRecord;
 use jacquard_common::types::collection::Collection;
 use jacquard_common::types::did::Did;
@@ -14,7 +13,7 @@ use jacquard_common::xrpc::XrpcClient;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::auth::parse_session_cookie;
+use crate::auth::AuthSession;
 use crate::generated::to_atpr::link::Link;
 use crate::AppState;
 
@@ -88,13 +87,12 @@ async fn resolve_did_to_handle(
 #[tracing::instrument(skip_all)]
 pub async fn shorten(
     State(state): State<Arc<AppState>>,
-    jar: CookieJar,
+    auth: AuthSession,
     Json(body): Json<ShortenRequest>,
 ) -> Response {
-    // Check auth
-    let Some((did_str, session_id)) = parse_session_cookie(&jar) else {
-        return (StatusCode::UNAUTHORIZED, "Authentication required").into_response();
-    };
+    let AuthSession(session) = auth;
+    let (did, _) = session.session_info().await;
+    let did_str = did.as_ref().to_string();
 
     // Determine short code
     let code = match &body.code {
@@ -118,25 +116,6 @@ pub async fn shorten(
     if url::Url::parse(&body.url).is_err() {
         return (StatusCode::BAD_REQUEST, "Invalid URL").into_response();
     }
-
-    // Restore OAuth session
-    let did = match Did::new(&did_str) {
-        Ok(d) => d,
-        Err(_) => {
-            return (StatusCode::UNAUTHORIZED, "Invalid session").into_response();
-        }
-    };
-
-    let session = match state.oauth.restore(&did, &session_id).await {
-        Ok(s) => s,
-        Err(e) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                format!("Session expired: {e}"),
-            )
-                .into_response();
-        }
-    };
 
     // Build the link record
     let link_url = match jacquard_common::types::string::Uri::new(&body.url) {
@@ -179,8 +158,13 @@ pub async fn shorten(
         }
     };
 
+    let owned_did = match Did::new(&did_str) {
+        Ok(d) => d,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid DID in session").into_response(),
+    };
+
     let request = PutRecord::new()
-        .repo(AtIdentifier::Did(did))
+        .repo(AtIdentifier::Did(owned_did))
         .collection(<Link as Collection>::NSID.to_string())
         .rkey(rkey)
         .record(data)

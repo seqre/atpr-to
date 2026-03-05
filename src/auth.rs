@@ -1,17 +1,19 @@
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
+use axum::extract::{FromRequestParts, Query, State};
+use axum::http::request::Parts;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::Json;
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
+use jacquard::identity::JacquardResolver;
 use jacquard::oauth::atproto::{AtprotoClientMetadata, GrantType};
 use jacquard::oauth::authstore::MemoryAuthStore;
 use jacquard::oauth::client::OAuthClient;
-use jacquard::identity::JacquardResolver;
 use jacquard::oauth::scopes::{Scope, TransitionScope};
 use jacquard::oauth::session::ClientData;
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
+use jacquard_common::types::did::Did;
 use serde::Deserialize;
 use url::Url;
 
@@ -19,6 +21,48 @@ use crate::error;
 use crate::AppState;
 
 pub type OAuthClientType = OAuthClient<JacquardResolver, MemoryAuthStore>;
+pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<JacquardResolver, MemoryAuthStore>;
+
+/// Axum extractor that restores an authenticated OAuth session from the session cookie.
+///
+/// Use as a handler argument on auth-gated routes:
+/// ```ignore
+/// pub async fn my_handler(auth: AuthSession, ...) -> Response { ... }
+/// ```
+/// Returns 401 with a plain-text error if the cookie is missing, malformed, or expired.
+pub struct AuthSession(pub OAuthSessionType);
+
+impl FromRequestParts<Arc<AppState>> for AuthSession {
+    type Rejection = Response;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        let jar = CookieJar::from_request_parts(parts, state)
+            .await
+            .map_err(|e| e.into_response())?;
+
+        let (did_str, session_id) = parse_session_cookie(&jar)
+            .ok_or_else(|| {
+                (axum::http::StatusCode::UNAUTHORIZED, "Authentication required").into_response()
+            })?;
+
+        let did = Did::new(&did_str).map_err(|_| {
+            (axum::http::StatusCode::UNAUTHORIZED, "Invalid session").into_response()
+        })?;
+
+        let session = state.oauth.restore(&did, &session_id).await.map_err(|e| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                format!("Session expired: {e}"),
+            )
+                .into_response()
+        })?;
+
+        Ok(AuthSession(session))
+    }
+}
 
 /// Build the OAuth client for atpr.to.
 pub fn build_oauth_client() -> OAuthClientType {

@@ -256,17 +256,16 @@
 
 **Bug found & fixed:** Slingshot 404 on getRecord was previously triggering a direct fallback (adding latency before the same conclusion). Now treated as authoritative not-found.
 
-## Step 17: Unified Auth Extractor (planned)
+## Step 17: Unified Auth Extractor ✅
 
-**Files:** `src/auth.rs`, `src/shorten.rs`, `src/delete.rs`
+**Modified:** `src/auth.rs`, `src/shorten.rs`, `src/delete.rs`
 
-Extract the duplicated auth check (cookie parse → DID validation → `oauth.restore()`) into a custom Axum `FromRequestParts` extractor, e.g. `AuthSession`. Handler signatures become:
+**Implemented:**
+- `OAuthSessionType` type alias: `OAuthSession<JacquardResolver, MemoryAuthStore>`
+- `AuthSession(OAuthSessionType)` — custom `FromRequestParts<Arc<AppState>>` extractor
+  - Extracts cookie → parses DID + session_id → restores OAuth session
+  - Returns consistent 401 plain-text responses on any failure
+- `shorten` and `delete_link` signatures simplified to `auth: AuthSession` — all auth boilerplate removed (~15 lines each)
+- DID retrieved from the live session via `session.session_info().await`
 
-```rust
-pub async fn shorten(auth: AuthSession, ...) -> Response { ... }
-pub async fn delete_link(auth: AuthSession, ...) -> Response { ... }
-```
-
-- Consistent 401 response format across all auth-gated routes
-- Auth logic lives in one place; new endpoints get it for free
-- Removes ~15 lines of boilerplate per handler
+**Tests:** 25 passing (no new tests — `test_delete_requires_auth` exercises the extractor rejection path)

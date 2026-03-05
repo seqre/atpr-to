@@ -49,13 +49,34 @@ fn validate_code(code: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// Resolve a DID to its primary handle via the DID document's `alsoKnownAs` field.
-/// Returns `None` if resolution fails (caller should fall back to DID string).
-async fn resolve_did_to_handle(did_str: &str) -> Option<String> {
+/// Resolve a DID to its primary handle.
+///
+/// Tries Slingshot's `describeRepo` first (1 hop), falls back to direct DID doc resolution.
+/// Returns `None` if both fail (caller should use DID string instead).
+async fn resolve_did_to_handle(
+    client: &reqwest::Client,
+    slingshot_url: &str,
+    did_str: &str,
+) -> Option<String> {
+    // Try Slingshot describeRepo first
+    let url = format!(
+        "{}/xrpc/com.atproto.repo.describeRepo?repo={}",
+        slingshot_url.trim_end_matches('/'),
+        urlencoding::encode(did_str),
+    );
+    if let Ok(resp) = client.get(&url).send().await {
+        if resp.status().is_success() {
+            if let Ok(body) = resp.json::<serde_json::Value>().await {
+                if let Some(handle) = body.get("handle").and_then(|h| h.as_str()) {
+                    return Some(handle.to_string());
+                }
+            }
+        }
+    }
+
+    // Fallback: resolve DID doc directly
     use jacquard::identity::resolver::IdentityResolver;
     use jacquard::identity::JacquardResolver;
-    use jacquard_common::types::did::Did;
-
     let did = Did::new(did_str).ok()?;
     let resolver = JacquardResolver::default();
     let doc_response = resolver.resolve_did_doc(&did).await.ok()?;
@@ -170,7 +191,9 @@ pub async fn shorten(
         Ok(_response) => {
             // Best-effort: resolve DID → handle for a nicer short URL.
             // Falls back to DID string if resolution fails.
-            let display_ident = resolve_did_to_handle(&did_str).await.unwrap_or(did_str);
+            let display_ident = resolve_did_to_handle(&state.http, &state.slingshot_url, &did_str)
+                .await
+                .unwrap_or(did_str);
             let short_url = format!("https://atpr.to/@{}/{}", display_ident, code);
             Json(ShortenResponse { short_url }).into_response()
         }

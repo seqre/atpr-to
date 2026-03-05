@@ -188,7 +188,7 @@
 **Modified:** `src/shorten.rs`
 
 **Implemented:**
-- `resolve_did_to_handle(did_str)` — async helper: calls `JacquardResolver::resolve_did_doc()`, parses DID doc, extracts first handle from `alsoKnownAs` via `doc.handles()`
+- `resolve_did_to_handle(client, slingshot_url, did_str)` — tries Slingshot `describeRepo?repo=DID` first (1 hop, uses shared `state.http`); falls back to direct DID doc resolution via `JacquardResolver` if Slingshot fails
 - After successful `putRecord`, calls `resolve_did_to_handle` best-effort; falls back to DID string on any error
 - Short URL is now `https://atpr.to/@{handle}/{code}` instead of `https://atpr.to/@{did}/{code}`
 

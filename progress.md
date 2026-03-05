@@ -269,3 +269,21 @@
 - DID retrieved from the live session via `session.session_info().await`
 
 **Tests:** 25 passing (no new tests — `test_delete_requires_auth` exercises the extractor rejection path)
+
+## Step 16: Deployment Config ✅
+
+**New files:** `template.yaml`, `Justfile`
+
+**`template.yaml` (SAM):**
+- Single Lambda function: `provided.al2023` runtime, `arm64`, `BuildMethod: rust-cargolambda`
+- `HttpApi` event source catching all methods on `/{proxy+}` and `/`
+- `SLINGSHOT_URL` sourced from SSM Parameter Store (`/atpr-to/slingshot-url`)
+- Outputs the API Gateway URL
+
+**`Justfile`:**
+- `just build` — `cargo lambda build --release --arm64`
+- `just deploy` — build + `sam deploy --guided`
+- `just deploy-fast` — build + `sam deploy` (uses existing `samconfig.toml`)
+- `just test`, `just lint`, `just fmt`, `just fmt-check`, `just logs`, `just local`
+
+**Tests:** 25 passing (no new tests — deployment config is not unit-testable)

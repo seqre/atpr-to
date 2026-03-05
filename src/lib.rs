@@ -9,6 +9,7 @@ pub mod shorten;
 use std::sync::Arc;
 
 use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
+use tower_governor::{governor::GovernorConfigBuilder, key_extractor::GlobalKeyExtractor, GovernorLayer};
 
 pub struct AppState {
     pub oauth: auth::OAuthClientType,
@@ -26,6 +27,21 @@ pub fn router() -> Router {
         slingshot_url,
     });
 
+    // Rate limit mutation routes: 2 req/s sustained, burst of 10.
+    // On Lambda, state is per-instance; use API Gateway throttling for global limits.
+    let governor_config = GovernorConfigBuilder::default()
+        .per_second(2)
+        .burst_size(10)
+        .key_extractor(GlobalKeyExtractor)
+        .finish()
+        .unwrap();
+
+    let rate_limited = Router::new()
+        .route("/login", post(auth::login))
+        .route("/shorten", post(shorten::shorten))
+        .route("/shorten/{code}", delete(delete::delete_link))
+        .layer(GovernorLayer::new(governor_config));
+
     Router::new()
         .route("/", get(index))
         .route("/health", get(health))
@@ -34,9 +50,7 @@ pub fn router() -> Router {
             get(auth::client_metadata),
         )
         .route("/oauth/callback", get(auth::oauth_callback))
-        .route("/login", post(auth::login))
-        .route("/shorten", post(shorten::shorten))
-        .route("/shorten/{code}", delete(delete::delete_link))
+        .merge(rate_limited)
         .route("/@{handle}/{code}", get(resolve::resolve))
         .route("/@{handle}/{code}/qr", get(qr::qr_code))
         .with_state(state)

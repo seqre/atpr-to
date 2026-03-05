@@ -26,6 +26,7 @@ urlencoding = "2"
 tracing = "0.1"
 anyhow = "1"
 qrcode = "*"
+tower_governor = "0.8.0"
 
 [build-dependencies]
 jacquard-lexicon = { version = "0.9", features = ["codegen"] }

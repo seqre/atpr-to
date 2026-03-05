@@ -223,6 +223,21 @@
 - `test_qr_route_returns_svg` — Content-Type is `image/svg+xml`
 - `test_qr_contains_svg_tag` — body contains `<svg`
 
+## Step 14: Rate Limiting ✅
+
+**Modified:** `src/lib.rs`, `Cargo.toml`
+**New dep:** `tower_governor = "*"`
+
+**Implemented:**
+- `GovernorConfigBuilder` with `GlobalKeyExtractor` (per-instance, appropriate for Lambda)
+- 2 req/s sustained, burst of 10
+- Applied to mutation routes via nested router merged in: `POST /login`, `POST /shorten`, `DELETE /shorten/{code}`
+- Read-only routes (`/health`, `/@handle/code`, `/qr`) are not rate-limited
+
+**Note:** On Lambda, rate state is per-instance (lost on cold start). For global limits, use API Gateway throttling.
+
+**Tests:** 21 passing (no new tests — existing mutation route tests pass under burst limit)
+
 ## Step 17: Unified Auth Extractor (planned)
 
 **Files:** `src/auth.rs`, `src/shorten.rs`, `src/delete.rs`

@@ -26,6 +26,7 @@ urlencoding = "2"
 tracing = "0.1"
 anyhow = "1"
 config = "*"
+askama = "0.15"
 qrcode = "*"
 tower_governor = "0.8.0"
 

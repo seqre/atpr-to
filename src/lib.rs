@@ -22,6 +22,8 @@ pub mod qr;
 pub mod resolve;
 /// Short URL creation endpoint.
 pub mod shorten;
+/// HTML UI (home page and dashboard).
+pub mod ui;
 
 use std::sync::Arc;
 
@@ -73,7 +75,8 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .layer(GovernorLayer::new(governor_config));
 
     Router::new()
-        .route("/", get(index))
+        .route("/", get(ui::home))
+        .route("/dashboard", get(ui::dashboard))
         .route("/links", get(links::list_links))
         .route("/health", get(health))
         .route(
@@ -85,10 +88,6 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .route("/@{handle}/{code}", get(resolve::resolve))
         .route("/@{handle}/{code}/qr", get(qr::qr_code))
         .with_state(state)
-}
-
-async fn index() -> &'static str {
-    "atpr.to \u{2014} AT Protocol URL Shortener"
 }
 
 async fn health(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {

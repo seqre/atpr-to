@@ -371,6 +371,27 @@
 
 ---
 
+## Step 23B: HTML UI ✅
+
+**New files:** `src/ui.rs`, `templates/base.html`, `templates/home.html`, `templates/dashboard.html`
+**Modified:** `src/lib.rs`, `Cargo.toml`
+**New dep:** `askama = "0.15"`
+
+**Implemented:**
+- `templates/base.html` — HTML shell with charset, viewport, minimal inline CSS
+- `templates/home.html` — Landing page: logo, login form (`handle` → `POST /login`)
+- `templates/dashboard.html` — Authenticated: shorten form, link table with delete buttons, sign-out button
+- `pub async fn home(jar: CookieJar) -> Response` — renders home page; redirects to `/dashboard` if already logged in
+- `pub async fn dashboard(state, jar) -> Response` — restores session from cookie; redirects to `/` on failure; fetches `listRecords`; renders dashboard
+- Replaced old `index()` stub with `ui::home` on `GET /`
+- Added `GET /dashboard` route
+
+**Tests:** +2 (`test_home_returns_html_with_form`, `test_dashboard_redirects_without_auth`)
+
+**Total tests:** 48 (42 unit + 6 integration)
+
+---
+
 ## Step 23A: GET /links — Link Listing ✅
 
 **New file:** `src/links.rs`

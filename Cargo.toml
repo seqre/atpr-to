@@ -30,3 +30,6 @@ tower_governor = "0.8.0"
 
 [build-dependencies]
 jacquard-lexicon = { version = "0.9", features = ["codegen"] }
+
+[dev-dependencies]
+wiremock = "0.6.5"

@@ -27,6 +27,11 @@ pub fn router() -> Router {
         slingshot_url,
     });
 
+    router_with_state(state)
+}
+
+pub fn router_with_state(state: Arc<AppState>) -> Router {
+
     // Rate limit mutation routes: 2 req/s sustained, burst of 10.
     // On Lambda, state is per-instance; use API Gateway throttling for global limits.
     let governor_config = GovernorConfigBuilder::default()

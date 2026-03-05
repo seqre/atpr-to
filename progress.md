@@ -238,6 +238,24 @@
 
 **Tests:** 21 passing (no new tests — existing mutation route tests pass under burst limit)
 
+## Step 15: Integration Tests ✅
+
+**New file:** `tests/resolve_integration.rs`
+**Modified:** `src/lib.rs` (exposed `router_with_state`), `src/resolve.rs` (404 from Slingshot is now authoritative — no fallback)
+**New dev-dep:** `wiremock = "*"`
+
+**Implemented:**
+- `router_with_state(Arc<AppState>) -> Router` exposed for test injection
+- All 4 tests use a `MockServer` to inject a controlled `slingshot_url` into `AppState`
+
+**Tests:** 25 passing (4 new integration tests)
+- `test_resolve_via_slingshot_happy_path` — mock resolveHandle + getRecord → 302 to correct URL
+- `test_resolve_slingshot_down_falls_back` — Slingshot 500 → direct fallback → graceful 4xx/5xx (no panic)
+- `test_resolve_record_not_found` — Slingshot getRecord 404 → 404 HTML error page
+- `test_resolve_invalid_handle` — single-label handle → 400 HTML error page
+
+**Bug found & fixed:** Slingshot 404 on getRecord was previously triggering a direct fallback (adding latency before the same conclusion). Now treated as authoritative not-found.
+
 ## Step 17: Unified Auth Extractor (planned)
 
 **Files:** `src/auth.rs`, `src/shorten.rs`, `src/delete.rs`

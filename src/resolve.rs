@@ -136,6 +136,11 @@ pub async fn resolve(
             url
         }
         Err(slingshot_err) => {
+            // A 404 from Slingshot is authoritative — the record doesn't exist.
+            // Don't fall back; that would only add latency before the same conclusion.
+            if slingshot_err.to_string().contains("404") {
+                return error::not_found("Link not found");
+            }
             tracing::warn!(err = %slingshot_err, "slingshot failed, falling back to direct");
             match async {
                 resolve_via_direct(&state.http, &parsed_handle, &code).await

@@ -24,8 +24,6 @@ pub struct ShortenRequest {
     pub url: String,
     /// Optional custom short code; auto-generated if absent.
     pub code: Option<String>,
-    /// Optional expiry datetime (ISO 8601). Link returns 410 after this time.
-    pub expires_at: Option<String>,
 }
 
 /// Response body from `POST /shorten`.
@@ -40,7 +38,7 @@ const CODE_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 /// Generate a random short code (6-8 alphanumeric chars).
 fn generate_code() -> String {
     let mut rng = rand::thread_rng();
-    let len = rng.gen_range(6..=8);
+    let len = 6;
     (0..len)
         .map(|_| CODE_CHARSET[rng.gen_range(0..CODE_CHARSET.len())] as char)
         .collect()
@@ -67,7 +65,7 @@ pub fn is_allowed_scheme(url_str: &str) -> bool {
 /// Tries Slingshot's `describeRepo` first (1 hop), falls back to direct DID doc resolution.
 /// Returns `None` if both fail (caller should use DID string instead).
 // coverage:excl-start
-async fn resolve_did_to_handle(
+pub(crate) async fn resolve_did_to_handle(
     client: &reqwest::Client,
     slingshot_url: &str,
     did_str: &str,
@@ -140,21 +138,6 @@ pub async fn shorten(
         return (StatusCode::BAD_REQUEST, "Only http/https URLs are allowed").into_response();
     }
 
-    // Validate and parse optional expires_at
-    let expires_at_dt: Option<jacquard_common::types::string::Datetime> = match &body.expires_at {
-        Some(s) => match chrono::DateTime::parse_from_rfc3339(s) {
-            Ok(dt) => Some(dt.fixed_offset().into()),
-            Err(_) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    "Invalid expires_at datetime (expected ISO 8601)",
-                )
-                    .into_response();
-            }
-        },
-        None => None,
-    };
-
     // Build the link record
     let link_url = match jacquard_common::types::string::Uri::new(&body.url) {
         Ok(u) => u,
@@ -165,8 +148,7 @@ pub async fn shorten(
 
     let record = Link::new()
         .url(link_url)
-        .created_at(chrono::Utc::now().fixed_offset())
-        .maybe_expires_at(expires_at_dt)
+        .updated_at(chrono::Utc::now().fixed_offset())
         .build();
 
     // Serialize to Data for the XRPC request
@@ -230,7 +212,7 @@ mod tests {
     fn test_generate_code_length() {
         for _ in 0..100 {
             let code = generate_code();
-            assert!((6..=8).contains(&code.len()));
+            assert_eq!(code.len(), 6);
             assert!(validate_code(&code));
         }
     }

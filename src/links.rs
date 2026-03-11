@@ -68,20 +68,15 @@ pub async fn list_links(auth: AuthSession) -> Response {
                 .and_then(|u| u.as_str())
                 .unwrap_or("")
                 .to_string();
-            let created_at = value
-                .get("createdAt")
+            let updated_at = value
+                .get("updatedAt")
                 .and_then(|c| c.as_str())
                 .unwrap_or("")
                 .to_string();
-            let expires_at = value
-                .get("expiresAt")
-                .and_then(|e| e.as_str())
-                .map(|s| s.to_string());
             Some(serde_json::json!({
                 "code": code,
                 "url": url,
-                "created_at": created_at,
-                "expires_at": expires_at,
+                "updated_at": updated_at,
             }))
         })
         .collect();
@@ -118,7 +113,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/links")
+                    .uri("/api/links")
                     .body(Body::empty())
                     .unwrap(),
             )

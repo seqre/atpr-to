@@ -3,6 +3,7 @@ use std::sync::Arc;
 use askama::Template;
 use axum::extract::State;
 use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 use jacquard::api::com_atproto::repo::list_records::ListRecords;
 use jacquard_common::types::collection::Collection;
@@ -22,8 +23,8 @@ pub struct LinkEntry {
     pub code: String,
     /// The destination URL.
     pub url: String,
-    /// Creation timestamp (ISO 8601).
-    pub created_at: String,
+    /// Last-modified timestamp (ISO 8601).
+    pub updated_at: String,
 }
 
 #[derive(Template)]
@@ -33,6 +34,7 @@ struct HomeTemplate {}
 #[derive(Template)]
 #[template(path = "dashboard.html")]
 struct DashboardTemplate {
+    handle: String,
     links: Vec<LinkEntry>,
 }
 
@@ -68,7 +70,11 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
 
     let session = match state.oauth.restore(&did, &session_id).await {
         Ok(s) => s,
-        Err(_) => return Redirect::to("/").into_response(),
+        Err(_) => {
+            // Clear the stale cookie to avoid an infinite redirect loop.
+            let jar = jar.remove(Cookie::from("session"));
+            return (jar, Redirect::to("/")).into_response();
+        }
     };
 
     let owned_did = match Did::new(&did_str) {
@@ -97,8 +103,8 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
                             .and_then(|u| u.as_str())
                             .unwrap_or("")
                             .to_string(),
-                        created_at: value
-                            .get("createdAt")
+                        updated_at: value
+                            .get("updatedAt")
                             .and_then(|c| c.as_str())
                             .unwrap_or("")
                             .to_string(),
@@ -110,7 +116,12 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
         Err(_) => vec![],
     };
 
-    let tmpl = DashboardTemplate { links };
+    let handle =
+        crate::shorten::resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
+            .await
+            .unwrap_or(did_str);
+
+    let tmpl = DashboardTemplate { handle, links };
     match tmpl.render() {
         Ok(html) => Html(html).into_response(),
         Err(e) => error::internal_error(&format!("Template error: {e}")),

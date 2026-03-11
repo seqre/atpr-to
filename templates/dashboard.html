@@ -2,29 +2,48 @@
 {% block title %}Dashboard — atpr.to{% endblock %}
 {% block content %}
 <h1>atpr.to</h1>
-<form action="/logout" method="post" style="float:right">
-  <button type="submit">Sign out</button>
-</form>
+<div style="float:right;display:flex;align-items:center;gap:0.75em">
+  <span style="color:#555">{{ handle }}</span>
+  <form action="/api/logout" method="post">
+    <button type="submit" style="background:#c0392b;border-color:#c0392b;color:#fff">Sign out</button>
+  </form>
+</div>
 
 <h2>Shorten a URL</h2>
-<form id="shorten-form">
-  <input name="url" type="url" placeholder="https://example.com/long-url" required style="width:50%">
-  <input name="code" type="text" placeholder="custom code (optional)" style="width:18%">
+<form id="shorten-form" style="display:flex;gap:0.5em">
+  <input name="url" type="url" placeholder="https://example.com/long-url" required style="flex:3">
+  <input name="code" type="text" placeholder="custom code (optional)" style="flex:1">
   <button type="submit">Shorten</button>
 </form>
 
-<h2>Your Links</h2>
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2em">
+  <h2 style="margin:0">Your Links</h2>
+  <div style="display:flex;gap:0.75em;align-items:center">
+    {% if !links.is_empty() %}
+    <button id="tz-toggle" type="button">Show UTC</button>
+    <input id="link-search" type="search" placeholder="Search…" style="width:14em" aria-label="Filter links">
+    {% endif %}
+  </div>
+</div>
 {% if links.is_empty() %}
 <p>No links yet.</p>
 {% else %}
-<table>
-  <thead><tr><th>Code</th><th>Destination</th><th>Created</th><th></th></tr></thead>
+<table id="links-table" style="width:100%;table-layout:fixed">
+  <colgroup>
+    <col style="width:8em">
+    <col>
+    <col style="width:14em">
+    <col style="width:5.5em">
+  </colgroup>
+  <thead><tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr></thead>
   <tbody>
   {% for link in links %}
   <tr>
     <td>{{ link.code }}</td>
-    <td><a href="{{ link.url }}">{{ link.url }}</a></td>
-    <td>{{ link.created_at }}</td>
+    <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+      <a href="{{ link.url }}" title="{{ link.url }}">{{ link.url }}</a>
+    </td>
+    <td data-iso="{{ link.updated_at }}" style="white-space:nowrap">{{ link.updated_at }}</td>
     <td><button onclick="deleteLink('{{ link.code }}')">Delete</button></td>
   </tr>
   {% endfor %}
@@ -33,14 +52,50 @@
 {% endif %}
 
 <script>
+const API = '/api';
+let showUTC = false;
+
+function fmtDate(iso, utc) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  if (utc) {
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+  }
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function refreshDates() {
+  document.querySelectorAll('td[data-iso]').forEach(td => {
+    td.textContent = fmtDate(td.dataset.iso, showUTC);
+  });
+  const btn = document.getElementById('tz-toggle');
+  if (btn) btn.textContent = showUTC ? 'Show local time' : 'Show UTC';
+}
+
+refreshDates();
+
+const toggle = document.getElementById('tz-toggle');
+if (toggle) toggle.addEventListener('click', () => { showUTC = !showUTC; refreshDates(); });
+
+const existingCodes = new Set(
+  [...document.querySelectorAll('#links-table tbody tr td:first-child')].map(td => td.textContent.trim())
+);
+
 async function deleteLink(code) {
-  await fetch('/shorten/' + code, { method: 'DELETE' });
-  location.reload();
+  if (!confirm('Delete ' + code + '?')) return;
+  const r = await fetch(API + '/shorten/' + code, { method: 'DELETE' });
+  if (r.ok) location.reload();
+  else alert('Error: ' + await r.text());
 }
 document.getElementById('shorten-form').onsubmit = async (e) => {
   e.preventDefault();
   const d = Object.fromEntries(new FormData(e.target));
-  const r = await fetch('/shorten', {
+  if (!d.code) delete d.code;
+  if (d.code && existingCodes.has(d.code)) {
+    if (!confirm(`Code "${d.code}" already exists. Replace it?`)) return;
+  }
+  const r = await fetch(API + '/shorten', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(d)
@@ -48,5 +103,12 @@ document.getElementById('shorten-form').onsubmit = async (e) => {
   if (r.ok) location.reload();
   else alert('Error: ' + await r.text());
 };
+const s = document.getElementById('link-search');
+if (s) s.addEventListener('input', () => {
+  const q = s.value.toLowerCase();
+  document.querySelectorAll('#links-table tbody tr').forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
 </script>
 {% endblock %}

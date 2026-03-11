@@ -47,7 +47,7 @@ async fn test_resolve_via_slingshot_happy_path() {
             "value": {
                 "$type": "to.atpr.link",
                 "url": "https://example.com/target",
-                "createdAt": "2024-01-01T00:00:00Z"
+                "updatedAt": "2024-01-01T00:00:00Z"
             }
         })))
         .mount(&mock)
@@ -173,98 +173,6 @@ async fn test_resolve_invalid_handle() {
 }
 
 #[tokio::test]
-async fn test_resolve_expired_link_returns_410() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
-        .and(query_param("handle", "alice.test"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
-        )
-        .mount(&mock)
-        .await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "uri": "at://did:plc:testdid123/to.atpr.link/old",
-            "cid": "bafycid",
-            "value": {
-                "$type": "to.atpr.link",
-                "url": "https://example.com/target",
-                "createdAt": "2020-01-01T00:00:00Z",
-                "expiresAt": "2020-06-01T00:00:00Z"
-            }
-        })))
-        .mount(&mock)
-        .await;
-
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/old")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::GONE);
-}
-
-#[tokio::test]
-async fn test_resolve_future_expiry_redirects() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
-        .and(query_param("handle", "alice.test"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
-        )
-        .mount(&mock)
-        .await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "uri": "at://did:plc:testdid123/to.atpr.link/future",
-            "cid": "bafycid",
-            "value": {
-                "$type": "to.atpr.link",
-                "url": "https://example.com/target",
-                "createdAt": "2020-01-01T00:00:00Z",
-                "expiresAt": "2099-01-01T00:00:00Z"
-            }
-        })))
-        .mount(&mock)
-        .await;
-
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/future")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-    let location = response.headers().get("location").unwrap();
-    assert_eq!(location, "https://example.com/target");
-}
-
-#[tokio::test]
 async fn test_info_page_happy_path() {
     let mock = MockServer::start().await;
 
@@ -286,7 +194,7 @@ async fn test_info_page_happy_path() {
             "value": {
                 "$type": "to.atpr.link",
                 "url": "https://example.com/target",
-                "createdAt": "2024-01-15T10:00:00Z"
+                "updatedAt": "2024-01-15T10:00:00Z"
             }
         })))
         .mount(&mock)
@@ -316,7 +224,7 @@ async fn test_info_page_happy_path() {
         "expected destination URL"
     );
     assert!(html.contains("<svg"), "expected QR code SVG");
-    assert!(html.contains("2024-01-15"), "expected created_at date");
+    assert!(html.contains("2024-01-15"), "expected updated_at date");
 }
 
 #[tokio::test]

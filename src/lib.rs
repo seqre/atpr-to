@@ -77,20 +77,23 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .route("/shorten/{code}", delete(delete::delete_link))
         .layer(GovernorLayer::new(governor_config));
 
+    let api_router = Router::new()
+        .route("/links", get(links::list_links))
+        .route("/health", get(health))
+        .merge(rate_limited);
+
     Router::new()
         .route("/", get(ui::home))
         .route("/dashboard", get(ui::dashboard))
-        .route("/links", get(links::list_links))
-        .route("/health", get(health))
         .route(
             "/.well-known/oauth-client-metadata.json",
             get(auth::client_metadata),
         )
         .route("/oauth/callback", get(auth::oauth_callback))
-        .merge(rate_limited)
         .route("/@{handle}/{code}", get(resolve::resolve))
         .route("/@{handle}/{code}/info", get(info::info))
         .route("/@{handle}/{code}/qr", get(qr::qr_code))
+        .nest("/api", api_router)
         .with_state(state)
 }
 
@@ -156,7 +159,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/shorten")
+                    .uri("/api/shorten")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -207,7 +210,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/shorten/abc123")
+                    .uri("/api/shorten/abc123")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -224,7 +227,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/shorten/abc123")
+                    .uri("/api/shorten/abc123")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -240,7 +243,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/health")
+                    .uri("/api/health")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -266,7 +269,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/health")
+                    .uri("/api/health")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -295,7 +298,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/health")
+                    .uri("/api/health")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -318,7 +321,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/shorten/abc123")
+                    .uri("/api/shorten/abc123")
                     .header("cookie", "session=notadid|session123")
                     .body(Body::empty())
                     .unwrap(),
@@ -336,7 +339,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("DELETE")
-                    .uri("/shorten/abc123")
+                    .uri("/api/shorten/abc123")
                     .header("cookie", "session=did:web:example.com|nonexistent_session")
                     .body(Body::empty())
                     .unwrap(),
@@ -353,7 +356,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/login")
+                    .uri("/api/login")
                     .body(Body::empty())
                     .unwrap(),
             )

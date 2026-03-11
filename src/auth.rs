@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::{FromRequestParts, Query, State};
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::Json;
+use axum::{Form, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
 use jacquard::identity::JacquardResolver;
@@ -70,12 +70,31 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
     }
 }
 
+/// Returns true if the base URL is a loopback address (http://localhost or http://127.0.0.1).
+fn is_loopback_base_url(base_url: &str) -> bool {
+    base_url.starts_with("http://127.0.0.1") || base_url.starts_with("http://localhost")
+}
+
 /// Build the OAuth client for the given base URL.
 pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
-    let client_id = Url::parse(&format!(
-        "{base_url}/.well-known/oauth-client-metadata.json"
-    ))
-    .unwrap();
+    // Loopback client_id must be "http://localhost" with scope and redirect_uri
+    // encoded as query params — the PDS derives metadata from these params
+    // without fetching any URL. Discoverable (production) clients use the full
+    // metadata URL with https://.
+    let client_id = if is_loopback_base_url(base_url) {
+        let scope = urlencoding::encode("atproto transition:generic");
+        let redir_raw = format!("{base_url}/oauth/callback");
+        let redir = urlencoding::encode(&redir_raw);
+        Url::parse(&format!(
+            "http://localhost?scope={scope}&redirect_uri={redir}"
+        ))
+        .unwrap()
+    } else {
+        Url::parse(&format!(
+            "{base_url}/.well-known/oauth-client-metadata.json"
+        ))
+        .unwrap()
+    };
     let redirect_uri = Url::parse(&format!("{base_url}/oauth/callback")).unwrap();
     let client_uri = Url::parse(base_url).unwrap();
 
@@ -100,8 +119,16 @@ pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
 /// Serve OAuth client metadata for atproto OAuth discovery.
 pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let base = &state.config.base_url;
+    let client_id = if is_loopback_base_url(base) {
+        let scope = urlencoding::encode("atproto transition:generic");
+        let redir_raw = format!("{base}/oauth/callback");
+        let redir = urlencoding::encode(&redir_raw);
+        format!("http://localhost?scope={scope}&redirect_uri={redir}")
+    } else {
+        format!("{base}/.well-known/oauth-client-metadata.json")
+    };
     Json(serde_json::json!({
-        "client_id": format!("{base}/.well-known/oauth-client-metadata.json"),
+        "client_id": client_id,
         "client_name": "atpr.to URL Shortener",
         "client_uri": base,
         "redirect_uris": [format!("{base}/oauth/callback")],
@@ -124,12 +151,12 @@ pub struct LoginRequest {
 /// Start OAuth login flow. User submits their handle.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn login(State(state): State<Arc<AppState>>, Json(body): Json<LoginRequest>) -> Response {
+pub async fn login(State(state): State<Arc<AppState>>, Form(body): Form<LoginRequest>) -> Response {
     let options = AuthorizeOptions::default();
-
+    tracing::debug!("login: handle={}", body.handle);
     match state.oauth.start_auth(&body.handle, options).await {
-        Ok(auth_url) => Redirect::temporary(&auth_url).into_response(),
-        Err(e) => error::bad_request(&format!("Failed to start auth: {e}")),
+        Ok(auth_url) => Redirect::to(&auth_url).into_response(),
+        Err(e) => error::bad_request(&format!("Failed to start auth: {e:#?}")),
     }
 }
 // coverage:excl-stop
@@ -163,10 +190,11 @@ pub async fn oauth_callback(
             let (did, session_id) = session.session_info().await;
 
             let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_ref());
+            let secure = !is_loopback_base_url(&state.config.base_url);
             let cookie = Cookie::build(("session", cookie_value))
                 .path("/")
                 .http_only(true)
-                .secure(true)
+                .secure(secure)
                 .same_site(SameSite::Lax)
                 .max_age(time::Duration::days(30));
 

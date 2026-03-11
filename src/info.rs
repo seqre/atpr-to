@@ -14,8 +14,7 @@ use crate::AppState;
 #[template(path = "info.html")]
 struct InfoTemplate {
     url: String,
-    created_at: Option<String>,
-    expires_at: Option<String>,
+    updated_at: Option<String>,
     handle: String,
     code: String,
     qr_svg: String,
@@ -46,8 +45,7 @@ pub async fn info(
 
     let tmpl = InfoTemplate {
         url: link.url,
-        created_at: link.created_at,
-        expires_at: link.expires_at,
+        updated_at: link.updated_at,
         handle,
         code,
         qr_svg,

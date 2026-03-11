@@ -1,5 +1,6 @@
 # All values overridable via ATPR__ env vars (nested: ATPR__RATE_LIMIT__PER_SECOND)
-base_url = "https://atpr.to"
+#base_url = "https://atpr.to"
+base_url = "http://127.0.0.1:9000"
 slingshot_url = "https://slingshot.microcosm.blue/"
 
 [rate_limit]

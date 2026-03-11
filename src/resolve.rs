@@ -14,10 +14,8 @@ use crate::AppState;
 pub(crate) struct ResolvedLink {
     /// The destination URL to redirect to.
     pub url: String,
-    /// Creation datetime string (ISO 8601).
-    pub created_at: Option<String>,
-    /// Optional expiry datetime string (ISO 8601).
-    pub expires_at: Option<String>,
+    /// Last-modified datetime string (ISO 8601).
+    pub updated_at: Option<String>,
 }
 
 /// Try to resolve via Slingshot (2-hop: resolveHandle + getRecord).
@@ -67,20 +65,12 @@ pub(crate) async fn resolve_via_slingshot(
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("Slingshot getRecord missing url field"))?
         .to_string();
-    let created_at = value
-        .get("createdAt")
+    let updated_at = value
+        .get("updatedAt")
         .and_then(|c| c.as_str())
         .map(|s| s.to_string());
-    let expires_at = value
-        .get("expiresAt")
-        .and_then(|e| e.as_str())
-        .map(|s| s.to_string());
 
-    Ok(ResolvedLink {
-        url,
-        created_at,
-        expires_at,
-    })
+    Ok(ResolvedLink { url, updated_at })
 }
 
 /// Resolve via direct 3-hop path: handle → DID → DID doc → PDS getRecord.
@@ -131,20 +121,12 @@ async fn resolve_via_direct(
         .and_then(|u| u.as_str())
         .ok_or_else(|| anyhow::anyhow!("PDS getRecord missing url field"))?
         .to_string();
-    let created_at = value
-        .get("createdAt")
+    let updated_at = value
+        .get("updatedAt")
         .and_then(|c| c.as_str())
         .map(|s| s.to_string());
-    let expires_at = value
-        .get("expiresAt")
-        .and_then(|e| e.as_str())
-        .map(|s| s.to_string());
 
-    Ok(ResolvedLink {
-        url,
-        created_at,
-        expires_at,
-    })
+    Ok(ResolvedLink { url, updated_at })
 }
 // coverage:excl-stop
 
@@ -213,15 +195,6 @@ pub async fn resolve(
             }
         }
     };
-
-    // Check expiry
-    if let Some(ref expires_at) = link.expires_at {
-        if let Ok(expiry) = chrono::DateTime::parse_from_rfc3339(expires_at) {
-            if expiry < chrono::Utc::now() {
-                return error::gone("This link has expired.");
-            }
-        }
-    }
 
     Redirect::temporary(&link.url).into_response()
 }

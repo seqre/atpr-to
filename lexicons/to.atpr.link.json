@@ -8,11 +8,10 @@
       "key": "any",
       "record": {
         "type": "object",
-        "required": ["url", "createdAt"],
+        "required": ["url", "updatedAt"],
         "properties": {
           "url": { "type": "string", "format": "uri", "maxLength": 2048 },
-          "createdAt": { "type": "string", "format": "datetime" },
-          "expiresAt": { "type": "string", "format": "datetime" }
+          "updatedAt": { "type": "string", "format": "datetime" }
         }
       }
     }

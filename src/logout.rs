@@ -25,7 +25,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/logout")
+                    .uri("/api/logout")
                     .header("cookie", "session=did:plc:test|sess123")
                     .body(Body::empty())
                     .unwrap(),
@@ -60,7 +60,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .method("POST")
-                    .uri("/logout")
+                    .uri("/api/logout")
                     .body(Body::empty())
                     .unwrap(),
             )

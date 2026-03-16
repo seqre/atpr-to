@@ -35,6 +35,7 @@ struct HomeTemplate {}
 #[template(path = "dashboard.html")]
 struct DashboardTemplate {
     handle: String,
+    avatar: Option<String>,
     links: Vec<LinkEntry>,
 }
 
@@ -51,6 +52,24 @@ pub async fn home(jar: CookieJar) -> Response {
         Err(e) => error::internal_error(&format!("Template error: {e}")),
     }
 }
+
+// coverage:excl-start
+async fn fetch_bsky_avatar(client: &reqwest::Client, did: &str) -> Option<String> {
+    let url = format!(
+        "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={}",
+        urlencoding::encode(did),
+    );
+    let body: serde_json::Value = client
+        .get(&url)
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    body.get("avatar").and_then(|a| a.as_str()).map(str::to_owned)
+}
+// coverage:excl-stop
 
 /// Serve the user dashboard (authenticated).
 ///
@@ -116,12 +135,13 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
         Err(_) => vec![],
     };
 
-    let handle =
-        crate::shorten::resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
-            .await
-            .unwrap_or(did_str);
+    let (handle, avatar) = tokio::join!(
+        crate::shorten::resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str),
+        fetch_bsky_avatar(&state.http, &did_str),
+    );
+    let handle = handle.unwrap_or(did_str);
 
-    let tmpl = DashboardTemplate { handle, links };
+    let tmpl = DashboardTemplate { handle, avatar, links };
     match tmpl.render() {
         Ok(html) => Html(html).into_response(),
         Err(e) => error::internal_error(&format!("Template error: {e}")),

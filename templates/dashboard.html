@@ -3,6 +3,7 @@
 {% block content %}
 <h1>atpr.to</h1>
 <div style="float:right;display:flex;align-items:center;gap:0.75em">
+  {% if let Some(av) = avatar %}<img src="{{ av }}" style="width:1.75em;height:1.75em;border-radius:50%;vertical-align:middle">{% endif %}
   <span style="color:#555">{{ handle }}</span>
   <form action="/api/logout" method="post">
     <button type="submit" style="background:#c0392b;border-color:#c0392b;color:#fff">Sign out</button>
@@ -25,6 +26,7 @@
     {% endif %}
   </div>
 </div>
+<div style="overflow-y:auto;min-height:22em;max-height:calc(100vh - 16em)">
 {% if links.is_empty() %}
 <p>No links yet.</p>
 {% else %}
@@ -35,7 +37,7 @@
     <col style="width:14em">
     <col style="width:5.5em">
   </colgroup>
-  <thead><tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr></thead>
+  <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr></thead>
   <tbody>
   {% for link in links %}
   <tr>
@@ -50,6 +52,7 @@
   </tbody>
 </table>
 {% endif %}
+</div>
 
 <script>
 const API = '/api';

@@ -561,3 +561,14 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 - `templates/dashboard.html`: Added ☀/☾ toggle button in nav that flips `data-theme` and persists to `localStorage`
 
 **Tests:** All passing
+
+## Step D: Dashboard polish ✅
+
+**Implemented:**
+- D1: `static/app.css` — `nav.top-nav .user-info form` rule (flex, margin:0); removed inline `style="margin:0"` from template
+- D2: Action buttons use Pico grid (QR+Edit side by side, Delete full width below); font 0.9rem / padding 0.3rem 0.6rem
+- D3: Loading spinners via `aria-busy`: `loading` on Shorten button, `link.deleting`/`link.saving` per row; all async methods wrap in try/finally
+- D4: Search bar widened from 12rem to 20rem
+- New test: `test_dashboard_action_buttons_grid`
+
+**Tests:** All passing

@@ -11,11 +11,12 @@
     newUrl: '',
     newCode: '',
     formError: '',
+    loading: false,
     async init() {
       try {
         const r = await fetch('/api/links');
         const d = await r.json();
-        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url}));
+        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url, deleting: false, saving: false}));
       } catch {}
     },
     matches(link) {
@@ -34,30 +35,40 @@
     },
     async shorten() {
       this.formError = '';
-      const body = {url: this.newUrl};
-      if (this.newCode) body.code = this.newCode;
-      const r = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-      });
-      if (r.ok) {
-        const d = await r.json();
-        const code = this.newCode || d.short_url.split('/').pop();
-        this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl});
-        this.newUrl = '';
-        this.newCode = '';
-      } else {
-        this.formError = await r.text();
+      this.loading = true;
+      try {
+        const body = {url: this.newUrl};
+        if (this.newCode) body.code = this.newCode;
+        const r = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const code = this.newCode || d.short_url.split('/').pop();
+          this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl, deleting: false, saving: false});
+          this.newUrl = '';
+          this.newCode = '';
+        } else {
+          this.formError = await r.text();
+        }
+      } finally {
+        this.loading = false;
       }
     },
     async deleteLink(link) {
       if (!confirm('Delete ' + link.code + '?')) return;
-      const r = await fetch('/api/shorten/' + link.code, {method: 'DELETE'});
-      if (r.ok) {
-        this.links = this.links.filter(l => l.code !== link.code);
-      } else {
-        alert('Error: ' + await r.text());
+      link.deleting = true;
+      try {
+        const r = await fetch('/api/shorten/' + link.code, {method: 'DELETE'});
+        if (r.ok) {
+          this.links = this.links.filter(l => l.code !== link.code);
+        } else {
+          alert('Error: ' + await r.text());
+        }
+      } finally {
+        link.deleting = false;
       }
     },
     async openQr(link) {
@@ -69,16 +80,21 @@
       }
     },
     async confirmEdit(link) {
-      const r = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url: link.editUrl, code: link.code})
-      });
-      if (r.ok) {
-        link.url = link.editUrl;
-        link.editing = false;
-      } else {
-        alert('Error: ' + await r.text());
+      link.saving = true;
+      try {
+        const r = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({url: link.editUrl, code: link.code})
+        });
+        if (r.ok) {
+          link.url = link.editUrl;
+          link.editing = false;
+        } else {
+          alert('Error: ' + await r.text());
+        }
+      } finally {
+        link.saving = false;
       }
     }
   }"
@@ -94,7 +110,7 @@
       </button>
       <img x-show="avatar" :src="avatar" alt="">
       <span x-text="handle"></span>
-      <form action="/api/logout" method="post" style="margin:0">
+      <form action="/api/logout" method="post">
         <button type="submit" class="signout secondary outline">Sign out</button>
       </form>
     </div>
@@ -106,7 +122,7 @@
       <div class="grid">
         <input x-model="newUrl" type="url" placeholder="https://example.com/long-url" required>
         <input x-model="newCode" type="text" placeholder="custom code (optional)">
-        <button type="submit">Shorten</button>
+        <button type="submit" :aria-busy="loading">Shorten</button>
       </div>
       <p class="inline-error" x-show="formError" x-text="formError"></p>
     </form>
@@ -120,7 +136,7 @@
           @click="showUTC = !showUTC"
           x-text="showUTC ? 'Show local time' : 'Show UTC'">
         </button>
-        <input x-model="query" type="search" placeholder="Search…" style="width:12rem" aria-label="Filter links">
+        <input x-model="query" type="search" placeholder="Search…" style="width:20rem" aria-label="Filter links">
       </div>
     </div>
 
@@ -146,19 +162,21 @@
                 <input x-show="link.editing" x-model="link.editUrl" type="url" style="margin:0;padding:0.2em 0.4em">
               </td>
               <td x-text="fmtDate(link.updated_at)"></td>
-              <td style="display:flex;gap:0.25rem;flex-wrap:wrap">
+              <td>
                 <template x-if="!link.editing">
-                  <span style="display:contents">
-                    <button type="button" class="outline secondary" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="openQr(link)">QR</button>
-                    <button type="button" class="outline" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
-                    <button type="button" class="outline contrast" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="deleteLink(link)">Delete</button>
-                  </span>
+                  <div>
+                    <div class="grid" style="gap:0.25rem;--pico-grid-column-min:0">
+                      <button type="button" class="outline secondary" style="padding:0.3rem 0.6rem;font-size:0.9rem" @click="openQr(link)">QR</button>
+                      <button type="button" class="outline" style="padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
+                    </div>
+                    <button type="button" class="outline contrast" style="width:100%;margin-top:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
+                  </div>
                 </template>
                 <template x-if="link.editing">
-                  <span style="display:contents">
-                    <button type="button" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="confirmEdit(link)">Save</button>
-                    <button type="button" class="outline secondary" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="link.editing=false">Cancel</button>
-                  </span>
+                  <div>
+                    <button type="button" style="width:100%;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
+                    <button type="button" class="outline secondary" style="width:100%;margin-top:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=false">Cancel</button>
+                  </div>
                 </template>
               </td>
             </tr>

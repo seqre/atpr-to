@@ -194,6 +194,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_dashboard_action_buttons_grid() {
+        let html = super::render_dashboard_template();
+        assert!(html.contains("aria-busy"), "expected aria-busy on action buttons");
+        assert!(html.contains("link.deleting"), "expected link.deleting binding");
+        assert!(html.contains("link.saving"), "expected link.saving binding");
+        assert!(html.contains("width:100%"), "expected full-width delete button");
+        assert!(html.contains("width:20rem"), "expected wider search bar");
+    }
+
+    #[tokio::test]
     async fn test_dashboard_redirects_without_auth() {
         let app = router();
         let response = app

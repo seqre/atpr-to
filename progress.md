@@ -582,3 +582,10 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 - New tests: button text, debounce, placeholder array/binding
 
 **Tests:** 64 passing
+
+## Step F: Error page wider ✅
+
+**Implemented:**
+- `templates/error.html`: `max-width:32rem` → `max-width:52rem`
+
+**Tests:** All passing

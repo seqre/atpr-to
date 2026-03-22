@@ -7,10 +7,14 @@ edition = "2021"
 axum = { version = "0.8.8", features = ["macros"] }
 axum-extra = { version = "0.10", features = ["cookie"] }
 chrono = { version = "0.4", features = ["serde"] }
-jacquard = { version = "0.9" }
-jacquard-common = { version = "0.9" }
-jacquard-derive = { version = "0.9" }
-jacquard-lexicon = { version = "0.9" }
+jacquard = { version = "0.11" }
+jacquard-common = { version = "0.11" }
+jacquard-derive = { version = "0.11" }
+jacquard-lexicon = { version = "0.11" }
+#jacquard = { path = "../jacquard/crates/jacquard" }
+#jacquard-common = { path = "../jacquard/crates/jacquard-common" }
+#jacquard-derive = { path = "../jacquard/crates/jacquard-derive" }
+#jacquard-lexicon = { path = "../jacquard/crates/jacquard-lexicon" }
 lambda_http = "1.0.0"
 inventory = "0.3"
 rustversion = "1"
@@ -33,7 +37,8 @@ rust-embed = "8"
 mime_guess = "2"
 
 [build-dependencies]
-jacquard-lexicon = { version = "0.9", features = ["codegen"] }
+jacquard-lexicon = { version = "0.11", features = ["codegen"] }
+#jacquard-lexicon = { path = "../jacquard/crates/jacquard-lexicon", features = ["codegen"] }
 
 [dev-dependencies]
 wiremock = "0.6.5"

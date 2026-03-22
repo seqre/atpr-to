@@ -141,6 +141,14 @@ dialog article {
   text-align: center;
 }
 
+dialog article.delete-dialog {
+  max-width: 30rem;
+}
+
+dialog article.delete-dialog footer button {
+  min-width: 7rem;
+}
+
 dialog article .qr-svg svg {
   width: 100%;
   height: auto;
@@ -177,8 +185,79 @@ dialog article footer {
 
 .section-controls {
   display: flex;
-  gap: 0.5rem;
+  gap: 1.5rem;
   align-items: center;
+}
+
+.search-wrap {
+  position: relative;
+}
+
+.search-wrap input {
+  margin-bottom: 0;
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  font-size: 1.1rem;
+  color: var(--pico-muted-color);
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  color: var(--pico-color);
+}
+
+.new-link-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pico-spacing);
+  align-items: flex-start;
+}
+
+.new-link-form input[type="url"] {
+  flex: 3 1 16rem;
+  margin-bottom: 0;
+}
+
+.new-link-form input[type="text"] {
+  flex: 2 1 12rem;
+  margin-bottom: 0;
+}
+
+.new-link-form button[type="submit"] {
+  flex: 1 0 auto;
+  margin-bottom: 0;
+}
+
+.action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+}
+
+.action-buttons button {
+  margin: 0;
+  width: 100%;
+}
+
+button.btn-danger {
+  color: #e05c5c !important;
+  border-color: #e05c5c !important;
+}
+
+button.btn-danger:hover,
+button.btn-danger:focus {
+  background: #e05c5c !important;
+  color: #fff !important;
 }
 
 /* Error page card */

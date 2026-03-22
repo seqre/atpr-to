@@ -12,12 +12,19 @@
     newCode: '',
     formError: '',
     loading: false,
+    pendingDelete: null,
     async init() {
       try {
         const r = await fetch('/api/links');
         const d = await r.json();
-        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url, deleting: false, saving: false}));
+        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url, deleting: false, saving: false, copied: false}));
       } catch {}
+    },
+    async copyLink(link) {
+      const url = window.location.origin + '/@' + this.handle + '/' + link.code;
+      await navigator.clipboard.writeText(url);
+      link.copied = true;
+      setTimeout(() => link.copied = false, 1500);
     },
     matches(link) {
       if (!this.query) return true;
@@ -47,7 +54,7 @@
         if (r.ok) {
           const d = await r.json();
           const code = this.newCode || d.short_url.split('/').pop();
-          this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl, deleting: false, saving: false});
+          this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl, deleting: false, saving: false, copied: false});
           this.newUrl = '';
           this.newCode = '';
         } else {
@@ -57,13 +64,20 @@
         this.loading = false;
       }
     },
-    async deleteLink(link) {
-      if (!confirm('Delete ' + link.code + '?')) return;
+    deleteLink(link) {
+      this.pendingDelete = link;
+      this.$nextTick(() => this.$refs.deleteDialog.showModal());
+    },
+    async confirmDelete() {
+      const link = this.pendingDelete;
+      if (!link) return;
       link.deleting = true;
       try {
         const r = await fetch('/api/shorten/' + link.code, {method: 'DELETE'});
         if (r.ok) {
           this.links = this.links.filter(l => l.code !== link.code);
+          this.$refs.deleteDialog.close();
+          this.pendingDelete = null;
         } else {
           alert('Error: ' + await r.text());
         }
@@ -119,7 +133,7 @@
   <section>
     <h2>New link</h2>
     <form @submit.prevent="shorten()">
-      <div class="grid">
+      <div class="new-link-form">
         <input x-model="newUrl" type="url" placeholder="https://example.com/long-url" required>
         <input x-model="newCode" type="text" placeholder="custom code (optional)">
         <button type="submit" :aria-busy="loading">Shorten</button>
@@ -136,7 +150,10 @@
           @click="showUTC = !showUTC"
           x-text="showUTC ? 'Show local time' : 'Show UTC'">
         </button>
-        <input x-model="query" type="search" placeholder="Search…" style="width:20rem" aria-label="Filter links">
+        <div class="search-wrap">
+          <input x-model="query" type="text" placeholder="Search…" style="width:20rem" aria-label="Filter links">
+          <button type="button" class="search-clear" x-show="query" @click="query=''" aria-label="Clear search">&times;</button>
+        </div>
       </div>
     </div>
 
@@ -146,10 +163,10 @@
           <col style="width:8em">
           <col>
           <col style="width:13em">
-          <col style="width:8.5em">
+          <col style="width:14em">
         </colgroup>
         <thead>
-          <tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr>
+          <tr><th>Code</th><th>Destination</th><th>Last modified</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <template x-for="link in links" :key="link.code">
@@ -164,12 +181,11 @@
               <td x-text="fmtDate(link.updated_at)"></td>
               <td>
                 <template x-if="!link.editing">
-                  <div>
-                    <div class="grid" style="gap:0.25rem;margin-bottom:0.25rem">
-                      <button type="button" class="outline secondary btn-compact" @click="openQr(link)">QR</button>
-                      <button type="button" class="outline btn-compact" @click="link.editing=true; link.editUrl=link.url">Edit</button>
-                    </div>
-                    <button type="button" class="outline contrast btn-compact" style="width:100%" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
+                  <div class="action-buttons">
+                    <button type="button" class="outline secondary btn-compact" @click="openQr(link)">QR</button>
+                    <button type="button" class="outline secondary btn-compact" @click="copyLink(link)" x-text="link.copied ? '✓ Copied' : 'Copy'"></button>
+                    <button type="button" class="outline btn-compact" @click="link.editing=true; link.editUrl=link.url">Edit</button>
+                    <button type="button" class="outline btn-compact btn-danger" @click="deleteLink(link)">Delete</button>
                   </div>
                 </template>
                 <template x-if="link.editing">
@@ -188,6 +204,18 @@
       </table>
     </div>
   </section>
+
+  <!-- Delete confirmation dialog -->
+  <dialog x-ref="deleteDialog">
+    <article class="delete-dialog">
+      <h3>Delete link?</h3>
+      <p>This will permanently delete <strong x-text="pendingDelete?.code"></strong> from your PDS.</p>
+      <footer>
+        <button type="button" class="secondary outline" @click="$refs.deleteDialog.close(); pendingDelete=null">Cancel</button>
+        <button type="button" class="outline btn-danger" @click="confirmDelete()">Delete</button>
+      </footer>
+    </article>
+  </dialog>
 
   <!-- QR code dialog -->
   <dialog x-ref="qrDialog">

@@ -7,7 +7,7 @@ use axum_extra::extract::CookieJar;
 /// No authentication required — clearing a non-existent cookie is harmless.
 pub async fn logout(jar: CookieJar) -> impl IntoResponse {
     let jar = jar.remove(Cookie::build(("session", "")).path("/"));
-    (jar, Redirect::temporary("/"))
+    (jar, Redirect::to("/"))
 }
 
 #[cfg(test)]
@@ -33,7 +33,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
         let set_cookie = response
             .headers()
@@ -72,7 +72,7 @@ mod tests {
             .unwrap();
 
         // Should succeed even without a session cookie
-        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response.headers().get("location").unwrap();
         assert_eq!(location, "/");
     }

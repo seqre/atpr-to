@@ -10,7 +10,7 @@ use jacquard::identity::JacquardResolver;
 use jacquard::oauth::atproto::{AtprotoClientMetadata, GrantType};
 use jacquard::oauth::authstore::MemoryAuthStore;
 use jacquard::oauth::client::OAuthClient;
-use jacquard::oauth::scopes::{Scope, TransitionScope};
+use jacquard::oauth::scopes::Scope;
 use jacquard::oauth::session::ClientData;
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
 use jacquard_common::types::did::Did;
@@ -82,7 +82,7 @@ pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
     // without fetching any URL. Discoverable (production) clients use the full
     // metadata URL with https://.
     let client_id = if is_loopback_base_url(base_url) {
-        let scope = urlencoding::encode("atproto transition:generic");
+        let scope = urlencoding::encode("atproto repo:to.atpr.link");
         let redir_raw = format!("{base_url}/oauth/callback");
         let redir = urlencoding::encode(&redir_raw);
         Url::parse(&format!(
@@ -103,7 +103,7 @@ pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
         Some(client_uri),
         vec![redirect_uri],
         vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
-        vec![Scope::Atproto, Scope::Transition(TransitionScope::Generic)],
+        Scope::parse_multiple_reduced("atproto repo:to.atpr.link").unwrap(),
         None, // jwks_uri — keyset: None auto-generates ES256
     )
     .with_prod_info("atpr.to URL Shortener", None, None, None);
@@ -120,7 +120,7 @@ pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
 pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let base = &state.config.base_url;
     let client_id = if is_loopback_base_url(base) {
-        let scope = urlencoding::encode("atproto transition:generic");
+        let scope = urlencoding::encode("atproto repo:to.atpr.link");
         let redir_raw = format!("{base}/oauth/callback");
         let redir = urlencoding::encode(&redir_raw);
         format!("http://localhost?scope={scope}&redirect_uri={redir}")
@@ -135,7 +135,7 @@ pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_j
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
-        "scope": "atproto transition:generic",
+        "scope": "atproto repo:to.atpr.link",
         "application_type": "web",
         "dpop_bound_access_tokens": true
     }))

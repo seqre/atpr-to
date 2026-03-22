@@ -543,3 +543,13 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 - Updated test assertion to also check for `Path=/` in the Set-Cookie header.
 
 **Tests:** All passing
+
+## Step B: OAuth scope → `atproto repo:to.atpr.link` ✅
+
+**Implemented:**
+- `src/auth.rs`: Replaced `vec![Scope::Atproto, Scope::Transition(TransitionScope::Generic)]` with `Scope::parse_multiple_reduced("atproto repo:to.atpr.link").unwrap()`
+- Loopback client_id scope URL-encoded string updated in both `build_oauth_client` and `client_metadata`
+- JSON `"scope"` field in `client_metadata` updated
+- Removed unused `TransitionScope` import
+
+**Tests:** All passing

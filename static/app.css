@@ -105,7 +105,7 @@ nav.top-nav .user-info form > * {
 
 /* Table overflow wrapper */
 .table-wrap {
-  overflow-y: auto;
+  overflow-y: scroll;
   max-height: calc(100vh - 22rem);
   min-height: 10rem;
 }
@@ -386,6 +386,18 @@ button.btn-danger:focus {
 }
 .live-op-create { color: var(--pico-ins-color); }
 .live-op-update { color: var(--pico-color); }
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+th.sortable:hover {
+  color: var(--pico-primary);
+}
+.sort-indicator {
+  font-size: 0.75em;
+  opacity: 0.6;
+}
 
 .landing-footer {
   position: fixed;

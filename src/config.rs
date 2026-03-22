@@ -11,6 +11,10 @@ pub struct Config {
     pub rate_limit: RateLimitConfig,
     /// `Cache-Control: max-age` value (seconds) for static files.
     pub static_cache_max_age: u32,
+    /// Path to the session store JSON file.
+    /// Empty string (default) = in-memory store; any path = file-backed store.
+    #[serde(default)]
+    pub session_file: String,
 }
 
 impl Default for Config {
@@ -20,6 +24,7 @@ impl Default for Config {
             slingshot_url: "https://slingshot.microcosm.blue/".to_string(),
             rate_limit: RateLimitConfig::default(),
             static_cache_max_age: 15,
+            session_file: String::new(),
         }
     }
 }
@@ -55,6 +60,8 @@ pub fn load() -> Config {
         .set_default("rate_limit.burst_size", 10u32)
         .unwrap()
         .set_default("static_cache_max_age", 15u32)
+        .unwrap()
+        .set_default("session_file", "")
         .unwrap()
         .add_source(config::File::with_name("Config").required(false))
         .add_source(

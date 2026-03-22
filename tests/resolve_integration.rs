@@ -14,7 +14,7 @@ async fn test_state(slingshot_url: String) -> Arc<AppState> {
         ..atpr_to::config::Config::default()
     };
     Arc::new(AppState {
-        oauth: atpr_to::auth::build_oauth_client(&config.base_url),
+        oauth: atpr_to::auth::build_oauth_client(&config.base_url, &config.session_file),
         http: reqwest::Client::new(),
         config,
     })

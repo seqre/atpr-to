@@ -93,6 +93,25 @@
         this.$nextTick(() => this.$refs.qrDialog.showModal());
       }
     },
+    sortBy: 'updated_at',
+    sortDir: 'desc',
+    toggleSort(col) {
+      if (this.sortBy === col) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortBy = col;
+        this.sortDir = col === 'updated_at' ? 'desc' : 'asc';
+      }
+    },
+    get sortedLinks() {
+      const filtered = this.links.filter(l => this.matches(l));
+      return filtered.slice().sort((a, b) => {
+        let av = a[this.sortBy] ?? '';
+        let bv = b[this.sortBy] ?? '';
+        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        return this.sortDir === 'asc' ? cmp : -cmp;
+      });
+    },
     async confirmEdit(link) {
       link.saving = true;
       try {
@@ -166,11 +185,16 @@
           <col style="width:14em">
         </colgroup>
         <thead>
-          <tr><th>Code</th><th>Destination</th><th>Last modified</th><th>Actions</th></tr>
+          <tr>
+            <th @click="toggleSort('code')" class="sortable">Code <span class="sort-indicator" x-text="sortBy==='code' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
+            <th @click="toggleSort('url')" class="sortable">Destination <span class="sort-indicator" x-text="sortBy==='url' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
+            <th @click="toggleSort('updated_at')" class="sortable">Last modified <span class="sort-indicator" x-text="sortBy==='updated_at' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          <template x-for="link in links" :key="link.code">
-            <tr x-show="matches(link)">
+          <template x-for="link in sortedLinks" :key="link.code">
+            <tr>
               <td x-text="link.code"></td>
               <td class="url-cell">
                 <span x-show="!link.editing">

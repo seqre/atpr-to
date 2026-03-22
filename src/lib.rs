@@ -51,7 +51,7 @@ pub fn router() -> Router {
     let config = config::load();
 
     let state = Arc::new(AppState {
-        oauth: auth::build_oauth_client(&config.base_url),
+        oauth: auth::build_oauth_client(&config.base_url, &config.session_file),
         http: reqwest::Client::new(),
         config,
     });
@@ -139,7 +139,7 @@ mod tests {
             ..config::Config::default()
         };
         std::sync::Arc::new(AppState {
-            oauth: auth::build_oauth_client(&cfg.base_url),
+            oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_file),
             http: reqwest::Client::new(),
             config: cfg,
         })

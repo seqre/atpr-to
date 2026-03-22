@@ -6,13 +6,15 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::{Form, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
+use jacquard::client::FileAuthStore;
 use jacquard::identity::JacquardResolver;
 use jacquard::oauth::atproto::{AtprotoClientMetadata, GrantType};
-use jacquard::oauth::authstore::MemoryAuthStore;
+use jacquard::oauth::authstore::{ClientAuthStore, MemoryAuthStore};
 use jacquard::oauth::client::OAuthClient;
 use jacquard::oauth::scopes::Scope;
-use jacquard::oauth::session::ClientData;
+use jacquard::oauth::session::{AuthRequestData, ClientData, ClientSessionData};
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
+use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 use serde::Deserialize;
 use url::Url;
@@ -20,11 +22,80 @@ use url::Url;
 use crate::error;
 use crate::AppState;
 
+/// Wraps either a memory-backed or file-backed OAuth session store.
+pub enum AuthStore {
+    /// In-memory store (sessions lost on restart).
+    Memory(MemoryAuthStore),
+    /// File-backed store (sessions persist across restarts).
+    File(FileAuthStore),
+}
+
+impl ClientAuthStore for AuthStore {
+    async fn get_session(
+        &self,
+        did: &Did<'_>,
+        session_id: &str,
+    ) -> Result<Option<ClientSessionData<'_>>, SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.get_session(did, session_id).await,
+            AuthStore::File(s) => s.get_session(did, session_id).await,
+        }
+    }
+
+    async fn upsert_session(
+        &self,
+        session: ClientSessionData<'_>,
+    ) -> Result<(), SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.upsert_session(session).await,
+            AuthStore::File(s) => s.upsert_session(session).await,
+        }
+    }
+
+    async fn delete_session(
+        &self,
+        did: &Did<'_>,
+        session_id: &str,
+    ) -> Result<(), SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.delete_session(did, session_id).await,
+            AuthStore::File(s) => s.delete_session(did, session_id).await,
+        }
+    }
+
+    async fn get_auth_req_info(
+        &self,
+        state: &str,
+    ) -> Result<Option<AuthRequestData<'_>>, SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.get_auth_req_info(state).await,
+            AuthStore::File(s) => s.get_auth_req_info(state).await,
+        }
+    }
+
+    async fn save_auth_req_info(
+        &self,
+        auth_req_info: &AuthRequestData<'_>,
+    ) -> Result<(), SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.save_auth_req_info(auth_req_info).await,
+            AuthStore::File(s) => s.save_auth_req_info(auth_req_info).await,
+        }
+    }
+
+    async fn delete_auth_req_info(&self, state: &str) -> Result<(), SessionStoreError> {
+        match self {
+            AuthStore::Memory(s) => s.delete_auth_req_info(state).await,
+            AuthStore::File(s) => s.delete_auth_req_info(state).await,
+        }
+    }
+}
+
 /// Concrete OAuth client type used by this application.
-pub type OAuthClientType = OAuthClient<JacquardResolver, MemoryAuthStore>;
+pub type OAuthClientType = OAuthClient<JacquardResolver, AuthStore>;
 /// Concrete OAuth session type returned after a successful authorization.
 pub type OAuthSessionType =
-    jacquard::oauth::client::OAuthSession<JacquardResolver, MemoryAuthStore>;
+    jacquard::oauth::client::OAuthSession<JacquardResolver, AuthStore>;
 
 /// Axum extractor that restores an authenticated OAuth session from the session cookie.
 ///
@@ -75,8 +146,8 @@ fn is_loopback_base_url(base_url: &str) -> bool {
     base_url.starts_with("http://127.0.0.1") || base_url.starts_with("http://localhost")
 }
 
-/// Build the OAuth client for the given base URL.
-pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
+/// Build the OAuth client for the given base URL and optional session file path.
+pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType {
     // Loopback client_id must be "http://localhost" with scope and redirect_uri
     // encoded as query params — the PDS derives metadata from these params
     // without fetching any URL. Discoverable (production) clients use the full
@@ -113,7 +184,12 @@ pub fn build_oauth_client(base_url: &str) -> OAuthClientType {
         config,
     };
 
-    OAuthClient::new(MemoryAuthStore::new(), client_data)
+    let store = if session_file.is_empty() {
+        AuthStore::Memory(MemoryAuthStore::new())
+    } else {
+        AuthStore::File(FileAuthStore::new(session_file))
+    };
+    OAuthClient::new(store, client_data)
 }
 
 /// Serve OAuth client metadata for atproto OAuth discovery.
@@ -248,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_build_oauth_client() {
-        let _client = build_oauth_client("https://atpr.to");
+        let _client = build_oauth_client("https://atpr.to", "");
         // Just verify it doesn't panic during construction
     }
 
@@ -256,7 +332,7 @@ mod tests {
     async fn test_client_metadata_fields() {
         let config = Config::default();
         let state = Arc::new(AppState {
-            oauth: build_oauth_client(&config.base_url),
+            oauth: build_oauth_client(&config.base_url, &config.session_file),
             http: reqwest::Client::new(),
             config,
         });

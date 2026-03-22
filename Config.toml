@@ -2,6 +2,7 @@
 #base_url = "https://atpr.to"
 base_url = "http://127.0.0.1:9000"
 slingshot_url = "https://slingshot.microcosm.blue/"
+session_file = "sessions.json"
 
 [rate_limit]
 per_second = 2

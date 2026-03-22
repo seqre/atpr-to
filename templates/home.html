@@ -10,6 +10,8 @@
       query: '',
       suggestions: [],
       selected: '',
+      placeholders: ['you.bsky.social','you.eurosky.social','you.blacksky.community','you.northsky.social','you.selfhosted.social'],
+      placeholder: '',
       async search() {
         const q = this.query.trim();
         if (q.length < 2) { this.suggestions = []; return; }
@@ -25,6 +27,7 @@
         this.suggestions = [];
       }
     }"
+    x-init="placeholder = placeholders[Math.floor(Math.random() * placeholders.length)]"
   >
     <form action="/api/login" method="post">
       <div class="input-wrap">
@@ -32,11 +35,11 @@
           type="text"
           name="handle"
           x-model="query"
-          @input.debounce.300ms="search()"
+          @input.debounce.150ms="search()"
           @blur.window="setTimeout(() => suggestions = [], 200)"
           autocomplete="off"
           aria-autocomplete="list"
-          placeholder="you.bsky.social"
+          :placeholder="placeholder"
           required
         >
         <ul class="suggestions" x-show="suggestions.length > 0" x-cloak>
@@ -51,7 +54,7 @@
           </template>
         </ul>
       </div>
-      <button type="submit">Sign in with Bluesky</button>
+      <button type="submit">Sign in with AT Protocol identity</button>
     </form>
   </div>
 </div>

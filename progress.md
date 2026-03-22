@@ -572,3 +572,13 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 - New test: `test_dashboard_action_buttons_grid`
 
 **Tests:** All passing
+
+## Step E: Home page tweaks ✅
+
+**Implemented:**
+- Button text: "Sign in with Bluesky" → "Sign in with AT Protocol identity"
+- Debounce: 300ms → 150ms
+- Rotating placeholder: `placeholders` array + random pick on `x-init`, `:placeholder` binding
+- New tests: button text, debounce, placeholder array/binding
+
+**Tests:** 64 passing

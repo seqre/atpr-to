@@ -157,6 +157,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_home_button_text() {
+        let html = home_html().await;
+        assert!(
+            html.contains("AT Protocol identity"),
+            "expected AT Protocol identity button text"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_home_debounce_150ms() {
+        let html = home_html().await;
+        assert!(
+            html.contains("debounce.150ms"),
+            "expected 150ms debounce"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_home_rotating_placeholder() {
+        let html = home_html().await;
+        assert!(html.contains("placeholders:"), "expected placeholders array");
+        assert!(html.contains(":placeholder=\"placeholder\""), "expected :placeholder binding");
+        assert!(html.contains("eurosky.social"), "expected placeholder entries");
+    }
+
+    #[tokio::test]
     async fn test_home_has_main_container() {
         let html = home_html().await;
         assert!(html.contains("<main"), "expected <main element");

@@ -1,5 +1,6 @@
 //! atpr.to — AT Protocol URL shortener, deployed on AWS Lambda.
 #![warn(missing_docs)]
+extern crate alloc;
 
 /// AT Protocol OAuth login, callback, and session handling.
 pub mod auth;

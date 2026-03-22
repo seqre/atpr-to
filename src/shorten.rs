@@ -139,7 +139,7 @@ pub async fn shorten(
     }
 
     // Build the link record
-    let link_url = match jacquard_common::types::string::Uri::new(&body.url) {
+    let link_url = match jacquard_common::types::string::UriValue::new_owned(&body.url) {
         Ok(u) => u,
         Err(e) => {
             return (StatusCode::BAD_REQUEST, format!("Invalid URI: {e}")).into_response();

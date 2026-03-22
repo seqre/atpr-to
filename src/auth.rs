@@ -14,10 +14,10 @@ use jacquard::oauth::client::OAuthClient;
 use jacquard::oauth::scopes::Scope;
 use jacquard::oauth::session::{AuthRequestData, ClientData, ClientSessionData};
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
+use jacquard_common::deps::fluent_uri::Uri;
 use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 use serde::Deserialize;
-use url::Url;
 
 use crate::error;
 use crate::AppState;
@@ -156,27 +156,31 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
         let scope = urlencoding::encode("atproto repo:to.atpr.link");
         let redir_raw = format!("{base_url}/oauth/callback");
         let redir = urlencoding::encode(&redir_raw);
-        Url::parse(&format!(
+        Uri::parse(format!(
             "http://localhost?scope={scope}&redirect_uri={redir}"
         ))
         .unwrap()
     } else {
-        Url::parse(&format!(
+        Uri::parse(format!(
             "{base_url}/.well-known/oauth-client-metadata.json"
         ))
         .unwrap()
     };
-    let redirect_uri = Url::parse(&format!("{base_url}/oauth/callback")).unwrap();
-    let client_uri = Url::parse(base_url).unwrap();
+    let redirect_uri = Uri::parse(format!("{base_url}/oauth/callback")).unwrap();
+    let client_uri = Uri::parse(base_url.to_string()).unwrap();
 
-    let config = AtprotoClientMetadata::new(
+    let config = AtprotoClientMetadata {
         client_id,
-        Some(client_uri),
-        vec![redirect_uri],
-        vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
-        Scope::parse_multiple_reduced("atproto repo:to.atpr.link").unwrap(),
-        None, // jwks_uri — keyset: None auto-generates ES256
-    )
+        client_uri: Some(client_uri),
+        redirect_uris: vec![redirect_uri],
+        grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
+        scopes: Scope::parse_multiple_reduced("atproto repo:to.atpr.link").unwrap(),
+        jwks_uri: None,
+        client_name: None,
+        logo_uri: None,
+        tos_uri: None,
+        privacy_policy_uri: None,
+    }
     .with_prod_info("atpr.to URL Shortener", None, None, None);
 
     let client_data = ClientData {

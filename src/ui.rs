@@ -226,7 +226,7 @@ mod tests {
         assert!(html.contains("link.deleting"), "expected link.deleting binding");
         assert!(html.contains("link.saving"), "expected link.saving binding");
         assert!(html.contains("width:100%"), "expected full-width delete button");
-        assert!(html.contains("width:20rem"), "expected wider search bar");
+        assert!(html.contains("search-wrap"), "expected wider search bar");
     }
 
     #[tokio::test]

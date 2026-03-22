@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "to.atpr.fullPermissions",
+  "defs": {
+    "main": {
+      "title": "Full atpr.to permissions",
+      "detail": "Create, edit, and delete your atpr.to short links",
+      "type": "permission-set",
+      "permissions": [
+        {
+          "type": "permission",
+          "resource": "repo",
+          "collection": [
+            "to.atpr.link"
+          ]
+        }
+      ]
+    }
+  }
+}

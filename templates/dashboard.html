@@ -104,14 +104,14 @@
   <nav class="top-nav">
     <a href="/" class="brand">atpr.to</a>
     <div class="user-info">
-      <button type="button" class="outline secondary" style="padding:0.25rem 0.5rem;font-size:0.9rem"
+      <button type="button" class="outline secondary btn-compact"
         onclick="const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;localStorage.setItem('theme',t)">
         🌑/🌕
       </button>
       <img x-show="avatar" :src="avatar" alt="">
       <span x-text="handle"></span>
       <form action="/api/logout" method="post">
-        <button type="submit" class="signout secondary outline">Sign out</button>
+        <button type="submit" class="secondary outline btn-compact">Sign out</button>
       </form>
     </div>
   </nav>
@@ -129,10 +129,10 @@
   </section>
 
   <section>
-    <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <h2 style="margin:0">Your links</h2>
-      <div style="display:flex;gap:0.5rem;align-items:center">
-        <button type="button" class="outline secondary" style="padding:0.25rem 0.5rem;font-size:0.9rem"
+    <div class="section-header">
+      <h2>Your links</h2>
+      <div class="section-controls">
+        <button type="button" class="outline secondary btn-compact"
           @click="showUTC = !showUTC"
           x-text="showUTC ? 'Show local time' : 'Show UTC'">
         </button>
@@ -165,17 +165,17 @@
               <td>
                 <template x-if="!link.editing">
                   <div>
-                    <div class="grid" style="gap:0.25rem;margin-bottom:0.25rem;--pico-grid-column-min:0">
-                      <button type="button" class="outline secondary" style="margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="openQr(link)">QR</button>
-                      <button type="button" class="outline" style="margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
+                    <div class="grid" style="gap:0.25rem;margin-bottom:0.25rem">
+                      <button type="button" class="outline secondary btn-compact" @click="openQr(link)">QR</button>
+                      <button type="button" class="outline btn-compact" @click="link.editing=true; link.editUrl=link.url">Edit</button>
                     </div>
-                    <button type="button" class="outline contrast" style="width:100%;margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
+                    <button type="button" class="outline contrast btn-compact" style="width:100%" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
                   </div>
                 </template>
                 <template x-if="link.editing">
                   <div>
-                    <button type="button" style="width:100%;margin-bottom:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
-                    <button type="button" class="outline secondary" style="width:100%;margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=false">Cancel</button>
+                    <button type="button" class="btn-compact" style="width:100%" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
+                    <button type="button" class="outline secondary btn-compact" style="width:100%;margin-top:0.25rem" @click="link.editing=false">Cancel</button>
                   </div>
                 </template>
               </td>

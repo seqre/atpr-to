@@ -95,10 +95,12 @@ nav.top-nav .user-info form > * {
   margin-bottom: 0;
 }
 
-/* Compact sign-out button */
-button.signout {
-  padding: 0.25rem 0.6rem;
+/* Compact button variant — used for action buttons and nav controls */
+.btn-compact {
+  --pico-form-element-spacing-vertical: 0.3rem;
+  --pico-form-element-spacing-horizontal: 0.6rem;
   font-size: 0.9rem;
+  margin-bottom: 0;
 }
 
 /* Table overflow wrapper */
@@ -162,13 +164,156 @@ dialog article footer {
   margin: 2rem auto;
 }
 
+/* Section header with controls */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.section-header h2 {
+  margin: 0;
+}
+
+.section-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Error page card */
+.error-card {
+  max-width: 52rem;
+  margin: 2rem auto;
+}
+
 /* Landing page */
 .landing {
-  max-width: 28rem;
+  max-width: 56rem;
   margin: 4rem auto;
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 4rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .landing {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
 }
 
 .landing h1 {
   font-size: 2rem;
   margin-bottom: 0.25rem;
+}
+
+.landing-top,
+.landing-bottom {
+  min-width: 0;
+  grid-column: 1;
+}
+
+.landing-aside {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .landing-top,
+  .landing-bottom,
+  .landing-aside {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+.feature-list {
+  list-style: none !important;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  font-size: 0.9rem;
+}
+.feature-list li::marker {
+  content: none;
+}
+.feature-list li::before {
+  content: "✓ ";
+  color: var(--pico-primary);
+}
+
+.url-demo {
+  margin: 1rem 0 1.5rem;
+  min-height: 1.4rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.demo-url {
+  display: block;
+  transition: opacity 0.4s;
+}
+.demo-url.faded {
+  opacity: 0;
+}
+.demo-long {
+  color: var(--pico-muted-color);
+}
+.demo-short {
+  color: var(--pico-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.live-feed {
+  margin-top: 2rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+  padding-top: 1rem;
+}
+.live-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pico-muted-color);
+  margin-bottom: 0.5rem;
+}
+.live-waiting {
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+  font-style: italic;
+  margin: 0;
+}
+.live-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+.live-list li {
+  margin-bottom: 0.2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.live-op {
+  font-size: 0.7rem;
+  font-family: sans-serif;
+  opacity: 0.6;
+}
+.live-op-create { color: var(--pico-ins-color); }
+.live-op-update { color: var(--pico-color); }
+
+.landing-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 0.5rem 0.5rem 1rem;
+  color: var(--pico-muted-color);
 }

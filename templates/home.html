@@ -1,61 +1,161 @@
 {% extends "base.html" %}
 {% block title %}atpr.to — AT Protocol URL Shortener{% endblock %}
+{% block head %}
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('signIn', () => ({
+    query: '',
+    suggestions: [],
+    selected: '',
+    placeholders: ['you.bsky.social','you.eurosky.social','you.blacksky.community','you.northsky.social','you.selfhosted.social'],
+    placeholder: '',
+    init() {
+      this.placeholder = this.placeholders[Math.floor(Math.random() * this.placeholders.length)];
+      let i = this.placeholders.indexOf(this.placeholder);
+      setInterval(() => {
+        i = (i + 1) % this.placeholders.length;
+        this.placeholder = this.placeholders[i];
+      }, 5000);
+    },
+    async search() {
+      const q = this.query.trim();
+      if (q.length < 1) { this.suggestions = []; return; }
+      try {
+        const r = await fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=' + encodeURIComponent(q) + '&limit=3');
+        const d = await r.json();
+        this.suggestions = d.actors || [];
+      } catch { this.suggestions = []; }
+    },
+    pick(actor) {
+      this.query = actor.handle;
+      this.selected = actor.handle;
+      this.suggestions = [];
+    }
+  }));
+
+  Alpine.data('urlDemo', () => ({
+    phase: 'long',
+    visible: true,
+    longUrl: 'https://example.com/a-very-long-link/that-nobody-wants-to-type',
+    async init() {
+      while (true) {
+        await new Promise(r => setTimeout(r, 2500));
+        this.visible = false;
+        await new Promise(r => setTimeout(r, 400));
+        this.phase = this.phase === 'long' ? 'short' : 'long';
+        this.visible = true;
+      }
+    }
+  }));
+
+  Alpine.data('liveFeed', () => ({
+    items: [],
+    init() {
+      try {
+        const urls = [
+          'wss://jetstream1.us-east.bsky.network/subscribe?wantedCollections=to.atpr.link',
+          'wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=to.atpr.link',
+        ];
+        const ws = new WebSocket(urls[Math.floor(Math.random() * urls.length)]);
+        ws.onmessage = async (e) => {
+          let msg;
+          try { msg = JSON.parse(e.data); } catch { return; }
+          if (msg.kind !== 'commit') return;
+          const op = msg.commit?.operation;
+          if (op !== 'create' && op !== 'update') return;
+          const code = msg.commit.rkey;
+          let handle = null;
+          try {
+            const r = await fetch('https://plc.directory/' + msg.did);
+            const d = await r.json();
+            const aka = (d.alsoKnownAs || [])[0];
+            if (aka) handle = aka.replace('at://', '');
+          } catch {}
+          if (!handle) return;
+          this.items = [{handle, code, op, t: Date.now()}, ...this.items].slice(0, 5);
+        };
+      } catch {}
+    }
+  }));
+});
+</script>
+{% endblock %}
 {% block content %}
 <div class="landing">
-  <h1>atpr.to</h1>
-  <p>AT Protocol URL shortener &mdash; links stored in your own PDS.</p>
+  <div class="landing-top">
+    <h1>atpr.to</h1>
+    <p>AT Protocol URL shortener &mdash; links stored in your own PDS.</p>
 
-  <div
-    x-data="{
-      query: '',
-      suggestions: [],
-      selected: '',
-      placeholders: ['you.bsky.social','you.eurosky.social','you.blacksky.community','you.northsky.social','you.selfhosted.social'],
-      placeholder: '',
-      async search() {
-        const q = this.query.trim();
-        if (q.length < 1) { this.suggestions = []; return; }
-        try {
-          const r = await fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=' + encodeURIComponent(q) + '&limit=3');
-          const d = await r.json();
-          this.suggestions = d.actors || [];
-        } catch { this.suggestions = []; }
-      },
-      pick(actor) {
-        this.query = actor.handle;
-        this.selected = actor.handle;
-        this.suggestions = [];
-      }
-    }"
-    x-init="placeholder = placeholders[Math.floor(Math.random() * placeholders.length)]"
-  >
-    <form action="/api/login" method="post">
-      <div class="input-wrap">
-        <input
-          type="text"
-          name="handle"
-          x-model="query"
-          @input.debounce.150ms="search()"
-          @blur.window="setTimeout(() => suggestions = [], 200)"
-          autocomplete="off"
-          aria-autocomplete="list"
-          :placeholder="placeholder"
-          required
-        >
-        <ul class="suggestions" x-show="suggestions.length > 0" x-cloak>
-          <template x-for="actor in suggestions" :key="actor.did">
-            <li @mousedown.prevent="pick(actor)">
-              <img x-show="actor.avatar" :src="actor.avatar" alt="">
-              <span>
-                <span class="suggestion-handle" x-text="actor.handle"></span>
-                <span class="suggestion-display" x-show="actor.displayName" x-text="actor.displayName"></span>
-              </span>
-            </li>
-          </template>
-        </ul>
-      </div>
-      <button type="submit">Sign in with AT Protocol identity</button>
-    </form>
+    <ul class="feature-list">
+      <li>Create, edit &amp; delete short links from your dashboard</li>
+      <li>QR code for every link &mdash; export as SVG</li>
+      <li>Links tied to your handle or DID &mdash; yours forever</li>
+      <li>Search and filter your links instantly</li>
+      <li>JSON API for programmatic access</li>
+    </ul>
+
+    <div class="url-demo" x-data="urlDemo">
+      <span class="demo-url" :class="{faded: !visible}">
+        <template x-if="phase === 'long'">
+          <span x-text="longUrl" class="demo-long"></span>
+        </template>
+        <template x-if="phase === 'short'">
+          <a href="/@atpr.to/self" class="demo-short">atpr.to/@atpr.to/self</a>
+        </template>
+      </span>
+    </div>
+  </div>
+
+  <aside class="landing-aside">
+    <div x-data="signIn">
+      <form action="/api/login" method="post">
+        <div class="input-wrap">
+          <input
+            type="text"
+            name="handle"
+            x-model="query"
+            @input.debounce.150ms="search()"
+            @blur.window="setTimeout(() => suggestions = [], 200)"
+            autocomplete="off"
+            aria-autocomplete="list"
+            :placeholder="placeholder"
+            required
+          >
+          <ul class="suggestions" x-show="suggestions.length > 0" x-cloak>
+            <template x-for="actor in suggestions" :key="actor.did">
+              <li @mousedown.prevent="pick(actor)">
+                <img x-show="actor.avatar" :src="actor.avatar" alt="">
+                <span>
+                  <span class="suggestion-handle" x-text="actor.handle"></span>
+                  <span class="suggestion-display" x-show="actor.displayName" x-text="actor.displayName"></span>
+                </span>
+              </li>
+            </template>
+          </ul>
+        </div>
+        <button type="submit">Sign in with AT Protocol identity</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="landing-bottom">
+    <div class="live-feed" x-data="liveFeed">
+      <p class="live-label">Recently created or modified</p>
+      <p class="live-waiting" x-show="items.length === 0">waiting for shortened urls...</p>
+      <ul class="live-list" x-show="items.length > 0">
+        <template x-for="item in items" :key="item.t">
+          <li>
+            <a :href="'/@' + item.handle + '/' + item.code"
+               x-text="'atpr.to/@' + item.handle + '/' + item.code"></a>
+            <span class="live-op" :class="'live-op-' + item.op" x-text="item.op"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
   </div>
 </div>
+
+<footer class="landing-footer">
+  <small>made by <a href="https://bsky.app/profile/seqre.dev" target="_blank" rel="noopener">@seqre.dev</a></small>
+</footer>
 {% endblock %}

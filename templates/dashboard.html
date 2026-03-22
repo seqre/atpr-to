@@ -88,6 +88,10 @@
   <nav class="top-nav">
     <a href="/" class="brand">atpr.to</a>
     <div class="user-info">
+      <button type="button" class="outline secondary" style="padding:0.25rem 0.5rem;font-size:0.85rem"
+        onclick="const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;localStorage.setItem('theme',t)">
+        ☀/☾
+      </button>
       <img x-show="avatar" :src="avatar" alt="">
       <span x-text="handle"></span>
       <form action="/api/logout" method="post" style="margin:0">

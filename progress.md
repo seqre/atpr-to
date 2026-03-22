@@ -553,3 +553,11 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 - Removed unused `TransitionScope` import
 
 **Tests:** All passing
+
+## Step C: Dark mode default + theme switcher ✅
+
+**Implemented:**
+- `templates/base.html`: Added `data-theme="dark"` to `<html>`; added inline script to restore theme from `localStorage` before first paint (prevents flash)
+- `templates/dashboard.html`: Added ☀/☾ toggle button in nav that flips `data-theme` and persists to `localStorage`
+
+**Tests:** All passing

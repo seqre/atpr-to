@@ -106,6 +106,7 @@ nav.top-nav .user-info form > * {
 /* Table overflow wrapper */
 .table-wrap {
   overflow-y: scroll;
+  overflow-x: scroll;
   max-height: calc(100vh - 22rem);
   min-height: 10rem;
 }
@@ -176,7 +177,9 @@ dialog article footer {
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .section-header h2 {
@@ -387,6 +390,48 @@ button.btn-danger:focus {
 .live-op-create { color: var(--pico-ins-color); }
 .live-op-update { color: var(--pico-color); }
 
+/* Dashboard mobile styles */
+@media (max-width: 1024px) {
+  nav.top-nav .user-info {
+    gap: 0.4rem;
+  }
+
+  nav.top-nav .user-info > span {
+    max-width: 8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-wrap {
+    width: 100%;
+  }
+
+  .search-wrap input {
+    width: 100%;
+  }
+
+  .section-controls {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .new-link-form input[type="url"] {
+    flex-basis: 12rem;
+  }
+
+  .new-link-form input[type="text"] {
+    flex-basis: 8rem;
+  }
+
+  .table-wrap table {
+    font-size: 0.8rem;
+    width: max(100%, 36rem);
+  }
+}
+
 th.sortable {
   cursor: pointer;
   user-select: none;
@@ -405,6 +450,6 @@ th.sortable:hover {
   left: 0;
   right: 0;
   text-align: center;
-  padding: 0.5rem 0.5rem 1rem;
+  padding: 1rem 0.5rem;
   color: var(--pico-muted-color);
 }

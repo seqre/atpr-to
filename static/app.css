@@ -90,10 +90,15 @@ nav.top-nav .user-info form {
   align-items: center;
 }
 
+nav.top-nav .user-info > *,
+nav.top-nav .user-info form > * {
+  margin-bottom: 0;
+}
+
 /* Compact sign-out button */
 button.signout {
   padding: 0.25rem 0.6rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 /* Table overflow wrapper */

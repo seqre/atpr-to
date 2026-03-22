@@ -3,19 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>{% block title %}atpr.to{% endblock %}</title>
-<style>
-  html, body { overflow: hidden; }
-  body { font-family: system-ui, sans-serif; max-width: 50em; margin: 2em auto; padding: 0 1em; color: #333; }
-  h1 { margin-bottom: 0.25em; }
-  input, button { font-size: 1em; padding: 0.4em 0.8em; border: 1px solid #ccc; border-radius: 4px; }
-  button[type=submit] { background: #0066cc; color: #fff; border-color: #0066cc; cursor: pointer; }
-  a { color: #0066cc; }
-  table { border-collapse: collapse; width: 100%; margin-top: 1em; }
-  th, td { text-align: left; padding: 0.5em; border-bottom: 1px solid #eee; }
-</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<link rel="stylesheet" href="/static/app.css">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+{% block head %}{% endblock %}
 </head>
 <body>
+<main class="container">
 {% block content %}{% endblock %}
+</main>
 </body>
 </html>

@@ -9,6 +9,8 @@ pub struct Config {
     pub slingshot_url: String,
     /// Rate limiting parameters for mutation routes.
     pub rate_limit: RateLimitConfig,
+    /// `Cache-Control: max-age` value (seconds) for static files.
+    pub static_cache_max_age: u32,
 }
 
 impl Default for Config {
@@ -17,6 +19,7 @@ impl Default for Config {
             base_url: "https://atpr.to".to_string(),
             slingshot_url: "https://slingshot.microcosm.blue/".to_string(),
             rate_limit: RateLimitConfig::default(),
+            static_cache_max_age: 15,
         }
     }
 }
@@ -50,6 +53,8 @@ pub fn load() -> Config {
         .set_default("rate_limit.per_second", 2u64)
         .unwrap()
         .set_default("rate_limit.burst_size", 10u32)
+        .unwrap()
+        .set_default("static_cache_max_age", 15u32)
         .unwrap()
         .add_source(config::File::with_name("Config").required(false))
         .add_source(
@@ -87,6 +92,12 @@ mod tests {
         let r = RateLimitConfig::default();
         assert_eq!(r.per_second, 2);
         assert_eq!(r.burst_size, 10);
+    }
+
+    #[test]
+    fn test_static_cache_max_age_default() {
+        let c = Config::default();
+        assert_eq!(c.static_cache_max_age, 15);
     }
 
     #[test]

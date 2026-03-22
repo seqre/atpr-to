@@ -24,6 +24,8 @@ pub mod qr;
 pub mod resolve;
 /// Short URL creation endpoint.
 pub mod shorten;
+/// Embedded static file serving.
+pub mod static_files;
 /// HTML UI (home page and dashboard).
 pub mod ui;
 
@@ -83,6 +85,7 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .merge(rate_limited);
 
     Router::new()
+        .route("/static/{*path}", get(static_files::static_file))
         .route("/", get(ui::home))
         .route("/dashboard", get(ui::dashboard))
         .route(

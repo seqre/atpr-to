@@ -469,6 +469,57 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 
 ---
 
+## Frontend Rewrite (Steps 1–8): Pico CSS + Alpine.js ✅
+
+**New files:** `src/static_files.rs`, `static/app.css`
+**Modified:** `Cargo.toml`, `src/config.rs`, `src/lib.rs`, `src/ui.rs`, `templates/base.html`, `templates/home.html`, `templates/dashboard.html`, `templates/info.html`, `templates/error.html`
+**New deps:** `rust-embed = "8"`, `mime_guess = "2"`
+
+### Step 1 — Static file serving
+- `StaticAssets` struct with `#[derive(Embed)]` + `#[folder = "static/"]`
+- `static_file` handler: correct MIME type + `Cache-Control: public, max-age={config.static_cache_max_age}`
+- Route `GET /static/{*path}`
+- `static_cache_max_age: u32` added to `Config` (default: 15s)
+
+### Step 2 — Base template
+- Pico CSS v2 + Alpine.js 3 from CDN
+- `<meta name="color-scheme" content="light dark">` for Pico theming
+- `<main class="container">` wraps content
+- Removed all inline styles
+
+### Step 3 — Landing page
+- Full rewrite with Alpine `x-data` identity search
+- Fetches `app.bsky.actor.searchActors?q=...&limit=3` on debounced input
+- Suggestions with avatar thumbnail, handle, display name
+- `@blur.window` dismisses dropdown
+
+### Step 4 — Dashboard
+- Full Alpine rewrite; links loaded client-side from `GET /api/links`
+- `DashboardTemplate` no longer holds `links` (client-side only)
+- `avatar` field changed from `Option<String>` to `String` (empty = no avatar)
+- Create form with inline error message; inserts new link into array on success
+- Client-side search filter + UTC/local toggle
+
+### Step 5 — QR code modal
+- Native `<dialog x-ref="qrDialog">` with `showModal()`
+- QR SVG fetched from `/@handle/code/qr` and rendered with `x-html`
+- Download button creates Blob + `<a download>` trigger
+
+### Step 6 — Inline editing
+- Edit button sets `link.editing = true`; row switches to input + Save/Cancel
+- `confirmEdit` calls `POST /api/shorten` with same code (upsert); updates URL on success
+
+### Step 7 — Info page
+- Pico `<article class="info-card">` with `<hgroup>` header
+- QR SVG centred; destination as prominent button; modified timestamp in `<small>`
+
+### Step 8 — Error page
+- Pico `<article>` card with `<hgroup>` for title + status
+
+**Tests:** 60 passing (53 unit + 7 integration)
+
+---
+
 ## Step 25: /api prefix + dashboard redesign ✅
 
 **Modified:** `src/lib.rs`, `src/logout.rs`, `src/links.rs`, `templates/home.html`, `templates/dashboard.html`

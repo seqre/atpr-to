@@ -1,117 +1,193 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — atpr.to{% endblock %}
 {% block content %}
-<h1>atpr.to</h1>
-<div style="float:right;display:flex;align-items:center;gap:0.75em">
-  {% if let Some(av) = avatar %}<img src="{{ av }}" style="width:1.75em;height:1.75em;border-radius:50%;vertical-align:middle">{% endif %}
-  <span style="color:#555">{{ handle }}</span>
-  <form action="/api/logout" method="post">
-    <button type="submit" style="background:#c0392b;border-color:#c0392b;color:#fff">Sign out</button>
-  </form>
+<div
+  x-data="{
+    handle: '{{ handle }}',
+    avatar: '{{ avatar|default("") }}',
+    links: [],
+    query: '',
+    showUTC: false,
+    newUrl: '',
+    newCode: '',
+    formError: '',
+    async init() {
+      try {
+        const r = await fetch('/api/links');
+        const d = await r.json();
+        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url}));
+      } catch {}
+    },
+    matches(link) {
+      if (!this.query) return true;
+      const q = this.query.toLowerCase();
+      return link.code.toLowerCase().includes(q) || link.url.toLowerCase().includes(q);
+    },
+    fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const p = n => String(n).padStart(2, '0');
+      if (this.showUTC) {
+        return d.getUTCFullYear() + '-' + p(d.getUTCMonth()+1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ' UTC';
+      }
+      return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    },
+    async shorten() {
+      this.formError = '';
+      const body = {url: this.newUrl};
+      if (this.newCode) body.code = this.newCode;
+      const r = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const code = this.newCode || d.short_url.split('/').pop();
+        this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl});
+        this.newUrl = '';
+        this.newCode = '';
+      } else {
+        this.formError = await r.text();
+      }
+    },
+    async deleteLink(link) {
+      if (!confirm('Delete ' + link.code + '?')) return;
+      const r = await fetch('/api/shorten/' + link.code, {method: 'DELETE'});
+      if (r.ok) {
+        this.links = this.links.filter(l => l.code !== link.code);
+      } else {
+        alert('Error: ' + await r.text());
+      }
+    },
+    async openQr(link) {
+      const r = await fetch('/@' + this.handle + '/' + link.code + '/qr');
+      if (r.ok) {
+        link.qrSvg = await r.text();
+        link.qrOpen = true;
+        this.$nextTick(() => this.$refs.qrDialog.showModal());
+      }
+    },
+    async confirmEdit(link) {
+      const r = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url: link.editUrl, code: link.code})
+      });
+      if (r.ok) {
+        link.url = link.editUrl;
+        link.editing = false;
+      } else {
+        alert('Error: ' + await r.text());
+      }
+    }
+  }"
+  x-init="init()"
+>
+
+  <nav class="top-nav">
+    <a href="/" class="brand">atpr.to</a>
+    <div class="user-info">
+      <img x-show="avatar" :src="avatar" alt="">
+      <span x-text="handle"></span>
+      <form action="/api/logout" method="post" style="margin:0">
+        <button type="submit" class="signout secondary outline">Sign out</button>
+      </form>
+    </div>
+  </nav>
+
+  <section>
+    <h2>New link</h2>
+    <form @submit.prevent="shorten()">
+      <div class="grid">
+        <input x-model="newUrl" type="url" placeholder="https://example.com/long-url" required>
+        <input x-model="newCode" type="text" placeholder="custom code (optional)">
+        <button type="submit">Shorten</button>
+      </div>
+      <p class="inline-error" x-show="formError" x-text="formError"></p>
+    </form>
+  </section>
+
+  <section>
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h2 style="margin:0">Your links</h2>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button type="button" class="outline secondary" style="padding:0.2rem 0.5rem;font-size:0.85rem"
+          @click="showUTC = !showUTC"
+          x-text="showUTC ? 'Show local time' : 'Show UTC'">
+        </button>
+        <input x-model="query" type="search" placeholder="Search…" style="width:12rem" aria-label="Filter links">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:8em">
+          <col>
+          <col style="width:13em">
+          <col style="width:8.5em">
+        </colgroup>
+        <thead>
+          <tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr>
+        </thead>
+        <tbody>
+          <template x-for="link in links" :key="link.code">
+            <tr x-show="matches(link)">
+              <td x-text="link.code"></td>
+              <td class="url-cell">
+                <span x-show="!link.editing">
+                  <a :href="link.url" :title="link.url" x-text="link.url"></a>
+                </span>
+                <input x-show="link.editing" x-model="link.editUrl" type="url" style="margin:0;padding:0.2em 0.4em">
+              </td>
+              <td x-text="fmtDate(link.updated_at)"></td>
+              <td style="display:flex;gap:0.25rem;flex-wrap:wrap">
+                <template x-if="!link.editing">
+                  <span style="display:contents">
+                    <button type="button" class="outline secondary" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="openQr(link)">QR</button>
+                    <button type="button" class="outline" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
+                    <button type="button" class="outline contrast" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="deleteLink(link)">Delete</button>
+                  </span>
+                </template>
+                <template x-if="link.editing">
+                  <span style="display:contents">
+                    <button type="button" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="confirmEdit(link)">Save</button>
+                    <button type="button" class="outline secondary" style="padding:0.2rem 0.4rem;font-size:0.8rem" @click="link.editing=false">Cancel</button>
+                  </span>
+                </template>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="links.length === 0">
+            <td colspan="4">No links yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- QR code dialog -->
+  <dialog x-ref="qrDialog">
+    <article>
+      <template x-for="link in links.filter(l => l.qrOpen)" :key="link.code">
+        <div>
+          <div class="qr-svg" x-html="link.qrSvg"></div>
+          <p class="short-url" x-text="window.location.origin + '/@' + handle + '/' + link.code"></p>
+          <footer>
+            <button type="button" @click="
+              const blob = new Blob([link.qrSvg], {type:'image/svg+xml'});
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = link.code + '.svg';
+              a.click();
+            ">Download SVG</button>
+            <button type="button" class="outline secondary" @click="$refs.qrDialog.close(); link.qrOpen=false">Close</button>
+          </footer>
+        </div>
+      </template>
+    </article>
+  </dialog>
+
 </div>
-
-<h2>Shorten a URL</h2>
-<form id="shorten-form" style="display:flex;gap:0.5em">
-  <input name="url" type="url" placeholder="https://example.com/long-url" required style="flex:3">
-  <input name="code" type="text" placeholder="custom code (optional)" style="flex:1">
-  <button type="submit">Shorten</button>
-</form>
-
-<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2em">
-  <h2 style="margin:0">Your Links</h2>
-  <div style="display:flex;gap:0.75em;align-items:center">
-    {% if !links.is_empty() %}
-    <button id="tz-toggle" type="button">Show UTC</button>
-    <input id="link-search" type="search" placeholder="Search…" style="width:14em" aria-label="Filter links">
-    {% endif %}
-  </div>
-</div>
-<div style="overflow-y:auto;min-height:22em;max-height:calc(100vh - 16em)">
-{% if links.is_empty() %}
-<p>No links yet.</p>
-{% else %}
-<table id="links-table" style="width:100%;table-layout:fixed">
-  <colgroup>
-    <col style="width:8em">
-    <col>
-    <col style="width:14em">
-    <col style="width:5.5em">
-  </colgroup>
-  <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr><th>Code</th><th>Destination</th><th>Modified</th><th></th></tr></thead>
-  <tbody>
-  {% for link in links %}
-  <tr>
-    <td>{{ link.code }}</td>
-    <td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-      <a href="{{ link.url }}" title="{{ link.url }}">{{ link.url }}</a>
-    </td>
-    <td data-iso="{{ link.updated_at }}" style="white-space:nowrap">{{ link.updated_at }}</td>
-    <td><button onclick="deleteLink('{{ link.code }}')">Delete</button></td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-</div>
-
-<script>
-const API = '/api';
-let showUTC = false;
-
-function fmtDate(iso, utc) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const p = n => String(n).padStart(2, '0');
-  if (utc) {
-    return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
-  }
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-function refreshDates() {
-  document.querySelectorAll('td[data-iso]').forEach(td => {
-    td.textContent = fmtDate(td.dataset.iso, showUTC);
-  });
-  const btn = document.getElementById('tz-toggle');
-  if (btn) btn.textContent = showUTC ? 'Show local time' : 'Show UTC';
-}
-
-refreshDates();
-
-const toggle = document.getElementById('tz-toggle');
-if (toggle) toggle.addEventListener('click', () => { showUTC = !showUTC; refreshDates(); });
-
-const existingCodes = new Set(
-  [...document.querySelectorAll('#links-table tbody tr td:first-child')].map(td => td.textContent.trim())
-);
-
-async function deleteLink(code) {
-  if (!confirm('Delete ' + code + '?')) return;
-  const r = await fetch(API + '/shorten/' + code, { method: 'DELETE' });
-  if (r.ok) location.reload();
-  else alert('Error: ' + await r.text());
-}
-document.getElementById('shorten-form').onsubmit = async (e) => {
-  e.preventDefault();
-  const d = Object.fromEntries(new FormData(e.target));
-  if (!d.code) delete d.code;
-  if (d.code && existingCodes.has(d.code)) {
-    if (!confirm(`Code "${d.code}" already exists. Replace it?`)) return;
-  }
-  const r = await fetch(API + '/shorten', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(d)
-  });
-  if (r.ok) location.reload();
-  else alert('Error: ' + await r.text());
-};
-const s = document.getElementById('link-search');
-if (s) s.addEventListener('input', () => {
-  const q = s.value.toLowerCase();
-  document.querySelectorAll('#links-table tbody tr').forEach(r => {
-    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-});
-</script>
 {% endblock %}

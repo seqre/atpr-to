@@ -1,10 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Link Preview — atpr.to{% endblock %}
 {% block content %}
-<h1>Link Preview</h1>
-<p><strong>Destination:</strong> <a href="{{ url }}" style="word-break:break-all">{{ url }}</a></p>
-{% if let Some(u) = updated_at %}<p><strong>Modified:</strong> {{ u }}</p>{% endif %}
-<p><a href="/@{{ handle }}/{{ code }}">Follow this link →</a></p>
-{{ qr_svg|safe }}
-<p><a href="/">← atpr.to</a></p>
+<article class="info-card">
+  <hgroup>
+    <h2>atpr.to/@{{ handle }}/{{ code }}</h2>
+    <p>Link preview</p>
+  </hgroup>
+  <div style="text-align:center;margin-block:1.5rem">{{ qr_svg|safe }}</div>
+  <p>
+    <a href="{{ url }}" role="button" style="display:block;text-align:center">Follow this link →</a>
+  </p>
+  <p style="word-break:break-all"><strong>Destination:</strong> <a href="{{ url }}">{{ url }}</a></p>
+  {% if let Some(u) = updated_at %}<p><small><strong>Modified:</strong> {{ u }}</small></p>{% endif %}
+  <p><a href="/">← atpr.to</a></p>
+</article>
 {% endblock %}

@@ -1,10 +1,58 @@
 {% extends "base.html" %}
 {% block title %}atpr.to — AT Protocol URL Shortener{% endblock %}
 {% block content %}
-<h1>atpr.to</h1>
-<p>AT Protocol URL shortener &mdash; links stored in your own PDS.</p>
-<form action="/api/login" method="post">
-  <input name="handle" type="text" placeholder="you.bsky.social" required>
-  <button type="submit">Sign in with Bluesky</button>
-</form>
+<div class="landing">
+  <h1>atpr.to</h1>
+  <p>AT Protocol URL shortener &mdash; links stored in your own PDS.</p>
+
+  <div
+    x-data="{
+      query: '',
+      suggestions: [],
+      selected: '',
+      async search() {
+        const q = this.query.trim();
+        if (q.length < 2) { this.suggestions = []; return; }
+        try {
+          const r = await fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=' + encodeURIComponent(q) + '&limit=3');
+          const d = await r.json();
+          this.suggestions = d.actors || [];
+        } catch { this.suggestions = []; }
+      },
+      pick(actor) {
+        this.query = actor.handle;
+        this.selected = actor.handle;
+        this.suggestions = [];
+      }
+    }"
+  >
+    <form action="/api/login" method="post">
+      <div class="input-wrap">
+        <input
+          type="text"
+          name="handle"
+          x-model="query"
+          @input.debounce.300ms="search()"
+          @blur.window="setTimeout(() => suggestions = [], 200)"
+          autocomplete="off"
+          aria-autocomplete="list"
+          placeholder="you.bsky.social"
+          required
+        >
+        <ul class="suggestions" x-show="suggestions.length > 0" x-cloak>
+          <template x-for="actor in suggestions" :key="actor.did">
+            <li @mousedown.prevent="pick(actor)">
+              <img x-show="actor.avatar" :src="actor.avatar" alt="">
+              <span>
+                <span class="suggestion-handle" x-text="actor.handle"></span>
+                <span class="suggestion-display" x-show="actor.displayName" x-text="actor.displayName"></span>
+              </span>
+            </li>
+          </template>
+        </ul>
+      </div>
+      <button type="submit">Sign in with Bluesky</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

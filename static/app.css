@@ -1,0 +1,163 @@
+/* atpr.to custom overrides for Pico CSS */
+
+:root {
+  --pico-font-size: 16px;
+}
+
+/* Suggestions dropdown */
+.suggestions {
+  position: absolute;
+  z-index: 100;
+  background: var(--pico-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  margin: 0;
+}
+
+.suggestions li:hover {
+  background: var(--pico-muted-color);
+}
+
+.suggestions li img {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.suggestions .suggestion-handle {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.suggestions .suggestion-display {
+  font-size: 0.8rem;
+  color: var(--pico-muted-color);
+}
+
+/* Input wrapper for relative positioning of dropdown */
+.input-wrap {
+  position: relative;
+}
+
+/* Dashboard header nav */
+nav.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-block: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+nav.top-nav .brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: inherit;
+}
+
+nav.top-nav .user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+nav.top-nav .user-info img {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Compact sign-out button */
+button.signout {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* Table overflow wrapper */
+.table-wrap {
+  overflow-y: auto;
+  max-height: calc(100vh - 22rem);
+  min-height: 10rem;
+}
+
+.table-wrap table {
+  table-layout: fixed;
+}
+
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--pico-background-color);
+  z-index: 1;
+}
+
+/* Truncate long URLs */
+.url-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inline error message */
+.inline-error {
+  color: var(--pico-del-color);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+/* Dialog (QR modal) */
+dialog article {
+  max-width: 24rem;
+  text-align: center;
+}
+
+dialog article .qr-svg svg {
+  width: 100%;
+  height: auto;
+}
+
+dialog article .short-url {
+  font-size: 0.9rem;
+  word-break: break-all;
+  margin-bottom: 1rem;
+}
+
+dialog article footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+/* Info page */
+.info-card {
+  max-width: 28rem;
+  margin: 2rem auto;
+}
+
+/* Landing page */
+.landing {
+  max-width: 28rem;
+  margin: 4rem auto;
+}
+
+.landing h1 {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}

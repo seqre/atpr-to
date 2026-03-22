@@ -165,17 +165,17 @@
               <td>
                 <template x-if="!link.editing">
                   <div>
-                    <div class="grid" style="gap:0.25rem;margin-bottom:0;--pico-grid-column-min:0">
-                      <button type="button" class="outline secondary" style="padding:0.3rem 0.6rem;font-size:0.9rem" @click="openQr(link)">QR</button>
-                      <button type="button" class="outline" style="padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
+                    <div class="grid" style="gap:0.25rem;margin-bottom:0.25rem;--pico-grid-column-min:0">
+                      <button type="button" class="outline secondary" style="margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="openQr(link)">QR</button>
+                      <button type="button" class="outline" style="margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=true; link.editUrl=link.url">Edit</button>
                     </div>
-                    <button type="button" class="outline contrast" style="width:100%;margin-top:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
+                    <button type="button" class="outline contrast" style="width:100%;margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.deleting" @click="deleteLink(link)">Delete</button>
                   </div>
                 </template>
                 <template x-if="link.editing">
                   <div>
-                    <button type="button" style="width:100%;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
-                    <button type="button" class="outline secondary" style="width:100%;margin-top:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=false">Cancel</button>
+                    <button type="button" style="width:100%;margin-bottom:0.25rem;padding:0.3rem 0.6rem;font-size:0.9rem" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
+                    <button type="button" class="outline secondary" style="width:100%;margin-bottom:0;padding:0.3rem 0.6rem;font-size:0.9rem" @click="link.editing=false">Cancel</button>
                   </div>
                 </template>
               </td>

@@ -535,3 +535,11 @@ Added `CLAUDE.md` to the repository with project guidance for Claude Code: comma
 4. **Dashboard redesign** — added search input (filters table rows client-side), URL truncation with `title` attribute, improved delete with confirmation dialog, `const API = '/api'` for all fetch calls.
 
 **Tests:** 43 passing
+
+## Step A: Fix logout cookie path ✅
+
+**Implemented:**
+- `src/logout.rs`: Changed `Cookie::from("session")` to `Cookie::build(("session", "")).path("/")` so the removal Set-Cookie header includes `Path=/`, matching the original cookie's path and causing browsers to actually clear the session.
+- Updated test assertion to also check for `Path=/` in the Set-Cookie header.
+
+**Tests:** All passing

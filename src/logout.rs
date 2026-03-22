@@ -6,7 +6,7 @@ use axum_extra::extract::CookieJar;
 ///
 /// No authentication required — clearing a non-existent cookie is harmless.
 pub async fn logout(jar: CookieJar) -> impl IntoResponse {
-    let jar = jar.remove(Cookie::from("session"));
+    let jar = jar.remove(Cookie::build(("session", "")).path("/"));
     (jar, Redirect::temporary("/"))
 }
 
@@ -40,13 +40,17 @@ mod tests {
             .get("set-cookie")
             .map(|v| v.to_str().unwrap_or(""))
             .unwrap_or("");
-        // The session cookie should be removed (empty value or max-age=0)
+        // The session cookie should be removed (empty value or max-age=0) with path="/"
         assert!(
             set_cookie.contains("session=")
                 && (set_cookie.contains("Max-Age=0")
                     || set_cookie.is_empty()
                     || set_cookie.contains("session=;")),
             "expected session cookie to be cleared, got: {set_cookie}"
+        );
+        assert!(
+            set_cookie.contains("Path=/"),
+            "expected Path=/ in Set-Cookie, got: {set_cookie}"
         );
 
         let location = response.headers().get("location").unwrap();

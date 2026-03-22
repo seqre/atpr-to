@@ -14,7 +14,7 @@
       placeholder: '',
       async search() {
         const q = this.query.trim();
-        if (q.length < 2) { this.suggestions = []; return; }
+        if (q.length < 1) { this.suggestions = []; return; }
         try {
           const r = await fetch('https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=' + encodeURIComponent(q) + '&limit=3');
           const d = await r.json();

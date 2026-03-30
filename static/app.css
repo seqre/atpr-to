@@ -69,6 +69,22 @@ nav.top-nav .brand {
   font-weight: 700;
   text-decoration: none;
   color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+nav.top-nav .brand .nav-logo {
+  height: 1.5rem;
+  width: auto;
+  display: block;
+}
+
+.landing-logo {
+  height: 2rem;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 0.3rem;
 }
 
 nav.top-nav .user-info {

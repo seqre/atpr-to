@@ -2132,8 +2132,7 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 [[package]]
 name = "jacquard"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e4bb22329646c06eb07eb63ae6d33320e8f52ae8b5a5444257f27c3d68d44ae"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "bytes",
  "getrandom 0.2.17",
@@ -2162,8 +2161,7 @@ dependencies = [
 [[package]]
 name = "jacquard-api"
 version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4bba022e9c632f737de481d7c894b5736dd1a503362876ca4da49b9255a7e61"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "jacquard-common",
  "jacquard-derive",
@@ -2176,8 +2174,7 @@ dependencies = [
 [[package]]
 name = "jacquard-common"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9631f08f1e65d19e204bc6774d00b4e0b69fb649d7d7ac59ccf97797bd9a196e"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "base64 0.22.1",
  "bon",
@@ -2226,8 +2223,7 @@ dependencies = [
 [[package]]
 name = "jacquard-derive"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22904bd0f9a959591e14ee9e1dab91a9110209cb8b292930e584134f96a83ece"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "heck 0.5.0",
  "jacquard-lexicon",
@@ -2239,8 +2235,7 @@ dependencies = [
 [[package]]
 name = "jacquard-identity"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b84a9302ea9dd39c49d748a8eba21faf365570088571ff327ebb00117dbd65b8"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "bon",
  "bytes",
@@ -2263,8 +2258,7 @@ dependencies = [
 [[package]]
 name = "jacquard-lexicon"
 version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd7863d4f56a49f07391b5f775e82be12e6381156642ee83574f481ca73e8b0e"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "cid",
  "dashmap",
@@ -2291,8 +2285,7 @@ dependencies = [
 [[package]]
 name = "jacquard-oauth"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca0b3a8b765b3d3f1890233f9f62dda1b1524d1dc9967c310e5b009b93443776"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2309,6 +2302,7 @@ dependencies = [
  "miette",
  "p256",
  "p384",
+ "percent-encoding",
  "rand 0.8.5",
  "rouille",
  "serde",
@@ -2702,8 +2696,7 @@ dependencies = [
 [[package]]
 name = "mini-moka-wasm"
 version = "0.10.99"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0102b9a2ad50fa47ca89eead2316c8222285ecfbd3f69ce99564fbe4253866e8"
+source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",

@@ -94,8 +94,7 @@ impl ClientAuthStore for AuthStore {
 /// Concrete OAuth client type used by this application.
 pub type OAuthClientType = OAuthClient<JacquardResolver, AuthStore>;
 /// Concrete OAuth session type returned after a successful authorization.
-pub type OAuthSessionType =
-    jacquard::oauth::client::OAuthSession<JacquardResolver, AuthStore>;
+pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<JacquardResolver, AuthStore>;
 
 /// Axum extractor that restores an authenticated OAuth session from the session cookie.
 ///
@@ -153,7 +152,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
     // without fetching any URL. Discoverable (production) clients use the full
     // metadata URL with https://.
     let client_id = if is_loopback_base_url(base_url) {
-        let scope = urlencoding::encode("atproto repo:to.atpr.link");
+        let scope = urlencoding::encode("atproto include:to.atpr.fullPermissions");
         let redir_raw = format!("{base_url}/oauth/callback");
         let redir = urlencoding::encode(&redir_raw);
         Uri::parse(format!(
@@ -161,10 +160,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
         ))
         .unwrap()
     } else {
-        Uri::parse(format!(
-            "{base_url}/.well-known/oauth-client-metadata.json"
-        ))
-        .unwrap()
+        Uri::parse(format!("{base_url}/.well-known/oauth-client-metadata.json")).unwrap()
     };
     let redirect_uri = Uri::parse(format!("{base_url}/oauth/callback")).unwrap();
     let client_uri = Uri::parse(base_url.to_string()).unwrap();
@@ -174,7 +170,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
         client_uri: Some(client_uri),
         redirect_uris: vec![redirect_uri],
         grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
-        scopes: Scope::parse_multiple_reduced("atproto repo:to.atpr.link").unwrap(),
+        scopes: Scope::parse_multiple_reduced("atproto include:to.atpr.fullPermissions").unwrap(),
         jwks_uri: None,
         client_name: None,
         logo_uri: None,
@@ -200,7 +196,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
 pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let base = &state.config.base_url;
     let client_id = if is_loopback_base_url(base) {
-        let scope = urlencoding::encode("atproto repo:to.atpr.link");
+        let scope = urlencoding::encode("atproto include:to.atpr.fullPermissions");
         let redir_raw = format!("{base}/oauth/callback");
         let redir = urlencoding::encode(&redir_raw);
         format!("http://localhost?scope={scope}&redirect_uri={redir}")
@@ -215,7 +211,7 @@ pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_j
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
-        "scope": "atproto repo:to.atpr.link",
+        "scope": "atproto include:to.atpr.fullPermissions",
         "application_type": "web",
         "dpop_bound_access_tokens": true
     }))

@@ -11,7 +11,7 @@
     <a href="{{ url }}" role="button" style="display:block;text-align:center">Follow this link →</a>
   </p>
   <p style="word-break:break-all"><strong>Destination:</strong> <a href="{{ url }}">{{ url }}</a></p>
-  {% if let Some(u) = updated_at %}<p><small><strong>Modified:</strong> {{ u }}</small></p>{% endif %}
+  {% if let Some(u) = updated_at %}<p><small><strong>Modified:</strong> <time x-data x-text="new Date('{{ u }}').toLocaleString()" datetime="{{ u }}">{{ u }}</time></small></p>{% endif %}
   <p><a href="/">← atpr.to</a></p>
 </article>
 {% endblock %}

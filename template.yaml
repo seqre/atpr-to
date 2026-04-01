@@ -27,6 +27,7 @@ Resources:
         Variables:
           ATPR__BASE_URL: "https://atpr.to"
           ATPR__SLINGSHOT_URL: "https://slingshot.microcosm.blue/"
+          ATPR__SESSION_FILE: "/tmp/sessions.json"
       Events:
         Api:
           Type: HttpApi
@@ -38,6 +39,13 @@ Resources:
           Properties:
             Path: /
             Method: ANY
+
+  AtprToDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      DomainName: atpr.to
+      ApiId: !Ref ServerlessHttpApi
+      Stage: $default
 
 Outputs:
   ApiUrl:

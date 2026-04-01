@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>{% block title %}atpr.to{% endblock %}</title>
+<meta property="og:site_name" content="atpr.to">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{% block og_title %}atpr.to — AT Protocol URL Shortener{% endblock %}">
+<meta property="og:description" content="{% block og_description %}AT Protocol URL shortener — links stored in your own PDS.{% endblock %}">
+<meta property="og:image" content="https://atpr.to/static/logo.svg">
 <script>
   (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t;})();
 </script>

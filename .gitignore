@@ -2,3 +2,4 @@ target
 src/generated/
 progress.md
 sessions.json
+.aws-sam

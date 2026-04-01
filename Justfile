@@ -26,10 +26,12 @@ fmt:
 
 # Deploy to AWS via SAM (builds first)
 deploy: build
+    sam build
     sam deploy --guided
 
 # Deploy without prompts (uses samconfig.toml from previous guided deploy)
 deploy-fast: build
+    sam build
     sam deploy
 
 # Tail Lambda logs

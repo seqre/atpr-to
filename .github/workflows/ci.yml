@@ -32,6 +32,9 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
+      - name: Check
+        run: cargo check
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 

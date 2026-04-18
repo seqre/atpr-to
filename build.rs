@@ -4,6 +4,9 @@ use std::path::Path;
 
 fn main() {
     println!("cargo:rerun-if-changed=lexicons/");
+    println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=Cargo.lock");
+    println!("cargo:rerun-if-changed=build.rs");
 
     let output_dir = Path::new("src/generated");
 

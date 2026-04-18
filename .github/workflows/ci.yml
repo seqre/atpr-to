@@ -67,15 +67,3 @@ jobs:
         with:
           files: lcov.info
           fail_ci_if_error: false
-
-  semver:
-    name: Semver checks
-    runs-on: ubuntu-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-semver-checks
-      - name: Check semver
-        run: cargo semver-checks

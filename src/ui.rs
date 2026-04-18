@@ -168,18 +168,24 @@ mod tests {
     #[tokio::test]
     async fn test_home_debounce_150ms() {
         let html = home_html().await;
-        assert!(
-            html.contains("debounce.150ms"),
-            "expected 150ms debounce"
-        );
+        assert!(html.contains("debounce.150ms"), "expected 150ms debounce");
     }
 
     #[tokio::test]
     async fn test_home_rotating_placeholder() {
         let html = home_html().await;
-        assert!(html.contains("placeholders:"), "expected placeholders array");
-        assert!(html.contains(":placeholder=\"placeholder\""), "expected :placeholder binding");
-        assert!(html.contains("eurosky.social"), "expected placeholder entries");
+        assert!(
+            html.contains("placeholders:"),
+            "expected placeholders array"
+        );
+        assert!(
+            html.contains(":placeholder=\"placeholder\""),
+            "expected :placeholder binding"
+        );
+        assert!(
+            html.contains("eurosky.social"),
+            "expected placeholder entries"
+        );
     }
 
     #[tokio::test]
@@ -222,10 +228,19 @@ mod tests {
     #[tokio::test]
     async fn test_dashboard_action_buttons_grid() {
         let html = super::render_dashboard_template();
-        assert!(html.contains("aria-busy"), "expected aria-busy on action buttons");
-        assert!(html.contains("link.deleting"), "expected link.deleting binding");
+        assert!(
+            html.contains("aria-busy"),
+            "expected aria-busy on action buttons"
+        );
+        assert!(
+            html.contains("link.deleting"),
+            "expected link.deleting binding"
+        );
         assert!(html.contains("link.saving"), "expected link.saving binding");
-        assert!(html.contains("width:100%"), "expected full-width delete button");
+        assert!(
+            html.contains("width:100%"),
+            "expected full-width delete button"
+        );
         assert!(html.contains("search-wrap"), "expected wider search bar");
     }
 

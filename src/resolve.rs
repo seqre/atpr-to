@@ -205,7 +205,10 @@ mod tests {
 
     #[test]
     fn test_handle_parsing() {
-        assert!(Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("alice.bsky.social").is_ok());
+        assert!(
+            Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("alice.bsky.social")
+                .is_ok()
+        );
         assert!(Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("seqre.dev").is_ok());
         // Single-label handles are invalid per AT Protocol
         assert!(Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("invalid").is_err());

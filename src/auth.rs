@@ -165,8 +165,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
     let client_uri = Uri::parse(base_url.to_string()).unwrap();
 
     let scopes: Scopes<SmolStr> =
-        Scopes::new(SmolStr::new("atproto include:to.atpr.fullPermissions"))
-            .expect("valid scopes");
+        Scopes::new(SmolStr::new("atproto include:to.atpr.fullPermissions")).expect("valid scopes");
     let config: AtprotoClientMetadata<SmolStr> = AtprotoClientMetadata {
         client_id,
         client_uri: Some(client_uri),

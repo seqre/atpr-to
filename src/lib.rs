@@ -89,10 +89,7 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
         .route("/static/{*path}", get(static_files::static_file))
         .route("/", get(ui::home))
         .route("/dashboard", get(ui::dashboard))
-        .route(
-            "/.well-known/oauth-client-metadata.json",
-            get(auth::client_metadata),
-        )
+        .route("/oauth-client-metadata.json", get(auth::client_metadata))
         .route("/oauth/callback", get(auth::oauth_callback))
         .route("/@{handle}/{code}", get(resolve::resolve))
         .route("/@{handle}/{code}/info", get(info::info))

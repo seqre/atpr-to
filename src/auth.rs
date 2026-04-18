@@ -201,7 +201,7 @@ pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_j
         let redir = urlencoding::encode(&redir_raw);
         format!("http://localhost?scope={scope}&redirect_uri={redir}")
     } else {
-        format!("{base}/.well-known/oauth-client-metadata.json")
+        format!("{base}/oauth-client-metadata.json")
     };
     Json(serde_json::json!({
         "client_id": client_id,

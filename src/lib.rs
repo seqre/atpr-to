@@ -10,7 +10,13 @@ pub mod config;
 pub mod delete;
 /// HTML error page helpers.
 pub mod error;
-#[allow(missing_docs, clippy::new_ret_no_self, clippy::new_without_default)]
+#[allow(
+    missing_docs,
+    clippy::new_ret_no_self,
+    clippy::new_without_default,
+    clippy::needless_update
+)]
+#[rustfmt::skip]
 /// Auto-generated Lexicon types.
 pub mod generated;
 /// Short URL preview page.
@@ -194,7 +200,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/.well-known/oauth-client-metadata.json")
+                    .uri("/oauth-client-metadata.json")
                     .body(Body::empty())
                     .unwrap(),
             )

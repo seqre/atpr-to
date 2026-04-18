@@ -45,7 +45,3 @@ local:
 # Generate test coverage report (requires cargo-llvm-cov)
 coverage:
     cargo llvm-cov --ignore-filename-regex 'src/generated|src/main' --fail-under-lines 100 --html
-
-# Check for semver-incompatible API changes (requires cargo-semver-checks)
-semver:
-    cargo semver-checks

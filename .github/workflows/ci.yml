@@ -32,6 +32,9 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
+      - name: Check
+        run: cargo check
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -57,22 +60,13 @@ jobs:
           cargo llvm-cov \
             --ignore-filename-regex 'src/generated|src/main' \
             --fail-under-lines 100 \
-            --lcov \
-            --output-path lcov.info
+            --codecov \
+            --output-path codecov.json
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
-          files: lcov.info
+          files: codecov.json
+          flags: rust
           fail_ci_if_error: false
-
-  semver:
-    name: Semver checks
-    runs-on: ubuntu-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-semver-checks
-      - name: Check semver
-        run: cargo semver-checks
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

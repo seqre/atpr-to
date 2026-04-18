@@ -8,6 +8,9 @@ use jacquard::api::com_atproto::repo::put_record::PutRecord;
 use jacquard_common::types::collection::Collection;
 use jacquard_common::types::did::Did;
 use jacquard_common::types::ident::AtIdentifier;
+use jacquard_common::types::nsid::Nsid;
+use jacquard_common::types::recordkey::{RecordKey, Rkey};
+use jacquard_common::types::uri::UriValue;
 use jacquard_common::types::value::to_data;
 use jacquard_common::xrpc::XrpcClient;
 use rand::Rng;
@@ -89,7 +92,7 @@ pub(crate) async fn resolve_did_to_handle(
     // Fallback: resolve DID doc directly
     use jacquard::identity::resolver::IdentityResolver;
     use jacquard::identity::JacquardResolver;
-    let did = Did::new(did_str).ok()?;
+    let did: Did = Did::new_owned(did_str).ok()?;
     let resolver = JacquardResolver::default();
     let doc_response = resolver.resolve_did_doc(&did).await.ok()?;
     let doc = doc_response.parse().ok()?;
@@ -139,14 +142,14 @@ pub async fn shorten(
     }
 
     // Build the link record
-    let link_url = match jacquard_common::types::string::UriValue::new_owned(&body.url) {
+    let link_url: UriValue = match UriValue::new_owned(&body.url) {
         Ok(u) => u,
         Err(e) => {
             return (StatusCode::BAD_REQUEST, format!("Invalid URI: {e}")).into_response();
         }
     };
 
-    let record = Link::new()
+    let record: Link = Link::new()
         .url(link_url)
         .updated_at(chrono::Utc::now().fixed_offset())
         .build();
@@ -164,21 +167,23 @@ pub async fn shorten(
     };
 
     // Build putRecord request
-    let rkey = match jacquard_common::types::string::RecordKey::any(&code) {
+    let rkey: RecordKey<Rkey> = match RecordKey::any_owned(&code) {
         Ok(r) => r,
         Err(e) => {
             return (StatusCode::BAD_REQUEST, format!("Invalid record key: {e}")).into_response();
         }
     };
 
-    let owned_did = match Did::new(&did_str) {
+    let owned_did: Did = match Did::new_owned(&did_str) {
         Ok(d) => d,
         Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid DID in session").into_response(),
     };
 
+    let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
+
     let request = PutRecord::new()
         .repo(AtIdentifier::Did(owned_did))
-        .collection(<Link as Collection>::NSID.to_string())
+        .collection(collection)
         .rkey(rkey)
         .record(data)
         .build();

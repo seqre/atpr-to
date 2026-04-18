@@ -78,7 +78,7 @@ pub(crate) async fn resolve_via_slingshot(
 // coverage:excl-start
 async fn resolve_via_direct(
     client: &reqwest::Client,
-    handle: &Handle<'_>,
+    handle: &Handle,
     code: &str,
 ) -> anyhow::Result<ResolvedLink> {
     let resolver = JacquardResolver::default();
@@ -141,7 +141,7 @@ pub async fn resolve(
     let start = std::time::Instant::now();
 
     // Validate handle
-    let parsed_handle = match Handle::new(&handle) {
+    let parsed_handle: Handle = match Handle::new_owned(&handle) {
         Ok(h) => h,
         Err(e) => return error::bad_request(&format!("Invalid handle: {e}")),
     };
@@ -205,10 +205,13 @@ mod tests {
 
     #[test]
     fn test_handle_parsing() {
-        assert!(Handle::new("alice.bsky.social").is_ok());
-        assert!(Handle::new("seqre.dev").is_ok());
+        assert!(
+            Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("alice.bsky.social")
+                .is_ok()
+        );
+        assert!(Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("seqre.dev").is_ok());
         // Single-label handles are invalid per AT Protocol
-        assert!(Handle::new("invalid").is_err());
+        assert!(Handle::<jacquard_common::deps::smol_str::SmolStr>::new_owned("invalid").is_err());
     }
 
     #[test]

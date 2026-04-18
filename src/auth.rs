@@ -159,7 +159,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
         ))
         .unwrap()
     } else {
-        Uri::parse(format!("{base_url}/.well-known/oauth-client-metadata.json")).unwrap()
+        Uri::parse(format!("{base_url}/oauth-client-metadata.json")).unwrap()
     };
     let redirect_uri = Uri::parse(format!("{base_url}/oauth/callback")).unwrap();
     let client_uri = Uri::parse(base_url.to_string()).unwrap();

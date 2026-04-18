@@ -16,6 +16,7 @@ pub mod error;
     clippy::new_without_default,
     clippy::needless_update
 )]
+#[rustfmt::skip]
 /// Auto-generated Lexicon types.
 pub mod generated;
 /// Short URL preview page.

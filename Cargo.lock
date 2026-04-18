@@ -2100,8 +2100,9 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jacquard"
-version = "0.11.0"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "033866911b97129bfc64212b16b630dd3c4f0407df61732193fc69fc6807ddef"
 dependencies = [
  "bytes",
  "getrandom 0.2.17",
@@ -2129,8 +2130,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-api"
-version = "0.11.1"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4edfa5ed674d8e4874909386914e3d35d74ab79d171060558732f41c06c0cd40"
 dependencies = [
  "jacquard-common",
  "jacquard-derive",
@@ -2142,8 +2144,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-common"
-version = "0.11.0"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e830579811d60e29209c9466d034225d5e045ecdc2b3c55282709bd07da97869"
 dependencies = [
  "base64 0.22.1",
  "bon",
@@ -2191,8 +2194,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-derive"
-version = "0.11.0"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93f83b8049e4e7916e0f6764c3deaf5e55a7ffbab26c379415e9b1d4d645d957"
 dependencies = [
  "heck 0.5.0",
  "jacquard-lexicon",
@@ -2203,8 +2207,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-identity"
-version = "0.11.0"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49da1f0a0487051529a70891dac0d1c6699f47b95854514402b2642e66d96c7c"
 dependencies = [
  "bon",
  "bytes",
@@ -2226,8 +2231,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-lexicon"
-version = "0.11.1"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64935ef85dd24f60f467082c21ad52f739a02dd402a2adf40e5794e3de949e1f"
 dependencies = [
  "cid",
  "dashmap",
@@ -2253,8 +2259,9 @@ dependencies = [
 
 [[package]]
 name = "jacquard-oauth"
-version = "0.11.0"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+version = "0.12.0-beta.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3dee33f944b82dc1cd2bd4ad0435a4c307651a2387003e6a33b8b543cbfb951"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2271,13 +2278,13 @@ dependencies = [
  "miette",
  "p256",
  "p384",
- "percent-encoding",
  "rand 0.8.5",
  "rouille",
  "serde",
  "serde_html_form",
  "serde_json",
  "sha2",
+ "smallvec",
  "smol_str",
  "thiserror 2.0.18",
  "tokio",
@@ -2665,7 +2672,8 @@ dependencies = [
 [[package]]
 name = "mini-moka-wasm"
 version = "0.10.99"
-source = "git+https://github.com/seqre-contrib/jacquard.git?branch=include-scope#884cbc52635e742bf21da55b8cbbfbb1e3c6f661"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0102b9a2ad50fa47ca89eead2316c8222285ecfbd3f69ce99564fbe4253866e8"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",

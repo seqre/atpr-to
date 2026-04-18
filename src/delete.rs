@@ -5,6 +5,8 @@ use jacquard::api::com_atproto::repo::delete_record::DeleteRecord;
 use jacquard_common::types::collection::Collection;
 use jacquard_common::types::did::Did;
 use jacquard_common::types::ident::AtIdentifier;
+use jacquard_common::types::nsid::Nsid;
+use jacquard_common::types::recordkey::{RecordKey, Rkey};
 use jacquard_common::xrpc::XrpcClient;
 
 use crate::auth::AuthSession;
@@ -25,22 +27,24 @@ pub async fn delete_link(auth: AuthSession, Path(code): Path<String>) -> Respons
     }
 
     // Build the rkey
-    let rkey = match jacquard_common::types::string::RecordKey::any(&code) {
+    let rkey: RecordKey<Rkey> = match RecordKey::any_owned(&code) {
         Ok(r) => r,
         Err(e) => {
             return (StatusCode::BAD_REQUEST, format!("Invalid record key: {e}")).into_response();
         }
     };
 
-    let owned_did = match Did::new(&did_str) {
+    let owned_did: Did = match Did::new_owned(&did_str) {
         Ok(d) => d,
         Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid DID in session").into_response(),
     };
 
+    let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
+
     // Build DeleteRecord request
     let request = DeleteRecord::new()
         .repo(AtIdentifier::Did(owned_did))
-        .collection(<Link as Collection>::NSID.to_string())
+        .collection(collection)
         .rkey(rkey)
         .build();
 

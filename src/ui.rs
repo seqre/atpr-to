@@ -61,7 +61,7 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
         None => return Redirect::to("/").into_response(),
     };
 
-    let did = match Did::new(&did_str) {
+    let did: Did = match Did::new_owned(&did_str) {
         Ok(d) => d,
         Err(_) => return Redirect::to("/").into_response(),
     };

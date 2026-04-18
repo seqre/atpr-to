@@ -11,10 +11,12 @@ use jacquard::identity::JacquardResolver;
 use jacquard::oauth::atproto::{AtprotoClientMetadata, GrantType};
 use jacquard::oauth::authstore::{ClientAuthStore, MemoryAuthStore};
 use jacquard::oauth::client::OAuthClient;
-use jacquard::oauth::scopes::Scope;
+use jacquard::oauth::scopes::Scopes;
 use jacquard::oauth::session::{AuthRequestData, ClientData, ClientSessionData};
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
+use jacquard_common::bos::BosStr;
 use jacquard_common::deps::fluent_uri::Uri;
+use jacquard_common::deps::smol_str::SmolStr;
 use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 use serde::Deserialize;
@@ -31,30 +33,27 @@ pub enum AuthStore {
 }
 
 impl ClientAuthStore for AuthStore {
-    async fn get_session(
+    async fn get_session<D: BosStr + Send + Sync>(
         &self,
-        did: &Did<'_>,
+        did: &Did<D>,
         session_id: &str,
-    ) -> Result<Option<ClientSessionData<'_>>, SessionStoreError> {
+    ) -> Result<Option<ClientSessionData>, SessionStoreError> {
         match self {
             AuthStore::Memory(s) => s.get_session(did, session_id).await,
             AuthStore::File(s) => s.get_session(did, session_id).await,
         }
     }
 
-    async fn upsert_session(
-        &self,
-        session: ClientSessionData<'_>,
-    ) -> Result<(), SessionStoreError> {
+    async fn upsert_session(&self, session: ClientSessionData) -> Result<(), SessionStoreError> {
         match self {
             AuthStore::Memory(s) => s.upsert_session(session).await,
             AuthStore::File(s) => s.upsert_session(session).await,
         }
     }
 
-    async fn delete_session(
+    async fn delete_session<D: BosStr + Send + Sync>(
         &self,
-        did: &Did<'_>,
+        did: &Did<D>,
         session_id: &str,
     ) -> Result<(), SessionStoreError> {
         match self {
@@ -66,7 +65,7 @@ impl ClientAuthStore for AuthStore {
     async fn get_auth_req_info(
         &self,
         state: &str,
-    ) -> Result<Option<AuthRequestData<'_>>, SessionStoreError> {
+    ) -> Result<Option<AuthRequestData>, SessionStoreError> {
         match self {
             AuthStore::Memory(s) => s.get_auth_req_info(state).await,
             AuthStore::File(s) => s.get_auth_req_info(state).await,
@@ -75,7 +74,7 @@ impl ClientAuthStore for AuthStore {
 
     async fn save_auth_req_info(
         &self,
-        auth_req_info: &AuthRequestData<'_>,
+        auth_req_info: &AuthRequestData,
     ) -> Result<(), SessionStoreError> {
         match self {
             AuthStore::Memory(s) => s.save_auth_req_info(auth_req_info).await,
@@ -124,7 +123,7 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
                 .into_response()
         })?;
 
-        let did = Did::new(&did_str).map_err(|_| {
+        let did: Did = Did::new_owned(&did_str).map_err(|_| {
             (axum::http::StatusCode::UNAUTHORIZED, "Invalid session").into_response()
         })?;
 
@@ -165,19 +164,22 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
     let redirect_uri = Uri::parse(format!("{base_url}/oauth/callback")).unwrap();
     let client_uri = Uri::parse(base_url.to_string()).unwrap();
 
-    let config = AtprotoClientMetadata {
+    let scopes: Scopes<SmolStr> =
+        Scopes::new(SmolStr::new("atproto include:to.atpr.fullPermissions"))
+            .expect("valid scopes");
+    let config: AtprotoClientMetadata<SmolStr> = AtprotoClientMetadata {
         client_id,
         client_uri: Some(client_uri),
         redirect_uris: vec![redirect_uri],
         grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
-        scopes: Scope::parse_multiple_reduced("atproto include:to.atpr.fullPermissions").unwrap(),
+        scopes,
         jwks_uri: None,
         client_name: None,
         logo_uri: None,
         tos_uri: None,
         privacy_policy_uri: None,
     }
-    .with_prod_info("atpr.to URL Shortener", None, None, None);
+    .with_prod_info(SmolStr::new("atpr.to URL Shortener"), None, None, None);
 
     let client_data = ClientData {
         keyset: None,
@@ -228,7 +230,7 @@ pub struct LoginRequest {
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
 pub async fn login(State(state): State<Arc<AppState>>, Form(body): Form<LoginRequest>) -> Response {
-    let options = AuthorizeOptions::default();
+    let options = AuthorizeOptions::<SmolStr>::default();
     tracing::debug!("login: handle={}", body.handle);
     match state.oauth.start_auth(&body.handle, options).await {
         Ok(auth_url) => Redirect::to(&auth_url).into_response(),
@@ -255,17 +257,17 @@ pub async fn oauth_callback(
     Query(query): Query<OAuthCallbackQuery>,
     jar: CookieJar,
 ) -> Response {
-    let params = CallbackParams {
-        code: query.code.into(),
-        state: query.state.map(Into::into),
-        iss: query.iss.map(Into::into),
+    let params: CallbackParams<SmolStr> = CallbackParams {
+        code: SmolStr::from(query.code),
+        state: query.state.map(SmolStr::from),
+        iss: query.iss.map(SmolStr::from),
     };
 
     match state.oauth.callback(params).await {
         Ok(session) => {
             let (did, session_id) = session.session_info().await;
 
-            let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_ref());
+            let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_str());
             let secure = !is_loopback_base_url(&state.config.base_url);
             let cookie = Cookie::build(("session", cookie_value))
                 .path("/")
@@ -341,7 +343,7 @@ mod tests {
         assert!(json["client_id"]
             .as_str()
             .unwrap()
-            .contains("/.well-known/"));
+            .contains("/oauth-client-metadata.json"));
         assert!(json["redirect_uris"].is_array());
         assert_eq!(json["dpop_bound_access_tokens"], true);
         assert_eq!(json["client_name"], "atpr.to URL Shortener");

@@ -2,6 +2,7 @@ use jacquard::api::com_atproto::repo::list_records::ListRecords;
 use jacquard_common::types::collection::Collection;
 use jacquard_common::types::did::Did;
 use jacquard_common::types::ident::AtIdentifier;
+use jacquard_common::types::nsid::Nsid;
 use jacquard_common::xrpc::XrpcClient;
 
 use axum::response::{IntoResponse, Response};
@@ -29,14 +30,16 @@ pub async fn list_links(auth: AuthSession) -> Response {
     let (did, _) = session.session_info().await;
     let did_str = did.as_ref().to_string();
 
-    let owned_did = match Did::new(&did_str) {
+    let owned_did: Did = match Did::new_owned(&did_str) {
         Ok(d) => d,
         Err(_) => return error::unauthorized("Invalid DID in session"),
     };
 
+    let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
+
     let request = ListRecords::new()
         .repo(AtIdentifier::Did(owned_did))
-        .collection(<Link as Collection>::NSID.to_string())
+        .collection(collection)
         .build();
 
     let raw_response = match session.send(request).await {

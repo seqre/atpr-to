@@ -60,10 +60,13 @@ jobs:
           cargo llvm-cov \
             --ignore-filename-regex 'src/generated|src/main' \
             --fail-under-lines 100 \
-            --lcov \
-            --output-path lcov.info
+            --codecov \
+            --output-path codecov.json
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
-          files: lcov.info
+          files: codecov.json
+          flags: rust
           fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,20 +10,32 @@
 <meta property="og:title" content="{% block og_title %}atpr.to — AT Protocol URL Shortener{% endblock %}">
 <meta property="og:description" content="{% block og_description %}AT Protocol URL shortener — links stored in your own PDS.{% endblock %}">
 <meta property="og:image" content="https://atpr.to/static/logo.svg">
-<script>
-  (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t;})();
-</script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 <link rel="stylesheet" href="/static/app.css">
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+{# TODO(rebrand): this shell is deliberately bare. Nothing here is styled.
+
+   Stack — nothing is loaded any more. Previously: Pico CSS v2 + Alpine.js 3,
+   both from cdn.jsdelivr.net with no SRI hash. Pick the new stack, then decide
+   whether it is CDN-loaded or vendored into `static/` (rust-embed bakes
+   `static/` into the binary at compile time — there is no bundler, no
+   package.json, and build.rs does not touch assets).
+
+   Missing and never present: favicon, apple-touch-icon, web manifest.
+   `/favicon.ico` currently falls through to axum's bare 404 (no route, no
+   fallback handler registered in `src/lib.rs`). Worth fixing here.
+
+   Theme — removed. Was `data-theme="dark"` on <html> plus a pre-paint inline
+   script restoring `localStorage.theme`, with the only toggle living on the
+   dashboard nav (so the landing/info/error pages could never change it).
+
+   Footer — removed. Was: made by <a href="https://bsky.app/profile/seqre.dev"
+   target="_blank" rel="noopener">@seqre.dev</a>
+
+   Logo — `static/logo.svg` is kept and is the current mark. See
+   `.claude/skills/logo-guidelines` for usage rules. Note that skill points at
+   a `DESIGN.md` (palette, type scale, components) that does not exist yet. #}
 {% block head %}{% endblock %}
 </head>
 <body>
-<main class="container">
 {% block content %}{% endblock %}
-</main>
-<footer class="landing-footer">
-  <small>made by <a href="https://bsky.app/profile/seqre.dev" target="_blank" rel="noopener">@seqre.dev</a></small>
-</footer>
 </body>
 </html>

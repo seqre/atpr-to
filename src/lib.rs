@@ -8,7 +8,7 @@ pub mod auth;
 pub mod config;
 /// Short URL deletion endpoint.
 pub mod delete;
-/// HTML error page helpers.
+/// Error response helpers.
 pub mod error;
 #[allow(
     missing_docs,

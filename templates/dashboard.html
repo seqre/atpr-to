@@ -1,267 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — atpr.to{% endblock %}
 {% block content %}
-<div
-  x-data="{
-    handle: '{{ handle }}',
-    avatar: '{{ avatar|default("") }}',
-    links: [],
-    query: '',
-    showUTC: false,
-    newUrl: '',
-    newCode: '',
-    formError: '',
-    loading: false,
-    pendingDelete: null,
-    async init() {
-      try {
-        const r = await fetch('/api/links');
-        const d = await r.json();
-        this.links = (d.links || []).map(l => ({...l, editing: false, editUrl: l.url, deleting: false, saving: false, copied: false}));
-      } catch {}
-    },
-    async copyLink(link) {
-      const url = window.location.origin + '/@' + this.handle + '/' + link.code;
-      await navigator.clipboard.writeText(url);
-      link.copied = true;
-      setTimeout(() => link.copied = false, 1500);
-    },
-    matches(link) {
-      if (!this.query) return true;
-      const q = this.query.toLowerCase();
-      return link.code.toLowerCase().includes(q) || link.url.toLowerCase().includes(q);
-    },
-    fmtDate(iso) {
-      if (!iso) return '';
-      const d = new Date(iso);
-      const p = n => String(n).padStart(2, '0');
-      if (this.showUTC) {
-        return d.getUTCFullYear() + '-' + p(d.getUTCMonth()+1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ' UTC';
-      }
-      return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
-    },
-    async shorten() {
-      this.formError = '';
-      this.loading = true;
-      try {
-        const body = {url: this.newUrl};
-        if (this.newCode) body.code = this.newCode;
-        const r = await fetch('/api/shorten', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(body)
-        });
-        if (r.ok) {
-          const d = await r.json();
-          const code = this.newCode || d.short_url.split('/').pop();
-          this.links.unshift({code, url: this.newUrl, updated_at: new Date().toISOString(), editing: false, editUrl: this.newUrl, deleting: false, saving: false, copied: false});
-          this.newUrl = '';
-          this.newCode = '';
-        } else {
-          this.formError = await r.text();
-        }
-      } finally {
-        this.loading = false;
-      }
-    },
-    deleteLink(link) {
-      this.pendingDelete = link;
-      this.$nextTick(() => this.$refs.deleteDialog.showModal());
-    },
-    async confirmDelete() {
-      const link = this.pendingDelete;
-      if (!link) return;
-      link.deleting = true;
-      try {
-        const r = await fetch('/api/shorten/' + link.code, {method: 'DELETE'});
-        if (r.ok) {
-          this.links = this.links.filter(l => l.code !== link.code);
-          this.$refs.deleteDialog.close();
-          this.pendingDelete = null;
-        } else {
-          alert('Error: ' + await r.text());
-        }
-      } finally {
-        link.deleting = false;
-      }
-    },
-    async openQr(link) {
-      const r = await fetch('/@' + this.handle + '/' + link.code + '/qr');
-      if (r.ok) {
-        link.qrSvg = await r.text();
-        link.qrOpen = true;
-        this.$nextTick(() => this.$refs.qrDialog.showModal());
-      }
-    },
-    sortBy: 'updated_at',
-    sortDir: 'desc',
-    toggleSort(col) {
-      if (this.sortBy === col) {
-        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-      } else {
-        this.sortBy = col;
-        this.sortDir = col === 'updated_at' ? 'desc' : 'asc';
-      }
-    },
-    get sortedLinks() {
-      const filtered = this.links.filter(l => this.matches(l));
-      return filtered.slice().sort((a, b) => {
-        let av = a[this.sortBy] ?? '';
-        let bv = b[this.sortBy] ?? '';
-        const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-        return this.sortDir === 'asc' ? cmp : -cmp;
-      });
-    },
-    async confirmEdit(link) {
-      link.saving = true;
-      try {
-        const r = await fetch('/api/shorten', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({url: link.editUrl, code: link.code})
-        });
-        if (r.ok) {
-          link.url = link.editUrl;
-          link.editing = false;
-        } else {
-          alert('Error: ' + await r.text());
-        }
-      } finally {
-        link.saving = false;
-      }
-    }
-  }"
-  x-init="init()"
->
+{# TODO(rebrand): authenticated dashboard. All markup and client JS removed.
 
-  <nav class="top-nav">
-    <a href="/" class="brand"><img src="/static/logo.svg" class="nav-logo" alt="">atpr.to</a>
-    <div class="user-info">
-      <button type="button" class="outline secondary btn-compact"
-        onclick="const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;localStorage.setItem('theme',t)">
-        🌑/🌕
-      </button>
-      <img x-show="avatar" :src="avatar" alt="">
-      <span x-text="handle"></span>
-      <form action="/api/logout" method="post">
-        <button type="submit" class="secondary outline btn-compact">Sign out</button>
-      </form>
-    </div>
-  </nav>
+   `handle` and `avatar` come from `DashboardTemplate` (src/ui.rs). `avatar` is
+   an empty string when the Bluesky profile lookup returns nothing. Both fields
+   must stay referenced here or rustc reports them dead and clippy -D warnings
+   fails the build.
 
-  <section>
-    <h2>New link</h2>
-    <form @submit.prevent="shorten()">
-      <div class="new-link-form">
-        <input x-model="newUrl" type="url" placeholder="https://example.com/long-url" required>
-        <input x-model="newCode" type="text" placeholder="custom code (optional)">
-        <button type="submit" :aria-busy="loading">Shorten</button>
-      </div>
-      <p class="inline-error" x-show="formError" x-text="formError"></p>
-    </form>
-  </section>
+   Backend contracts the rebuilt UI talks to:
+     GET    /api/links          -> {"links":[{"code","url","updated_at"}]}
+                                   auth-gated; error paths return a non-JSON
+                                   body (src/links.rs), so don't assume JSON
+     POST   /api/shorten        -> {url, code?} => {short_url}; rate limited
+     DELETE /api/shorten/{code} -> 204; plain-text body on error
+     POST   /api/logout         -> form POST, 303 to / and clears the cookie
+     GET    /@{handle}/{code}/qr -> standalone image/svg+xml
 
-  <section>
-    <div class="section-header">
-      <h2>Your links</h2>
-      <div class="section-controls">
-        <button type="button" class="outline secondary btn-compact"
-          @click="showUTC = !showUTC"
-          x-text="showUTC ? 'Show local time' : 'Show UTC'">
-        </button>
-        <div class="search-wrap">
-          <input x-model="query" type="text" placeholder="Search…" aria-label="Filter links">
-          <button type="button" class="search-clear" x-show="query" @click="query=''" aria-label="Clear search">&times;</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <colgroup>
-          <col style="width:8em">
-          <col>
-          <col style="width:13em">
-          <col style="width:14em">
-        </colgroup>
-        <thead>
-          <tr>
-            <th @click="toggleSort('code')" class="sortable">Code <span class="sort-indicator" x-text="sortBy==='code' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
-            <th @click="toggleSort('url')" class="sortable">Destination <span class="sort-indicator" x-text="sortBy==='url' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
-            <th @click="toggleSort('updated_at')" class="sortable">Last modified <span class="sort-indicator" x-text="sortBy==='updated_at' ? (sortDir==='asc' ? '↑' : '↓') : '↕'"></span></th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="link in sortedLinks" :key="link.code">
-            <tr>
-              <td x-text="link.code"></td>
-              <td class="url-cell">
-                <span x-show="!link.editing">
-                  <a :href="link.url" :title="link.url" x-text="link.url"></a>
-                </span>
-                <input x-show="link.editing" x-model="link.editUrl" type="url" style="margin:0;padding:0.2em 0.4em">
-              </td>
-              <td x-text="fmtDate(link.updated_at)"></td>
-              <td>
-                <template x-if="!link.editing">
-                  <div class="action-buttons">
-                    <button type="button" class="outline secondary btn-compact" @click="openQr(link)">QR</button>
-                    <button type="button" class="outline secondary btn-compact" @click="copyLink(link)" x-text="link.copied ? '✓ Copied' : 'Copy'"></button>
-                    <button type="button" class="outline btn-compact" @click="link.editing=true; link.editUrl=link.url">Edit</button>
-                    <button type="button" class="outline btn-compact btn-danger" @click="deleteLink(link)">Delete</button>
-                  </div>
-                </template>
-                <template x-if="link.editing">
-                  <div>
-                    <button type="button" class="btn-compact" style="width:100%" :aria-busy="link.saving" @click="confirmEdit(link)">Save</button>
-                    <button type="button" class="outline secondary btn-compact" style="width:100%;margin-top:0.25rem" @click="link.editing=false">Cancel</button>
-                  </div>
-                </template>
-              </td>
-            </tr>
-          </template>
-          <tr x-show="links.length === 0">
-            <td colspan="4">No links yet.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- Delete confirmation dialog -->
-  <dialog x-ref="deleteDialog">
-    <article class="delete-dialog">
-      <h3>Delete link?</h3>
-      <p>This will permanently delete <strong x-text="pendingDelete?.code"></strong> from your PDS.</p>
-      <footer>
-        <button type="button" class="secondary outline" @click="$refs.deleteDialog.close(); pendingDelete=null">Cancel</button>
-        <button type="button" class="outline btn-danger" @click="confirmDelete()">Delete</button>
-      </footer>
-    </article>
-  </dialog>
-
-  <!-- QR code dialog -->
-  <dialog x-ref="qrDialog">
-    <article>
-      <template x-for="link in links.filter(l => l.qrOpen)" :key="link.code">
-        <div>
-          <div class="qr-svg" x-html="link.qrSvg"></div>
-          <p class="short-url" x-text="window.location.origin + '/@' + handle + '/' + link.code"></p>
-          <footer>
-            <button type="button" @click="
-              const blob = new Blob([link.qrSvg], {type:'image/svg+xml'});
-              const a = document.createElement('a');
-              a.href = URL.createObjectURL(blob);
-              a.download = link.code + '.svg';
-              a.click();
-            ">Download SVG</button>
-            <button type="button" class="outline secondary" @click="$refs.qrDialog.close(); link.qrOpen=false">Close</button>
-          </footer>
-        </div>
-      </template>
-    </article>
-  </dialog>
-
-</div>
+   Removed feature set, all rebuildable on the above:
+   - link table with sort by code/destination/last-modified and a text filter
+   - create form (URL + optional custom code) with inline error display
+   - inline edit of a destination (re-POSTs /api/shorten with the same code)
+   - delete with a confirmation <dialog>
+   - copy-to-clipboard with transient "Copied" state
+   - QR <dialog> with SVG blob download
+   - local/UTC timestamp toggle
+   - top nav with brand lockup, avatar, handle, and the theme toggle
+   Note the old error handling used alert() — replace it. #}
+<p>{{ handle }}</p>
+{% if avatar != "" %}<img src="{{ avatar }}" alt="">{% endif %}
+<form method="post" action="/api/logout">
+  <button type="submit">Sign out</button>
+</form>
 {% endblock %}

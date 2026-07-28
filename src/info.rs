@@ -30,11 +30,10 @@ pub async fn info(
         .await
     {
         Ok(l) => l,
+        Err(e) if e.is_not_found() => return error::not_found("Link not found"),
         Err(e) => {
-            if e.to_string().contains("404") {
-                return error::not_found("Link not found");
-            }
-            return error::bad_gateway(&format!("Could not resolve link: {e}"));
+            tracing::error!(err = %e, "info page resolution failed");
+            return error::bad_gateway("Could not resolve link");
         }
     };
 

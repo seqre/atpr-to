@@ -342,9 +342,10 @@ mod tests {
     #[tokio::test]
     async fn test_client_metadata_fields() {
         let config = Config::default();
-        let http = reqwest::Client::new();
+        let http = crate::http_client();
         let state = Arc::new(AppState {
             oauth: build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+            resolver: crate::identity_resolver(http.clone()),
             http,
             config,
         });

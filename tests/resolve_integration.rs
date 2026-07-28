@@ -11,17 +11,25 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Build an AppState pointing Slingshot at the given mock server URL.
 async fn test_state(slingshot_url: String) -> Arc<AppState> {
+    state_with_client(slingshot_url, atpr_to::http_client()).await
+}
+
+/// As `test_state`, but with a caller-supplied HTTP client.
+///
+/// Used to force a transport timeout without making the test sleep for the
+/// production 5s budget.
+async fn state_with_client(slingshot_url: String, http: reqwest::Client) -> Arc<AppState> {
     let config = atpr_to::config::Config {
         slingshot_url,
         ..atpr_to::config::Config::default()
     };
-    let http = reqwest::Client::new();
     Arc::new(AppState {
         oauth: atpr_to::auth::build_oauth_client(
             &config.base_url,
             &config.session_file,
             http.clone(),
         ),
+        resolver: atpr_to::identity_resolver(http.clone()),
         http,
         config,
     })
@@ -150,6 +158,120 @@ async fn test_resolve_record_not_found() {
     // TODO(rebrand): body was asserted to be an HTML error page; error responses
     // are plain text until `templates/error.html` comes back (see src/error.rs).
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+/// Regression test for the `contains("404")` misclassification.
+///
+/// The short code is `promo404`. `reqwest` appends ` for url ({url})` to the
+/// Display of a send failure, and the getRecord URL carries `rkey=promo404` —
+/// so a *timeout* formatted as
+/// "error sending request for url (…rkey=promo404)" satisfied the old
+/// `slingshot_err.to_string().contains("404")` check. The response became
+/// 404 "Link not found", and the direct PDS fallback was skipped entirely
+/// because the caller believed the answer was authoritative.
+///
+/// Verified against the pre-fix code: this returned 404. Correct behaviour is
+/// to attempt the fallback and, when that also fails (no route to a real PDS
+/// under test), return 502.
+///
+/// Note the failure must be at the transport layer. reqwest attaches the URL to
+/// send errors but not to decode errors, and an HTTP status error is formatted
+/// by us without the URL — neither of those reproduces the bug.
+#[tokio::test]
+async fn test_code_containing_404_is_not_treated_as_not_found() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    // Hang past the client timeout: a transport failure, not a not-found.
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30)))
+        .mount(&mock)
+        .await;
+
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build()
+        .unwrap();
+    let state = state_with_client(mock.uri(), http).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/promo404")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_GATEWAY,
+        "a transport error on a code containing '404' must not be reported as not-found"
+    );
+}
+
+/// A genuine 404 from the record hop still short-circuits, and is not confused
+/// with a handle that failed to resolve.
+#[tokio::test]
+async fn test_handle_not_found_is_404() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/abc123")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+/// Regression test for the missing `.fallback()` route: unmatched paths used to
+/// return a bodyless 404.
+#[tokio::test]
+async fn test_unmatched_path_has_a_body() {
+    let mock = MockServer::start().await;
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/favicon.ico")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(!body.is_empty(), "fallback 404 should carry a body");
 }
 
 #[tokio::test]

@@ -14,7 +14,10 @@ use crate::AppState;
 pub struct StaticAssets;
 
 /// Serve an embedded static file with the correct MIME type and Cache-Control header.
-pub async fn static_file(State(state): State<Arc<AppState>>, Path(path): Path<String>) -> Response {
+pub async fn static_file<A: crate::auth::Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
+    Path(path): Path<String>,
+) -> Response {
     match StaticAssets::get(&path) {
         Some(file) => {
             let mime = mime_guess::from_path(&path)

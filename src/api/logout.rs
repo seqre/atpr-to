@@ -1,3 +1,5 @@
+//! `POST /api/logout` — clear the session cookie.
+
 use axum::response::{IntoResponse, Redirect};
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;

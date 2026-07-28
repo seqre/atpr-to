@@ -1,30 +1,24 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, HeaderValue};
 use axum::response::{IntoResponse, Response};
 use qrcode::render::svg;
 use qrcode::QrCode;
 
+use crate::error::AppError;
 use crate::AppState;
 
 /// Generate a QR code for a short URL, returned as SVG.
 pub async fn qr_code(
     State(state): State<Arc<AppState>>,
     Path((handle, code)): Path<(String, String)>,
-) -> Response {
-    let url = format!("{}/@{}/{}", state.config.base_url, handle, code);
-
-    let qr = match QrCode::new(url.as_bytes()) {
-        Ok(q) => q,
-        Err(e) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("QR error: {e}")).into_response();
-        }
-    };
-
+) -> Result<Response, AppError> {
+    let url = state.config.base_url.short_url(&handle, &code);
+    let qr = QrCode::new(url.as_bytes()).map_err(AppError::internal)?;
     let svg = qr.render::<svg::Color>().min_dimensions(200, 200).build();
 
-    (
+    Ok((
         [
             (
                 header::CONTENT_TYPE,
@@ -37,7 +31,7 @@ pub async fn qr_code(
         ],
         svg,
     )
-        .into_response()
+        .into_response())
 }
 
 #[cfg(test)]

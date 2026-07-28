@@ -118,7 +118,7 @@ pub fn router() -> Router {
     let http = http_client();
 
     let state = Arc::new(AppState {
-        oauth: auth::build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+        oauth: auth::build_oauth_client(&config.base_url, &config.session_store, http.clone()),
         resolver: identity_resolver(http.clone()),
         http,
         config,
@@ -137,13 +137,16 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
     //
     // On Lambda this is per-execution-environment either way, so it is a
     // backstop, not the real limit — that belongs at API Gateway.
+    // `finish()` returns None only for a zero rate or burst, which `NonZero*` in
+    // the config types makes unrepresentable — so this cannot be the cold-start
+    // panic it used to be.
     let governor_config = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(state.config.rate_limit.per_second)
-            .burst_size(state.config.rate_limit.burst_size)
+            .per_second(state.config.rate_limit.per_second.get())
+            .burst_size(state.config.rate_limit.burst_size.get())
             .key_extractor(ClientIpKeyExtractor)
             .finish()
-            .unwrap(),
+            .expect("rate limit values are nonzero by construction"),
     );
 
     // Everything that mutates state or costs an upstream round trip. `/links`
@@ -180,8 +183,8 @@ pub fn router_with_state(state: Arc<AppState>) -> Router {
 
 /// Catch-all for unmatched paths, so `/favicon.ico` and friends get a body
 /// rather than axum's default empty 404.
-async fn not_found() -> axum::response::Response {
-    error::not_found("No such page")
+async fn not_found() -> error::AppError {
+    error::AppError::NotFound
 }
 
 /// Liveness probe.
@@ -243,7 +246,7 @@ mod tests {
         };
         let http = http_client();
         std::sync::Arc::new(AppState {
-            oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_file, http.clone()),
+            oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_store, http.clone()),
             resolver: identity_resolver(http.clone()),
             http,
             config: cfg,

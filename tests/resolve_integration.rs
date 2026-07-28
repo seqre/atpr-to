@@ -26,7 +26,7 @@ async fn state_with_client(slingshot_url: String, http: reqwest::Client) -> Arc<
     Arc::new(AppState {
         oauth: atpr_to::auth::build_oauth_client(
             &config.base_url,
-            &config.session_file,
+            &config.session_store,
             http.clone(),
         ),
         resolver: atpr_to::identity_resolver(http.clone()),

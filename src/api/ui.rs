@@ -25,10 +25,9 @@ use std::sync::Arc;
 use askama::Template;
 use axum::extract::State;
 use axum::response::{Html, IntoResponse, Redirect, Response};
-use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
 
-use crate::auth::{parse_session_cookie, Authenticator};
+use crate::auth::{clear_session, Authenticator, MaybeAuth};
 use crate::error::AppError;
 use crate::AppState;
 
@@ -46,9 +45,12 @@ struct DashboardTemplate {
 
 /// Serve the home page with the login form.
 ///
-/// If a valid session cookie is already present, redirects to `/dashboard`.
-pub async fn home(jar: CookieJar) -> Result<Response, AppError> {
-    if parse_session_cookie(&jar).is_some() {
+/// Redirects to `/dashboard` when the caller has a session that actually
+/// restores. Checking cookie *presence* — which is what this did — meant any
+/// client holding a junk `session` cookie was bounced to `/dashboard`, which
+/// bounced it straight back.
+pub async fn home<A: Authenticator>(auth: MaybeAuth<A>) -> Result<Response, AppError> {
+    if auth.is_authenticated() {
         return Ok(Redirect::to("/dashboard").into_response());
     }
     let html = HomeTemplate {}.render().map_err(AppError::internal)?;
@@ -82,7 +84,7 @@ pub async fn dashboard<A: Authenticator>(
     // has one home.
     let Ok(user) = state.auth.authenticate(&jar).await else {
         // Clear the stale cookie to avoid an infinite redirect loop.
-        let jar = jar.remove(Cookie::from("session"));
+        let jar = clear_session(jar, &state.config.base_url);
         return Ok((jar, Redirect::to("/")).into_response());
     };
 

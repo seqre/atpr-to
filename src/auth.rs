@@ -7,91 +7,23 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::{Form, Json};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use axum_extra::extract::CookieJar;
-use jacquard::client::FileAuthStore;
 use jacquard::identity::JacquardResolver;
 use jacquard::oauth::atproto::{AtprotoClientMetadata, GrantType};
-use jacquard::oauth::authstore::{ClientAuthStore, MemoryAuthStore};
+use jacquard::oauth::authstore::MemoryAuthStore;
 use jacquard::oauth::client::OAuthClient;
 use jacquard::oauth::scopes::Scopes;
-use jacquard::oauth::session::{AuthRequestData, ClientData, ClientSessionData};
+use jacquard::oauth::session::ClientData;
 use jacquard::oauth::types::{AuthorizeOptions, CallbackParams};
-use jacquard_common::bos::BosStr;
 use jacquard_common::deps::fluent_uri::Uri;
 use jacquard_common::deps::smol_str::SmolStr;
-use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 use serde::Deserialize;
 
 use crate::config::{BaseUrl, SessionStore};
 use crate::error::AppError;
+use crate::session::{AuthStore, FileStore};
 use crate::store::{LinkStore, PdsLinkStore};
 use crate::AppState;
-
-/// Wraps either a memory-backed or file-backed OAuth session store.
-pub enum AuthStore {
-    /// In-memory store (sessions lost on restart).
-    Memory(MemoryAuthStore),
-    /// File-backed store (sessions persist across restarts).
-    File(FileAuthStore),
-}
-
-impl ClientAuthStore for AuthStore {
-    async fn get_session<D: BosStr + Send + Sync>(
-        &self,
-        did: &Did<D>,
-        session_id: &str,
-    ) -> Result<Option<ClientSessionData>, SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.get_session(did, session_id).await,
-            AuthStore::File(s) => s.get_session(did, session_id).await,
-        }
-    }
-
-    async fn upsert_session(&self, session: ClientSessionData) -> Result<(), SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.upsert_session(session).await,
-            AuthStore::File(s) => s.upsert_session(session).await,
-        }
-    }
-
-    async fn delete_session<D: BosStr + Send + Sync>(
-        &self,
-        did: &Did<D>,
-        session_id: &str,
-    ) -> Result<(), SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.delete_session(did, session_id).await,
-            AuthStore::File(s) => s.delete_session(did, session_id).await,
-        }
-    }
-
-    async fn get_auth_req_info(
-        &self,
-        state: &str,
-    ) -> Result<Option<AuthRequestData>, SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.get_auth_req_info(state).await,
-            AuthStore::File(s) => s.get_auth_req_info(state).await,
-        }
-    }
-
-    async fn save_auth_req_info(
-        &self,
-        auth_req_info: &AuthRequestData,
-    ) -> Result<(), SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.save_auth_req_info(auth_req_info).await,
-            AuthStore::File(s) => s.save_auth_req_info(auth_req_info).await,
-        }
-    }
-
-    async fn delete_auth_req_info(&self, state: &str) -> Result<(), SessionStoreError> {
-        match self {
-            AuthStore::Memory(s) => s.delete_auth_req_info(state).await,
-            AuthStore::File(s) => s.delete_auth_req_info(state).await,
-        }
-    }
-}
 
 /// The identity resolver this application uses, over the shared `reqwest` client.
 pub type Resolver = JacquardResolver<reqwest::Client>;
@@ -162,6 +94,15 @@ pub trait Authenticator: Send + Sync + 'static {
         &self,
         input: CallbackInput,
     ) -> impl Future<Output = Result<String, AppError>> + Send;
+
+    /// Revoke the session this cookie names.
+    ///
+    /// Clearing the cookie is not logging out: the access token, refresh token
+    /// and DPoP key stayed live in the store forever, so a cookie captured
+    /// before "sign out" kept working afterwards. Best-effort — a caller cannot
+    /// do anything useful with a revocation failure, and must still be logged
+    /// out locally either way.
+    fn revoke(&self, jar: &CookieJar) -> impl Future<Output = ()> + Send;
 }
 
 impl<A: Authenticator> FromRequestParts<Arc<AppState<A>>> for AuthedUser<A> {
@@ -175,6 +116,33 @@ impl<A: Authenticator> FromRequestParts<Arc<AppState<A>>> for AuthedUser<A> {
             .await
             .map_err(|_| AppError::Unauthorized)?;
         state.auth.authenticate(&jar).await
+    }
+}
+
+/// An authenticated user, if there is one.
+///
+/// For routes that render differently when signed in but do not require it.
+/// `ui::home` used to decide this by checking whether a `session` cookie was
+/// *present*, which any client can arrange, so an unauthenticated visitor
+/// holding a junk cookie was bounced to `/dashboard` and straight back.
+pub struct MaybeAuth<A: Authenticator>(pub Option<AuthedUser<A>>);
+
+impl<A: Authenticator> MaybeAuth<A> {
+    /// Whether the request carried a valid session.
+    pub fn is_authenticated(&self) -> bool {
+        self.0.is_some()
+    }
+}
+
+impl<A: Authenticator> FromRequestParts<Arc<AppState<A>>> for MaybeAuth<A> {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState<A>>,
+    ) -> Result<Self, Self::Rejection> {
+        let Ok(jar) = CookieJar::from_request_parts(parts, state).await;
+        Ok(MaybeAuth(state.auth.authenticate(&jar).await.ok()))
     }
 }
 
@@ -242,6 +210,21 @@ impl Authenticator for OAuthAuthenticator {
         let (did, session_id) = session.session_info().await;
         Ok(format!("{}|{}", did.as_ref(), session_id.as_str()))
     }
+
+    async fn revoke(&self, jar: &CookieJar) {
+        let Ok((did, session)) = self.restore(jar).await else {
+            // No live session to revoke; clearing the cookie is all there is.
+            return;
+        };
+
+        // `OAuthSession::logout` calls the authorization server's revocation
+        // endpoint and then drops the session from the store.
+        if let Err(e) = session.logout().await {
+            tracing::warn!(did = %did.as_ref(), err = %e, "server-side session revocation failed");
+        } else {
+            tracing::info!(did = %did.as_ref(), "session revoked");
+        }
+    }
 }
 
 /// The OAuth scope this client requests.
@@ -300,11 +283,11 @@ pub fn client_metadata_for(base_url: &BaseUrl) -> AtprotoClientMetadata<SmolStr>
 /// `http` is the application's shared `reqwest` client — jacquard 0.12 takes the
 /// HTTP client as a constructor argument rather than building its own, so the
 /// OAuth and identity paths inherit its timeouts and user-agent.
-pub fn build_oauth_client(
+pub async fn build_oauth_client(
     base_url: &BaseUrl,
     session_store: &SessionStore,
     http: reqwest::Client,
-) -> OAuthClientType {
+) -> Result<OAuthClientType, std::io::Error> {
     let client_data = ClientData {
         keyset: None,
         config: client_metadata_for(base_url),
@@ -312,9 +295,9 @@ pub fn build_oauth_client(
 
     let store = match session_store.path() {
         None => AuthStore::Memory(MemoryAuthStore::new()),
-        Some(path) => AuthStore::File(FileAuthStore::new(path)),
+        Some(path) => AuthStore::File(FileStore::open(path).await?),
     };
-    OAuthClient::new(store, client_data, http)
+    Ok(OAuthClient::new(store, client_data, http))
 }
 
 /// Serve OAuth client metadata for atproto OAuth discovery.
@@ -365,23 +348,86 @@ pub async fn oauth_callback<A: Authenticator>(
     jar: CookieJar,
 ) -> Result<Response, AppError> {
     let cookie_value = state.auth.complete_login(query).await?;
-
-    let cookie = Cookie::build(("session", cookie_value))
-        .path("/")
-        .http_only(true)
-        .secure(!state.config.base_url.is_loopback())
-        .same_site(SameSite::Lax)
-        .max_age(time::Duration::days(30));
-
+    let cookie = session_cookie(&state.config.base_url, cookie_value);
     Ok((jar.add(cookie), Redirect::temporary("/")).into_response())
 }
 
+/// How long a session cookie lives.
+const SESSION_MAX_AGE: time::Duration = time::Duration::days(30);
+
+/// The session cookie's name.
+///
+/// The `__Host-` prefix is free hardening: browsers refuse to accept such a
+/// cookie unless it is `Secure`, `Path=/` and carries no `Domain`, which means
+/// a subdomain cannot set or overwrite it.
+///
+/// It requires `Secure`, so loopback keeps the plain name. `http://127.0.0.1`
+/// is a trustworthy origin and most current browsers would accept a `Secure`
+/// cookie there, but "most current browsers" is not a good foundation for the
+/// local development flow.
+pub fn cookie_name(base_url: &BaseUrl) -> &'static str {
+    if base_url.is_loopback() {
+        "session"
+    } else {
+        "__Host-session"
+    }
+}
+
+/// Build the session cookie carrying `value`.
+pub fn session_cookie(base_url: &BaseUrl, value: String) -> Cookie<'static> {
+    Cookie::build((cookie_name(base_url), value))
+        .path("/")
+        .http_only(true)
+        .secure(!base_url.is_loopback())
+        .same_site(SameSite::Lax)
+        .max_age(SESSION_MAX_AGE)
+        .build()
+}
+
+/// Clear the session cookie.
+///
+/// Adds an already-expired cookie rather than calling `CookieJar::remove`,
+/// because `remove` only emits a `Set-Cookie` when the jar *already held* a
+/// cookie of that name — so a client holding the other name would silently keep
+/// its session after "sign out". Both names are cleared for the same reason.
+///
+/// The attributes mirror the cookie being cleared: a browser matches a removal
+/// on name, path and domain, so a clearing cookie that disagrees about `Path`
+/// clears nothing.
+pub fn clear_session(jar: CookieJar, base_url: &BaseUrl) -> CookieJar {
+    let mut jar = jar;
+    for name in ["__Host-session", "session"] {
+        // `__Host-` requires Secure; the plain name mirrors whatever the
+        // configured base URL implies.
+        let secure = name.starts_with("__Host-") || !base_url.is_loopback();
+        jar = jar.add(
+            Cookie::build((name, ""))
+                .path("/")
+                .http_only(true)
+                .secure(secure)
+                .same_site(SameSite::Lax)
+                .max_age(time::Duration::seconds(0))
+                .build(),
+        );
+    }
+    jar
+}
+
+/// The raw session cookie value, under either name.
+///
+/// Accepts both so a deployment that moves between loopback and production — or
+/// a browser still holding the pre-`__Host-` cookie — does not wedge.
+pub fn session_cookie_value(jar: &CookieJar) -> Option<&str> {
+    jar.get("__Host-session")
+        .or_else(|| jar.get("session"))
+        .map(|c| c.value())
+}
+
 /// Extract DID and session_id from the session cookie.
+///
 /// Returns None if no valid session cookie exists.
 pub fn parse_session_cookie(jar: &CookieJar) -> Option<(String, String)> {
-    let cookie = jar.get("session")?;
-    let value = cookie.value();
-    let (did, session_id) = value.split_once('|')?;
+    let (did, session_id) = session_cookie_value(jar)?.split_once('|')?;
     Some((did.to_string(), session_id.to_string()))
 }
 
@@ -401,6 +447,9 @@ pub struct FakeAuthenticator {
     pub store: Arc<crate::store::InMemoryLinkStore>,
     /// When set, `start_login` and `complete_login` fail with this message.
     pub login_fails: Option<String>,
+    /// Set by `revoke`, so a test can assert the session was actually revoked
+    /// server-side and not merely un-cookied.
+    pub revoked: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl FakeAuthenticator {
@@ -411,7 +460,13 @@ impl FakeAuthenticator {
             accepts_cookie: format!("{did}|test-session"),
             store: Arc::new(crate::store::InMemoryLinkStore::new()),
             login_fails: None,
+            revoked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
+    }
+
+    /// Whether `revoke` has been called with a matching cookie.
+    pub fn was_revoked(&self) -> bool {
+        self.revoked.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// The cookie header value a client should send to authenticate.
@@ -436,8 +491,7 @@ impl Authenticator for FakeAuthenticator {
     type Store = Arc<crate::store::InMemoryLinkStore>;
 
     async fn authenticate(&self, jar: &CookieJar) -> Result<AuthedUser<Self>, AppError> {
-        let cookie = jar.get("session").ok_or(AppError::Unauthorized)?;
-        if cookie.value() != self.accepts_cookie {
+        if session_cookie_value(jar) != Some(self.accepts_cookie.as_str()) {
             return Err(AppError::Unauthorized);
         }
         Ok(AuthedUser {
@@ -461,6 +515,13 @@ impl Authenticator for FakeAuthenticator {
             return Err(AppError::Upstream(anyhow::anyhow!("{m}")));
         }
         Ok(self.accepts_cookie.clone())
+    }
+
+    async fn revoke(&self, jar: &CookieJar) {
+        if session_cookie_value(jar) == Some(self.accepts_cookie.as_str()) {
+            self.revoked
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
     }
 }
 
@@ -493,19 +554,17 @@ mod tests {
         assert!(parse_session_cookie(&jar).is_none());
     }
 
-    #[test]
-    fn test_build_oauth_client() {
-        let _client = build_oauth_client(
-            &BaseUrl::parse("https://atpr.to").unwrap(),
-            &SessionStore::Memory,
-            reqwest::Client::new(),
-        );
-        // Just verify it doesn't panic during construction
+    #[tokio::test]
+    async fn test_build_oauth_client() {
+        let base = BaseUrl::parse("https://atpr.to").unwrap();
+        let _client = build_oauth_client(&base, &SessionStore::Memory, reqwest::Client::new())
+            .await
+            .expect("in-memory store cannot fail");
     }
 
     #[tokio::test]
     async fn test_client_metadata_fields() {
-        let state = crate::build_state(Config::default());
+        let state = crate::build_state(Config::default()).await.unwrap();
         let result = client_metadata(State(state)).await;
         let json = &result.0;
         assert!(json["client_id"]

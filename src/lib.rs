@@ -25,6 +25,8 @@ pub mod error;
 pub mod generated;
 /// The public read side: resolving `@handle/code` to a destination.
 pub mod resolver;
+/// OAuth session persistence.
+pub mod session;
 /// The authenticated write side: a user's link store.
 pub mod store;
 
@@ -166,10 +168,21 @@ pub fn identity_resolver(http: reqwest::Client) -> auth::Resolver {
 }
 
 /// Assemble the production application state from a loaded config.
-pub fn build_state(config: config::Config) -> Arc<AppState<auth::OAuthAuthenticator>> {
+///
+/// Async because opening a file-backed session store is IO. Doing that at
+/// startup rather than lazily means a store we cannot read fails the cold start
+/// with a clear message instead of failing every login later.
+pub async fn build_state(
+    config: config::Config,
+) -> Result<Arc<AppState<auth::OAuthAuthenticator>>, std::io::Error> {
     let http = http_client();
-    let oauth = auth::build_oauth_client(&config.base_url, &config.session_store, http.clone());
-    build_state_with(config, auth::OAuthAuthenticator::new(oauth), http)
+    let oauth =
+        auth::build_oauth_client(&config.base_url, &config.session_store, http.clone()).await?;
+    Ok(build_state_with(
+        config,
+        auth::OAuthAuthenticator::new(oauth),
+        http,
+    ))
 }
 
 /// Assemble application state around a caller-supplied authenticator.
@@ -199,8 +212,27 @@ pub fn build_state_with<A: auth::Authenticator>(
 }
 
 /// Build the application router, loading config from the environment.
-pub fn router() -> Router {
-    router_with_state(build_state(config::load()))
+pub async fn router() -> Router {
+    let state = build_state(config::load())
+        .await
+        .unwrap_or_else(|e| panic!("failed to open the session store: {e}"));
+    router_with_state(state)
+}
+
+/// Build a router from compiled defaults, ignoring `Config.toml` and the
+/// environment.
+///
+/// For tests. `router()` reads the repo's `Config.toml`, which points
+/// `session_file` at a real file — so every test that called it shared one
+/// on-disk session store and raced the others. Compiled defaults use the
+/// in-memory store.
+#[cfg(test)]
+pub(crate) async fn test_router() -> Router {
+    router_with_state(
+        build_state(config::Config::default())
+            .await
+            .expect("the in-memory store cannot fail"),
+    )
 }
 
 /// Build the application router from an existing `AppState`.
@@ -328,12 +360,12 @@ mod tests {
             slingshot_url,
             ..config::Config::default()
         };
-        build_state(cfg)
+        build_state(cfg).await.expect("in-memory store cannot fail")
     }
 
     #[tokio::test]
     async fn test_index_route() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
@@ -344,7 +376,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_shorten_requires_post() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -360,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_route_exists() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -378,7 +410,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_oauth_metadata_route() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -394,7 +426,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_requires_auth() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -411,7 +443,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_method() {
-        let app = router();
+        let app = test_router().await;
         // GET on a DELETE-only route should be 405
         let response = app
             .oneshot(
@@ -428,7 +460,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_route() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -511,7 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_session_invalid_did() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -529,7 +561,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_session_expired() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -547,7 +579,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_login_requires_post() {
-        let app = router();
+        let app = test_router().await;
         let response = app
             .oneshot(
                 Request::builder()

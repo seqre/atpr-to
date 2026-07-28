@@ -28,7 +28,7 @@ use axum_extra::extract::CookieJar;
 use jacquard_common::types::did::Did;
 
 use crate::auth::parse_session_cookie;
-use crate::error;
+use crate::error::AppError;
 use crate::AppState;
 
 #[derive(Template)]
@@ -46,15 +46,12 @@ struct DashboardTemplate {
 /// Serve the home page with the login form.
 ///
 /// If a valid session cookie is already present, redirects to `/dashboard`.
-pub async fn home(jar: CookieJar) -> Response {
+pub async fn home(jar: CookieJar) -> Result<Response, AppError> {
     if parse_session_cookie(&jar).is_some() {
-        return Redirect::to("/dashboard").into_response();
+        return Ok(Redirect::to("/dashboard").into_response());
     }
-    let tmpl = HomeTemplate {};
-    match tmpl.render() {
-        Ok(html) => Html(html).into_response(),
-        Err(e) => error::internal_error(&format!("Template error: {e}")),
-    }
+    let html = HomeTemplate {}.render().map_err(AppError::internal)?;
+    Ok(Html(html).into_response())
 }
 
 // coverage:excl-start
@@ -75,21 +72,24 @@ async fn fetch_bsky_avatar(client: &reqwest::Client, did: &str) -> Option<String
 /// Redirects to `/` if the session cookie is missing or invalid.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Response {
+pub async fn dashboard(
+    State(state): State<Arc<AppState>>,
+    jar: CookieJar,
+) -> Result<Response, AppError> {
     let (did_str, session_id) = match parse_session_cookie(&jar) {
         Some(p) => p,
-        None => return Redirect::to("/").into_response(),
+        None => return Ok(Redirect::to("/").into_response()),
     };
 
     let did: Did = match Did::new_owned(&did_str) {
         Ok(d) => d,
-        Err(_) => return Redirect::to("/").into_response(),
+        Err(_) => return Ok(Redirect::to("/").into_response()),
     };
 
     if state.oauth.restore(&did, &session_id).await.is_err() {
         // Clear the stale cookie to avoid an infinite redirect loop.
         let jar = jar.remove(Cookie::from("session"));
-        return (jar, Redirect::to("/")).into_response();
+        return Ok((jar, Redirect::to("/")).into_response());
     }
 
     let (handle, avatar) = tokio::join!(
@@ -103,13 +103,12 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
     );
     let handle = handle.unwrap_or(did_str);
 
-    let tmpl = DashboardTemplate {
+    let html = DashboardTemplate {
         handle,
         avatar: avatar.unwrap_or_default(),
-    };
-    match tmpl.render() {
-        Ok(html) => Html(html).into_response(),
-        Err(e) => error::internal_error(&format!("Template error: {e}")),
     }
+    .render()
+    .map_err(AppError::internal)?;
+    Ok(Html(html).into_response())
 }
 // coverage:excl-stop

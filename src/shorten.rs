@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
 use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
 use axum::Json;
 use jacquard::api::com_atproto::repo::put_record::PutRecord;
 use jacquard_common::types::collection::Collection;
@@ -18,6 +16,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthSession, Resolver};
+use crate::error::AppError;
 use crate::generated::to_atpr::link::Link;
 use crate::AppState;
 
@@ -38,6 +37,10 @@ pub struct ShortenResponse {
 }
 
 const CODE_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+/// Maximum destination URL length, mirroring `maxLength` on `url` in
+/// `lexicons/to/atpr/link.json`. Phase 3 pins the two together with a test.
+const MAX_TARGET_LEN: usize = 2048;
 
 /// Generate a random short code (6-8 alphanumeric chars).
 fn generate_code() -> String {
@@ -110,75 +113,43 @@ pub async fn shorten(
     State(state): State<Arc<AppState>>,
     auth: AuthSession,
     Json(body): Json<ShortenRequest>,
-) -> Response {
+) -> Result<Json<ShortenResponse>, AppError> {
     let AuthSession(session) = auth;
     let (did, _) = session.session_info().await;
     let did_str = did.as_ref().to_string();
 
-    // Determine short code
     let code = match &body.code {
-        Some(c) => {
-            if !validate_code(c) {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    "Invalid code: must be 1-64 chars, alphanumeric or -_",
-                )
-                    .into_response();
-            }
-            c.clone()
+        Some(c) if !validate_code(c) => {
+            return Err(AppError::BadRequest(
+                "Invalid code: must be 1-64 chars, alphanumeric or -_",
+            ))
         }
+        Some(c) => c.clone(),
         None => generate_code(),
     };
 
-    // Validate URL
-    if body.url.len() > 2048 {
-        return (StatusCode::BAD_REQUEST, "URL too long (max 2048 chars)").into_response();
+    if body.url.len() > MAX_TARGET_LEN {
+        return Err(AppError::BadRequest("URL too long (max 2048 chars)"));
     }
     if url::Url::parse(&body.url).is_err() {
-        return (StatusCode::BAD_REQUEST, "Invalid URL").into_response();
+        return Err(AppError::BadRequest("Invalid URL"));
     }
     if !is_allowed_scheme(&body.url) {
-        return (StatusCode::BAD_REQUEST, "Only http/https URLs are allowed").into_response();
+        return Err(AppError::BadRequest("Only http/https URLs are allowed"));
     }
 
-    // Build the link record
-    let link_url: UriValue = match UriValue::new_owned(&body.url) {
-        Ok(u) => u,
-        Err(e) => {
-            return (StatusCode::BAD_REQUEST, format!("Invalid URI: {e}")).into_response();
-        }
-    };
+    let link_url: UriValue =
+        UriValue::new_owned(&body.url).map_err(|_| AppError::BadRequest("Invalid URL"))?;
 
     let record: Link = Link::new()
         .url(link_url)
         .updated_at(Datetime::now())
         .build();
 
-    // Serialize to Data for the XRPC request
-    let data = match to_data(&record) {
-        Ok(d) => d,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to serialize record: {e}"),
-            )
-                .into_response();
-        }
-    };
-
-    // Build putRecord request
-    let rkey: RecordKey<Rkey> = match RecordKey::any_owned(&code) {
-        Ok(r) => r,
-        Err(e) => {
-            return (StatusCode::BAD_REQUEST, format!("Invalid record key: {e}")).into_response();
-        }
-    };
-
-    let owned_did: Did = match Did::new_owned(&did_str) {
-        Ok(d) => d,
-        Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid DID in session").into_response(),
-    };
-
+    let data = to_data(&record).map_err(AppError::internal)?;
+    let rkey: RecordKey<Rkey> =
+        RecordKey::any_owned(&code).map_err(|_| AppError::BadRequest("Invalid code"))?;
+    let owned_did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
     let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
 
     let request = PutRecord::new()
@@ -188,37 +159,29 @@ pub async fn shorten(
         .record(data)
         .build();
 
-    // Send the request
-    match session.send(request).await {
-        Ok(_response) => {
-            // The short URL's identity segment must be a *handle*: `resolve`
-            // parses it with `Handle::new_owned`, and a DID is not a valid
-            // handle. Falling back to the DID string therefore minted a URL
-            // that could never resolve, and reported success while doing it.
-            let Some(handle) = resolve_did_to_handle(
-                &state.http,
-                &state.resolver,
-                &state.config.slingshot_url,
-                &did_str,
-            )
-            .await
-            else {
-                tracing::error!(did = %did_str, "record written but handle resolution failed");
-                return (
-                    StatusCode::BAD_GATEWAY,
-                    "Link was created, but your handle could not be resolved to build its short URL. Try again shortly.",
-                )
-                    .into_response();
-            };
-            let short_url = format!("{}/@{}/{}", state.config.base_url, handle, code);
-            Json(ShortenResponse { short_url }).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to create record: {e}"),
-        )
-            .into_response(),
-    }
+    session.send(request).await.map_err(AppError::upstream)?;
+
+    // The short URL's identity segment must be a *handle*: `resolve` parses it
+    // with `Handle::new_owned`, and a DID is not a valid handle. Falling back to
+    // the DID string therefore minted a URL that could never resolve, and
+    // reported success while doing it.
+    let Some(handle) = resolve_did_to_handle(
+        &state.http,
+        &state.resolver,
+        &state.config.slingshot_url,
+        &did_str,
+    )
+    .await
+    else {
+        tracing::error!(did = %did_str, "record written but handle resolution failed");
+        return Err(AppError::Upstream(anyhow::anyhow!(
+            "handle resolution failed for {did_str} after the record was written"
+        )));
+    };
+
+    Ok(Json(ShortenResponse {
+        short_url: state.config.base_url.short_url(&handle, &code),
+    }))
 }
 // coverage:excl-stop
 

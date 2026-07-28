@@ -9,7 +9,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 
 use crate::auth::AuthSession;
-use crate::error;
+use crate::error::AppError;
 use crate::generated::to_atpr::link::Link;
 
 /// Extract the record key (rkey) from an AT-URI string.
@@ -25,15 +25,12 @@ pub fn rkey_from_at_uri(at_uri: &str) -> &str {
 /// with a `links` array of `{ code, url, created_at, expires_at }` entries.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn list_links(auth: AuthSession) -> Response {
+pub async fn list_links(auth: AuthSession) -> Result<Response, AppError> {
     let AuthSession(session) = auth;
     let (did, _) = session.session_info().await;
     let did_str = did.as_ref().to_string();
 
-    let owned_did: Did = match Did::new_owned(&did_str) {
-        Ok(d) => d,
-        Err(_) => return error::unauthorized("Invalid DID in session"),
-    };
+    let owned_did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
 
     let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
 
@@ -42,17 +39,8 @@ pub async fn list_links(auth: AuthSession) -> Response {
         .collection(collection)
         .build();
 
-    let raw_response = match session.send(request).await {
-        Ok(r) => r,
-        Err(e) => return error::internal_error(&format!("Failed to list records: {e}")),
-    };
-
-    let output = match raw_response.into_output() {
-        Ok(o) => o,
-        Err(e) => {
-            return error::internal_error(&format!("Failed to parse listRecords response: {e}"))
-        }
-    };
+    let raw_response = session.send(request).await.map_err(AppError::upstream)?;
+    let output = raw_response.into_output().map_err(AppError::upstream)?;
 
     let links: Vec<serde_json::Value> = output
         .records
@@ -84,7 +72,7 @@ pub async fn list_links(auth: AuthSession) -> Response {
         })
         .collect();
 
-    Json(serde_json::json!({ "links": links })).into_response()
+    Ok(Json(serde_json::json!({ "links": links })).into_response())
 }
 // coverage:excl-stop
 
@@ -124,5 +112,33 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    /// A JSON endpoint must not answer errors in `text/plain`. It used to:
+    /// the auth rejection and every `error::*` helper emitted plain text, which
+    /// `templates/dashboard.html` already flagged as a trap for any client that
+    /// parses the body.
+    #[tokio::test]
+    async fn test_links_error_body_is_json() {
+        let app = router();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/links")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/json"
+        );
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).expect("body must be JSON");
+        assert_eq!(json["error"], "unauthorized");
     }
 }

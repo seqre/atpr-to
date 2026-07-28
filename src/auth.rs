@@ -21,7 +21,8 @@ use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 use serde::Deserialize;
 
-use crate::error;
+use crate::config::{BaseUrl, SessionStore};
+use crate::error::AppError;
 use crate::AppState;
 
 /// Wraps either a memory-backed or file-backed OAuth session store.
@@ -103,11 +104,13 @@ pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<Resolver, Auth
 /// ```ignore
 /// pub async fn my_handler(auth: AuthSession, ...) -> Response { ... }
 /// ```
-/// Returns 401 with a plain-text error if the cookie is missing, malformed, or expired.
+/// Rejects with `AppError::Unauthorized` if the cookie is missing, malformed,
+/// or no longer restorable — so the rejection body matches every other error the
+/// API emits, rather than being the one `text/plain` response left over.
 pub struct AuthSession(pub OAuthSessionType);
 
 impl FromRequestParts<Arc<AppState>> for AuthSession {
-    type Rejection = Response;
+    type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut Parts,
@@ -115,71 +118,63 @@ impl FromRequestParts<Arc<AppState>> for AuthSession {
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_request_parts(parts, state)
             .await
-            .map_err(|e| e.into_response())?;
+            .map_err(|_| AppError::Unauthorized)?;
 
-        let (did_str, session_id) = parse_session_cookie(&jar).ok_or_else(|| {
-            (
-                axum::http::StatusCode::UNAUTHORIZED,
-                "Authentication required",
-            )
-                .into_response()
-        })?;
+        let (did_str, session_id) = parse_session_cookie(&jar).ok_or(AppError::Unauthorized)?;
+        let did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
 
-        let did: Did = Did::new_owned(&did_str).map_err(|_| {
-            (axum::http::StatusCode::UNAUTHORIZED, "Invalid session").into_response()
-        })?;
-
+        // The reason a session failed to restore is not the caller's business —
+        // it previously came back as `Session expired: {e}`, echoing jacquard's
+        // internal error text to anyone who sent a cookie.
         let session = state.oauth.restore(&did, &session_id).await.map_err(|e| {
-            (
-                axum::http::StatusCode::UNAUTHORIZED,
-                format!("Session expired: {e}"),
-            )
-                .into_response()
+            tracing::debug!(err = %e, "session restore failed");
+            AppError::Unauthorized
         })?;
 
         Ok(AuthSession(session))
     }
 }
 
-/// Returns true if the base URL is a loopback address (http://localhost or http://127.0.0.1).
-fn is_loopback_base_url(base_url: &str) -> bool {
-    base_url.starts_with("http://127.0.0.1") || base_url.starts_with("http://localhost")
+/// The OAuth scope this client requests.
+///
+/// Single definition; this literal previously appeared in four places.
+pub const SCOPE: &str = "atproto include:to.atpr.fullPermissions";
+
+/// The `client_id` this instance identifies itself with.
+///
+/// A loopback client_id must be `http://localhost` with the scope and
+/// redirect_uri as query params — the PDS derives the metadata from those
+/// params without fetching any URL. Discoverable (production) clients use the
+/// full https metadata URL.
+pub fn client_id(base_url: &BaseUrl) -> String {
+    if base_url.is_loopback() {
+        let scope = urlencoding::encode(SCOPE);
+        let redir = urlencoding::encode_binary(redirect_uri(base_url).as_bytes()).into_owned();
+        format!("http://localhost?scope={scope}&redirect_uri={redir}")
+    } else {
+        format!("{base_url}/oauth-client-metadata.json")
+    }
 }
 
-/// Build the OAuth client for the given base URL and optional session file path.
-///
-/// `http` is the application's shared `reqwest` client — jacquard 0.12 takes the
-/// HTTP client as a constructor argument rather than building its own, so the
-/// OAuth and identity paths inherit whatever timeouts and user-agent it carries.
-pub fn build_oauth_client(
-    base_url: &str,
-    session_file: &str,
-    http: reqwest::Client,
-) -> OAuthClientType {
-    // Loopback client_id must be "http://localhost" with scope and redirect_uri
-    // encoded as query params — the PDS derives metadata from these params
-    // without fetching any URL. Discoverable (production) clients use the full
-    // metadata URL with https://.
-    let client_id = if is_loopback_base_url(base_url) {
-        let scope = urlencoding::encode("atproto include:to.atpr.fullPermissions");
-        let redir_raw = format!("{base_url}/oauth/callback");
-        let redir = urlencoding::encode(&redir_raw);
-        Uri::parse(format!(
-            "http://localhost?scope={scope}&redirect_uri={redir}"
-        ))
-        .unwrap()
-    } else {
-        Uri::parse(format!("{base_url}/oauth-client-metadata.json")).unwrap()
-    };
-    let redirect_uri = Uri::parse(format!("{base_url}/oauth/callback")).unwrap();
-    let client_uri = Uri::parse(base_url.to_string()).unwrap();
+/// The OAuth redirect URI for this instance.
+pub fn redirect_uri(base_url: &BaseUrl) -> String {
+    format!("{base_url}/oauth/callback")
+}
 
-    let scopes: Scopes<SmolStr> =
-        Scopes::new(SmolStr::new("atproto include:to.atpr.fullPermissions")).expect("valid scopes");
-    let config: AtprotoClientMetadata<SmolStr> = AtprotoClientMetadata {
-        client_id,
-        client_uri: Some(client_uri),
-        redirect_uris: vec![redirect_uri],
+/// Build this client's atproto OAuth metadata.
+///
+/// `build_oauth_client` and `client_metadata` used to construct the same
+/// strings independently, so the JSON served at
+/// `/oauth-client-metadata.json` could drift from what the client actually
+/// registered. Both now go through here.
+pub fn client_metadata_for(base_url: &BaseUrl) -> AtprotoClientMetadata<SmolStr> {
+    let scopes: Scopes<SmolStr> = Scopes::new(SmolStr::new(SCOPE)).expect("valid scopes");
+    AtprotoClientMetadata {
+        client_id: Uri::parse(client_id(base_url)).expect("client_id built from a validated URL"),
+        client_uri: Some(Uri::parse(base_url.as_str().to_string()).expect("base URL is validated")),
+        redirect_uris: vec![
+            Uri::parse(redirect_uri(base_url)).expect("redirect URI built from a validated URL")
+        ],
         grant_types: vec![GrantType::AuthorizationCode, GrantType::RefreshToken],
         scopes,
         jwks_uri: None,
@@ -188,41 +183,47 @@ pub fn build_oauth_client(
         tos_uri: None,
         privacy_policy_uri: None,
     }
-    .with_prod_info(SmolStr::new("atpr.to URL Shortener"), None, None, None);
+    .with_prod_info(SmolStr::new("atpr.to URL Shortener"), None, None, None)
+}
 
+/// Build the OAuth client.
+///
+/// `http` is the application's shared `reqwest` client — jacquard 0.12 takes the
+/// HTTP client as a constructor argument rather than building its own, so the
+/// OAuth and identity paths inherit its timeouts and user-agent.
+pub fn build_oauth_client(
+    base_url: &BaseUrl,
+    session_store: &SessionStore,
+    http: reqwest::Client,
+) -> OAuthClientType {
     let client_data = ClientData {
         keyset: None,
-        config,
+        config: client_metadata_for(base_url),
     };
 
-    let store = if session_file.is_empty() {
-        AuthStore::Memory(MemoryAuthStore::new())
-    } else {
-        AuthStore::File(FileAuthStore::new(session_file))
+    let store = match session_store.path() {
+        None => AuthStore::Memory(MemoryAuthStore::new()),
+        Some(path) => AuthStore::File(FileAuthStore::new(path)),
     };
     OAuthClient::new(store, client_data, http)
 }
 
 /// Serve OAuth client metadata for atproto OAuth discovery.
+///
+/// Built from the same `client_id` / `redirect_uri` / `SCOPE` helpers the client
+/// itself registers with, so the published document cannot describe a client
+/// different from the one running.
 pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let base = &state.config.base_url;
-    let client_id = if is_loopback_base_url(base) {
-        let scope = urlencoding::encode("atproto include:to.atpr.fullPermissions");
-        let redir_raw = format!("{base}/oauth/callback");
-        let redir = urlencoding::encode(&redir_raw);
-        format!("http://localhost?scope={scope}&redirect_uri={redir}")
-    } else {
-        format!("{base}/oauth-client-metadata.json")
-    };
     Json(serde_json::json!({
-        "client_id": client_id,
+        "client_id": client_id(base),
         "client_name": "atpr.to URL Shortener",
-        "client_uri": base,
-        "redirect_uris": [format!("{base}/oauth/callback")],
+        "client_uri": base.as_str(),
+        "redirect_uris": [redirect_uri(base)],
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "token_endpoint_auth_method": "none",
-        "scope": "atproto include:to.atpr.fullPermissions",
+        "scope": SCOPE,
         "application_type": "web",
         "dpop_bound_access_tokens": true
     }))
@@ -238,13 +239,18 @@ pub struct LoginRequest {
 /// Start OAuth login flow. User submits their handle.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn login(State(state): State<Arc<AppState>>, Form(body): Form<LoginRequest>) -> Response {
+pub async fn login(
+    State(state): State<Arc<AppState>>,
+    Form(body): Form<LoginRequest>,
+) -> Result<Redirect, AppError> {
     let options = AuthorizeOptions::<SmolStr>::default();
     tracing::debug!("login: handle={}", body.handle);
-    match state.oauth.start_auth(&body.handle, options).await {
-        Ok(auth_url) => Redirect::to(&auth_url).into_response(),
-        Err(e) => error::bad_request(&format!("Failed to start auth: {e:#?}")),
-    }
+    let auth_url = state
+        .oauth
+        .start_auth(&body.handle, options)
+        .await
+        .map_err(|e| AppError::Upstream(anyhow::anyhow!("{e:#?}")))?;
+    Ok(Redirect::to(&auth_url))
 }
 // coverage:excl-stop
 
@@ -265,31 +271,29 @@ pub async fn oauth_callback(
     State(state): State<Arc<AppState>>,
     Query(query): Query<OAuthCallbackQuery>,
     jar: CookieJar,
-) -> Response {
+) -> Result<Response, AppError> {
     let params: CallbackParams<SmolStr> = CallbackParams {
         code: SmolStr::from(query.code),
         state: query.state.map(SmolStr::from),
         iss: query.iss.map(SmolStr::from),
     };
 
-    match state.oauth.callback(params).await {
-        Ok(session) => {
-            let (did, session_id) = session.session_info().await;
+    let session = state
+        .oauth
+        .callback(params)
+        .await
+        .map_err(|e| AppError::Upstream(anyhow::anyhow!("OAuth callback failed: {e}")))?;
 
-            let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_str());
-            let secure = !is_loopback_base_url(&state.config.base_url);
-            let cookie = Cookie::build(("session", cookie_value))
-                .path("/")
-                .http_only(true)
-                .secure(secure)
-                .same_site(SameSite::Lax)
-                .max_age(time::Duration::days(30));
+    let (did, session_id) = session.session_info().await;
+    let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_str());
+    let cookie = Cookie::build(("session", cookie_value))
+        .path("/")
+        .http_only(true)
+        .secure(!state.config.base_url.is_loopback())
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(30));
 
-            let jar = jar.add(cookie);
-            (jar, Redirect::temporary("/")).into_response()
-        }
-        Err(e) => error::internal_error(&format!("OAuth callback failed: {e}")),
-    }
+    Ok((jar.add(cookie), Redirect::temporary("/")).into_response())
 }
 // coverage:excl-stop
 
@@ -335,7 +339,11 @@ mod tests {
 
     #[test]
     fn test_build_oauth_client() {
-        let _client = build_oauth_client("https://atpr.to", "", reqwest::Client::new());
+        let _client = build_oauth_client(
+            &BaseUrl::parse("https://atpr.to").unwrap(),
+            &SessionStore::Memory,
+            reqwest::Client::new(),
+        );
         // Just verify it doesn't panic during construction
     }
 
@@ -344,7 +352,7 @@ mod tests {
         let config = Config::default();
         let http = crate::http_client();
         let state = Arc::new(AppState {
-            oauth: build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+            oauth: build_oauth_client(&config.base_url, &config.session_store, http.clone()),
             resolver: crate::identity_resolver(http.clone()),
             http,
             config,

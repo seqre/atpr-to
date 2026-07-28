@@ -7,7 +7,7 @@ use jacquard_common::types::string::Handle;
 use tracing::Instrument;
 
 use crate::auth::Resolver;
-use crate::error;
+use crate::error::AppError;
 use crate::AppState;
 
 /// A successfully resolved short link.
@@ -59,6 +59,15 @@ impl std::fmt::Display for ResolveError {
 impl From<reqwest::Error> for ResolveError {
     fn from(e: reqwest::Error) -> Self {
         Self::Upstream(e.into())
+    }
+}
+
+impl From<ResolveError> for AppError {
+    fn from(e: ResolveError) -> Self {
+        match e {
+            ResolveError::HandleNotFound | ResolveError::RecordNotFound => AppError::NotFound,
+            ResolveError::Upstream(e) => AppError::Upstream(e),
+        }
     }
 }
 
@@ -197,14 +206,11 @@ async fn resolve_via_direct(
 pub async fn resolve(
     State(state): State<Arc<AppState>>,
     Path((handle, code)): Path<(String, String)>,
-) -> Response {
+) -> Result<Response, AppError> {
     let start = std::time::Instant::now();
 
-    // Validate handle
-    let parsed_handle: Handle = match Handle::new_owned(&handle) {
-        Ok(h) => h,
-        Err(e) => return error::bad_request(&format!("Invalid handle: {e}")),
-    };
+    let parsed_handle: Handle =
+        Handle::new_owned(&handle).map_err(|_| AppError::BadRequest("Invalid handle"))?;
 
     // Try Slingshot first
     let link = match async {
@@ -223,37 +229,25 @@ pub async fn resolve(
         }
         // A 404 from Slingshot is authoritative — the record doesn't exist.
         // Don't fall back; that would only add latency before the same conclusion.
-        Err(e) if e.is_not_found() => return error::not_found("Link not found"),
+        Err(e) if e.is_not_found() => return Err(AppError::NotFound),
         // Anything else — including transport failures, which the old string
         // match could swallow — means Slingshot could not answer. Fall back.
         Err(slingshot_err) => {
             tracing::warn!(err = %slingshot_err, "slingshot failed, falling back to direct");
-            match async {
-                resolve_via_direct(&state.http, &state.resolver, &parsed_handle, &code).await
-            }
-            .instrument(tracing::info_span!("direct"))
-            .await
-            {
-                // coverage:excl-start
-                Ok(link) => {
+            async { resolve_via_direct(&state.http, &state.resolver, &parsed_handle, &code).await }
+                .instrument(tracing::info_span!("direct"))
+                .await
+                .inspect(|_| {
                     tracing::info!(
                         path = "direct",
                         elapsed_ms = start.elapsed().as_millis() as u64,
                         "resolved"
                     );
-                    link
-                }
-                // coverage:excl-stop
-                Err(e) if e.is_not_found() => return error::not_found("Link not found"),
-                Err(e) => {
-                    tracing::error!(err = %e, "direct resolution failed");
-                    return error::bad_gateway("Could not resolve link");
-                }
-            }
+                })?
         }
     };
 
-    Redirect::temporary(&link.url).into_response()
+    Ok(Redirect::temporary(&link.url).into_response())
 }
 
 #[cfg(test)]

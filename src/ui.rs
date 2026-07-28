@@ -93,7 +93,12 @@ pub async fn dashboard(State(state): State<Arc<AppState>>, jar: CookieJar) -> Re
     }
 
     let (handle, avatar) = tokio::join!(
-        crate::shorten::resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str),
+        crate::shorten::resolve_did_to_handle(
+            &state.http,
+            &state.resolver,
+            &state.config.slingshot_url,
+            &did_str
+        ),
         fetch_bsky_avatar(&state.http, &did_str),
     );
     let handle = handle.unwrap_or(did_str);

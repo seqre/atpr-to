@@ -17,7 +17,7 @@ use jacquard_common::xrpc::XrpcClient;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::auth::AuthSession;
+use crate::auth::{AuthSession, Resolver};
 use crate::generated::to_atpr::link::Link;
 use crate::AppState;
 
@@ -71,6 +71,7 @@ pub fn is_allowed_scheme(url_str: &str) -> bool {
 // coverage:excl-start
 pub(crate) async fn resolve_did_to_handle(
     client: &reqwest::Client,
+    resolver: &Resolver,
     slingshot_url: &str,
     did_str: &str,
 ) -> Option<String> {
@@ -92,9 +93,7 @@ pub(crate) async fn resolve_did_to_handle(
 
     // Fallback: resolve DID doc directly
     use jacquard::identity::resolver::IdentityResolver;
-    use jacquard::identity::JacquardResolver;
     let did: Did = Did::new_owned(did_str).ok()?;
-    let resolver = JacquardResolver::default();
     let doc_response = resolver.resolve_did_doc(&did).await.ok()?;
     let doc = doc_response.parse().ok()?;
     doc.handles()
@@ -192,13 +191,26 @@ pub async fn shorten(
     // Send the request
     match session.send(request).await {
         Ok(_response) => {
-            // Best-effort: resolve DID → handle for a nicer short URL.
-            // Falls back to DID string if resolution fails.
-            let display_ident =
-                resolve_did_to_handle(&state.http, &state.config.slingshot_url, &did_str)
-                    .await
-                    .unwrap_or(did_str);
-            let short_url = format!("{}/@{}/{}", state.config.base_url, display_ident, code);
+            // The short URL's identity segment must be a *handle*: `resolve`
+            // parses it with `Handle::new_owned`, and a DID is not a valid
+            // handle. Falling back to the DID string therefore minted a URL
+            // that could never resolve, and reported success while doing it.
+            let Some(handle) = resolve_did_to_handle(
+                &state.http,
+                &state.resolver,
+                &state.config.slingshot_url,
+                &did_str,
+            )
+            .await
+            else {
+                tracing::error!(did = %did_str, "record written but handle resolution failed");
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    "Link was created, but your handle could not be resolved to build its short URL. Try again shortly.",
+                )
+                    .into_response();
+            };
+            let short_url = format!("{}/@{}/{}", state.config.base_url, handle, code);
             Json(ShortenResponse { short_url }).into_response()
         }
         Err(e) => (

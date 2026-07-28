@@ -40,10 +40,38 @@ pub mod ui;
 
 use std::sync::Arc;
 
+use axum::http::StatusCode;
 use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
-use tower_governor::{
-    governor::GovernorConfigBuilder, key_extractor::GlobalKeyExtractor, GovernorLayer,
-};
+use jacquard::identity::resolver::ResolverOptions;
+use jacquard::identity::JacquardResolver;
+use tower_governor::errors::GovernorError;
+use tower_governor::key_extractor::{KeyExtractor, SmartIpKeyExtractor};
+use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+
+/// Rate-limit key: the client IP when one can be determined, otherwise a single
+/// shared bucket.
+///
+/// `SmartIpKeyExtractor` alone returns `Err` when it cannot find an IP, which
+/// tower_governor renders as a 500. API Gateway does set `X-Forwarded-For`, but
+/// a request arriving without it should still be *rate limited*, not rejected —
+/// so falling back to one shared bucket is the safe failure mode. That is also
+/// exactly the old `GlobalKeyExtractor` behaviour, now reached only when the
+/// per-IP path is unavailable rather than always.
+#[derive(Clone, Copy)]
+struct ClientIpKeyExtractor;
+
+impl KeyExtractor for ClientIpKeyExtractor {
+    type Key = Option<std::net::IpAddr>;
+
+    fn extract<T>(&self, req: &axum::http::Request<T>) -> Result<Self::Key, GovernorError> {
+        Ok(SmartIpKeyExtractor.extract(req).ok())
+    }
+}
+
+/// Total budget for a single outbound request, including connect and body read.
+const HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Budget for establishing a connection, so a black-holed host fails fast.
+const HTTP_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Shared application state passed to all route handlers.
 pub struct AppState {
@@ -51,17 +79,47 @@ pub struct AppState {
     pub oauth: auth::OAuthClientType,
     /// HTTP client for outbound requests (Slingshot relay, DID resolution).
     pub http: reqwest::Client,
+    /// Identity resolver for handle → DID → DID document lookups.
+    ///
+    /// Held here rather than constructed per call so its DID-document cache
+    /// actually survives between requests.
+    pub resolver: auth::Resolver,
     /// Loaded application configuration.
     pub config: config::Config,
+}
+
+/// Build the shared outbound HTTP client.
+///
+/// Every outbound call in the app goes through this one client, so the timeouts
+/// apply everywhere. Without them the only bound on a hung upstream is Lambda's
+/// own 30s function timeout.
+pub fn http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .connect_timeout(HTTP_CONNECT_TIMEOUT)
+        .user_agent(concat!("atpr.to/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .expect("failed to build HTTP client")
+}
+
+/// Build the identity resolver over the shared HTTP client.
+///
+/// Mirrors `JacquardResolver::default()` but reuses our client instead of
+/// spawning a fresh untimed one.
+pub fn identity_resolver(http: reqwest::Client) -> auth::Resolver {
+    JacquardResolver::new(http, ResolverOptions::default())
+        .with_system_dns()
+        .with_cache()
 }
 
 /// Build the application router, loading config from the environment.
 pub fn router() -> Router {
     let config = config::load();
-    let http = reqwest::Client::new();
+    let http = http_client();
 
     let state = Arc::new(AppState {
         oauth: auth::build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+        resolver: identity_resolver(http.clone()),
         http,
         config,
     });
@@ -73,61 +131,99 @@ pub fn router() -> Router {
 ///
 /// Useful for testing or when state is constructed externally.
 pub fn router_with_state(state: Arc<AppState>) -> Router {
-    // Rate limit mutation routes: 2 req/s sustained, burst of 10.
-    // On Lambda, state is per-instance; use API Gateway throttling for global limits.
-    let governor_config = GovernorConfigBuilder::default()
-        .per_second(state.config.rate_limit.per_second)
-        .burst_size(state.config.rate_limit.burst_size)
-        .key_extractor(GlobalKeyExtractor)
-        .finish()
-        .unwrap();
+    // 2 req/s sustained, burst of 10, keyed per client IP. API Gateway sets
+    // `X-Forwarded-For`, which `SmartIpKeyExtractor` reads; a global key would
+    // let one noisy client exhaust the budget for everyone on the instance.
+    //
+    // On Lambda this is per-execution-environment either way, so it is a
+    // backstop, not the real limit — that belongs at API Gateway.
+    let governor_config = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(state.config.rate_limit.per_second)
+            .burst_size(state.config.rate_limit.burst_size)
+            .key_extractor(ClientIpKeyExtractor)
+            .finish()
+            .unwrap(),
+    );
 
-    let rate_limited = Router::new()
+    // Everything that mutates state or costs an upstream round trip. `/links`
+    // and `/oauth/callback` were previously unlimited.
+    let rate_limited_api = Router::new()
         .route("/login", post(auth::login))
         .route("/logout", post(logout::logout))
         .route("/shorten", post(shorten::shorten))
         .route("/shorten/{code}", delete(delete::delete_link))
-        .layer(GovernorLayer::new(governor_config));
+        .route("/links", get(links::list_links))
+        .layer(GovernorLayer::new(governor_config.clone()));
 
     let api_router = Router::new()
-        .route("/links", get(links::list_links))
         .route("/health", get(health))
-        .merge(rate_limited);
+        .merge(rate_limited_api);
+
+    let rate_limited_oauth = Router::new()
+        .route("/oauth/callback", get(auth::oauth_callback))
+        .layer(GovernorLayer::new(governor_config));
 
     Router::new()
         .route("/static/{*path}", get(static_files::static_file))
         .route("/", get(ui::home))
         .route("/dashboard", get(ui::dashboard))
         .route("/oauth-client-metadata.json", get(auth::client_metadata))
-        .route("/oauth/callback", get(auth::oauth_callback))
         .route("/@{handle}/{code}", get(resolve::resolve))
         .route("/@{handle}/{code}/info", get(info::info))
         .route("/@{handle}/{code}/qr", get(qr::qr_code))
+        .merge(rate_limited_oauth)
         .nest("/api", api_router)
+        .fallback(not_found)
         .with_state(state)
 }
 
-async fn health(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
-    let ping_url = format!(
-        "{}/xrpc/com.atproto.identity.resolveHandle?handle=atpr.to",
-        state.config.slingshot_url.trim_end_matches('/'),
-    );
+/// Catch-all for unmatched paths, so `/favicon.ico` and friends get a body
+/// rather than axum's default empty 404.
+async fn not_found() -> axum::response::Response {
+    error::not_found("No such page")
+}
 
-    let slingshot_status = match state.http.get(&ping_url).send().await {
-        Ok(r) if r.status().is_success() => "ok",
-        _ => "unreachable",
+/// Liveness probe.
+///
+/// Pings Slingshot's root rather than resolving a specific handle: the old probe
+/// hardcoded `atpr.to`, so it reported the service degraded whenever that one
+/// identity was unresolvable, regardless of Slingshot's actual health.
+///
+/// Returns 503 when degraded. It previously answered 200 while reporting
+/// `"status":"degraded"` in the body, so uptime checks keying on the status code
+/// — which is most of them — never fired.
+async fn health(State(state): State<Arc<AppState>>) -> axum::response::Response {
+    use axum::response::IntoResponse;
+
+    let ping_url = format!("{}/", state.config.slingshot_url.trim_end_matches('/'));
+
+    let slingshot_ok = match state.http.get(&ping_url).send().await {
+        Ok(r) if r.status().is_success() => true,
+        Ok(r) => {
+            tracing::warn!(status = %r.status(), url = %ping_url, "slingshot health probe failed");
+            false
+        }
+        Err(e) => {
+            tracing::warn!(err = %e, url = %ping_url, "slingshot health probe failed");
+            false
+        }
     };
 
-    let overall = if slingshot_status == "ok" {
-        "ok"
+    let status = if slingshot_ok {
+        StatusCode::OK
     } else {
-        "degraded"
+        StatusCode::SERVICE_UNAVAILABLE
     };
 
-    axum::Json(serde_json::json!({
-        "status": overall,
-        "slingshot": slingshot_status,
-    }))
+    (
+        status,
+        axum::Json(serde_json::json!({
+            "status": if slingshot_ok { "ok" } else { "degraded" },
+            "slingshot": if slingshot_ok { "ok" } else { "unreachable" },
+        })),
+    )
+        .into_response()
 }
 
 #[cfg(test)]
@@ -145,9 +241,10 @@ mod tests {
             slingshot_url,
             ..config::Config::default()
         };
-        let http = reqwest::Client::new();
+        let http = http_client();
         std::sync::Arc::new(AppState {
             oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_file, http.clone()),
+            resolver: identity_resolver(http.clone()),
             http,
             config: cfg,
         })
@@ -261,7 +358,11 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        // Route existence only. The status now reflects real upstream health,
+        // and this test reaches the network, so it cannot assert 200.
+        // `test_health_ok` / `test_health_degraded` cover the codes hermetically.
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
+        assert_ne!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[tokio::test]
@@ -316,7 +417,9 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::OK);
+        // The status code must carry the failure: uptime checks key on it, and
+        // this endpoint used to answer 200 while the body said "degraded".
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();

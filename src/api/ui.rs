@@ -1,3 +1,5 @@
+//! The HTML UI: home page and dashboard.
+//!
 // TODO(rebrand): this module's test suite was deleted with the old frontend.
 // All 12 tests asserted on rendered markup (Pico/Alpine CDN strings, Alpine
 // directives, `x-ref="qrDialog"`, placeholder copy, `width:100%`), so they
@@ -25,9 +27,8 @@ use axum::extract::State;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum_extra::extract::cookie::Cookie;
 use axum_extra::extract::CookieJar;
-use jacquard_common::types::did::Did;
 
-use crate::auth::parse_session_cookie;
+use crate::auth::{parse_session_cookie, Authenticator};
 use crate::error::AppError;
 use crate::AppState;
 
@@ -72,33 +73,22 @@ async fn fetch_bsky_avatar(client: &reqwest::Client, did: &str) -> Option<String
 /// Redirects to `/` if the session cookie is missing or invalid.
 #[tracing::instrument(skip_all)]
 // coverage:excl-start
-pub async fn dashboard(
-    State(state): State<Arc<AppState>>,
+pub async fn dashboard<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
     jar: CookieJar,
 ) -> Result<Response, AppError> {
-    let (did_str, session_id) = match parse_session_cookie(&jar) {
-        Some(p) => p,
-        None => return Ok(Redirect::to("/").into_response()),
-    };
-
-    let did: Did = match Did::new_owned(&did_str) {
-        Ok(d) => d,
-        Err(_) => return Ok(Redirect::to("/").into_response()),
-    };
-
-    if state.oauth.restore(&did, &session_id).await.is_err() {
+    // This used to reimplement the auth extractor by hand — parse the cookie,
+    // re-parse the DID, call `oauth.restore` — a third copy of logic that now
+    // has one home.
+    let Ok(user) = state.auth.authenticate(&jar).await else {
         // Clear the stale cookie to avoid an infinite redirect loop.
         let jar = jar.remove(Cookie::from("session"));
         return Ok((jar, Redirect::to("/")).into_response());
-    }
+    };
 
+    let did_str = user.did.as_ref().to_string();
     let (handle, avatar) = tokio::join!(
-        crate::shorten::resolve_did_to_handle(
-            &state.http,
-            &state.resolver,
-            &state.config.slingshot_url,
-            &did_str
-        ),
+        state.identity.handle_for(&did_str),
         fetch_bsky_avatar(&state.http, &did_str),
     );
     let handle = handle.unwrap_or(did_str);

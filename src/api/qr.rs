@@ -1,22 +1,25 @@
+//! `GET /@{handle}/{code}/qr` — the short URL as an SVG QR code.
+
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::{header, HeaderValue};
 use axum::response::{IntoResponse, Response};
-use qrcode::render::svg;
-use qrcode::QrCode;
 
+use crate::api::shortlink::qr_svg;
+use crate::auth::Authenticator;
 use crate::error::AppError;
 use crate::AppState;
 
 /// Generate a QR code for a short URL, returned as SVG.
-pub async fn qr_code(
-    State(state): State<Arc<AppState>>,
+///
+/// Does not resolve the link: this encodes the short URL itself, so it is
+/// correct even for a code that does not exist yet.
+pub async fn qr_code<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
     Path((handle, code)): Path<(String, String)>,
 ) -> Result<Response, AppError> {
     let url = state.config.base_url.short_url(&handle, &code);
-    let qr = QrCode::new(url.as_bytes()).map_err(AppError::internal)?;
-    let svg = qr.render::<svg::Color>().min_dimensions(200, 200).build();
 
     Ok((
         [
@@ -29,7 +32,7 @@ pub async fn qr_code(
                 HeaderValue::from_static("public, max-age=86400"),
             ),
         ],
-        svg,
+        qr_svg(&url)?,
     )
         .into_response())
 }
@@ -56,27 +59,14 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
-        let content_type = response.headers().get("content-type").unwrap();
-        assert_eq!(content_type, "image/svg+xml");
-    }
-
-    #[tokio::test]
-    async fn test_qr_contains_svg_tag() {
-        let app = router();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/@alice.bsky.social/abc123/qr")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "image/svg+xml"
+        );
 
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        let html = String::from_utf8(body.to_vec()).unwrap();
-        assert!(html.contains("<svg"));
+        assert!(String::from_utf8_lossy(&body).contains("<svg"));
     }
 }

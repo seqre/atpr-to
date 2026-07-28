@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::sync::Arc;
 
 use axum::extract::{FromRequestParts, Query, State};
@@ -23,6 +24,7 @@ use serde::Deserialize;
 
 use crate::config::{BaseUrl, SessionStore};
 use crate::error::AppError;
+use crate::store::{LinkStore, PdsLinkStore};
 use crate::AppState;
 
 /// Wraps either a memory-backed or file-backed OAuth session store.
@@ -98,40 +100,147 @@ pub type OAuthClientType = OAuthClient<Resolver, AuthStore>;
 /// Concrete OAuth session type returned after a successful authorization.
 pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<Resolver, AuthStore>;
 
-/// Axum extractor that restores an authenticated OAuth session from the session cookie.
+/// An authenticated caller and the store their links live in.
 ///
-/// Use as a handler argument on auth-gated routes:
-/// ```ignore
-/// pub async fn my_handler(auth: AuthSession, ...) -> Response { ... }
-/// ```
-/// Rejects with `AppError::Unauthorized` if the cookie is missing, malformed,
-/// or no longer restorable — so the rejection body matches every other error the
-/// API emits, rather than being the one `text/plain` response left over.
-pub struct AuthSession(pub OAuthSessionType);
+/// The DID is parsed once, here at the edge. It used to be re-parsed with
+/// `Did::new_owned` inside `shorten`, `delete_link` and `list_links`, each with
+/// its own "Invalid DID in session" branch for a case that cannot happen once
+/// the cookie has been validated.
+///
+/// Generic over the [`Authenticator`] rather than over the store type directly:
+/// `AuthedUser<A::Store>` cannot work, because an associated-type projection in
+/// the self position leaves `A` unconstrained (E0207).
+pub struct AuthedUser<A: Authenticator> {
+    /// The caller's DID.
+    pub did: Did,
+    /// Their link store.
+    pub store: A::Store,
+}
 
-impl FromRequestParts<Arc<AppState>> for AuthSession {
+/// Query parameters handed back on the OAuth callback.
+///
+/// Our own type rather than jacquard's `CallbackParams`, so the port does not
+/// leak the protocol library into `api/`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CallbackInput {
+    /// Authorization code from the authorization server.
+    pub code: String,
+    /// State parameter echoed back from the authorization server.
+    pub state: Option<String>,
+    /// Issuer identifier, used for PAR/DPoP validation.
+    pub iss: Option<String>,
+}
+
+/// The whole authentication lifecycle: start a login, finish one, and turn a
+/// cookie into an authenticated user.
+///
+/// This is the seam that lets the authed paths be tested without a live PDS.
+/// Production wires [`OAuthAuthenticator`] (`Store = PdsLinkStore`); tests wire
+/// [`FakeAuthenticator`] (`Store = InMemoryLinkStore`). `router_with_state`
+/// monomorphises over it, so there is no boxing and no dynamic dispatch.
+///
+/// Login and callback are part of the trait rather than reaching into a
+/// concrete OAuth client, so the callback route is exercisable too — it was
+/// previously `coverage:excl` for exactly the reason that it was not.
+pub trait Authenticator: Send + Sync + 'static {
+    /// The link store this authenticator hands out.
+    type Store: LinkStore;
+
+    /// Authenticate a request, or explain why not.
+    fn authenticate(
+        &self,
+        jar: &CookieJar,
+    ) -> impl Future<Output = Result<AuthedUser<Self>, AppError>> + Send
+    where
+        Self: Sized;
+
+    /// Begin a login for `handle`, returning the URL to send the user to.
+    fn start_login(&self, handle: &str) -> impl Future<Output = Result<String, AppError>> + Send;
+
+    /// Complete a login, returning the value for the session cookie.
+    fn complete_login(
+        &self,
+        input: CallbackInput,
+    ) -> impl Future<Output = Result<String, AppError>> + Send;
+}
+
+impl<A: Authenticator> FromRequestParts<Arc<AppState<A>>> for AuthedUser<A> {
     type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &Arc<AppState>,
+        state: &Arc<AppState<A>>,
     ) -> Result<Self, Self::Rejection> {
         let jar = CookieJar::from_request_parts(parts, state)
             .await
             .map_err(|_| AppError::Unauthorized)?;
+        state.auth.authenticate(&jar).await
+    }
+}
 
-        let (did_str, session_id) = parse_session_cookie(&jar).ok_or(AppError::Unauthorized)?;
+/// The production [`Authenticator`]: restores an OAuth session from the cookie.
+pub struct OAuthAuthenticator {
+    /// The OAuth client used to restore sessions.
+    pub oauth: OAuthClientType,
+}
+
+impl OAuthAuthenticator {
+    /// Wrap an OAuth client as an authenticator.
+    pub fn new(oauth: OAuthClientType) -> Self {
+        Self { oauth }
+    }
+
+    /// Restore a session without producing a store, for callers that only need
+    /// to know whether the cookie is still good.
+    pub async fn restore(&self, jar: &CookieJar) -> Result<(Did, OAuthSessionType), AppError> {
+        let (did_str, session_id) = parse_session_cookie(jar).ok_or(AppError::Unauthorized)?;
         let did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
 
         // The reason a session failed to restore is not the caller's business —
         // it previously came back as `Session expired: {e}`, echoing jacquard's
         // internal error text to anyone who sent a cookie.
-        let session = state.oauth.restore(&did, &session_id).await.map_err(|e| {
+        let session = self.oauth.restore(&did, &session_id).await.map_err(|e| {
             tracing::debug!(err = %e, "session restore failed");
             AppError::Unauthorized
         })?;
 
-        Ok(AuthSession(session))
+        Ok((did, session))
+    }
+}
+
+impl Authenticator for OAuthAuthenticator {
+    type Store = PdsLinkStore;
+
+    async fn authenticate(&self, jar: &CookieJar) -> Result<AuthedUser<Self>, AppError> {
+        let (did, session) = self.restore(jar).await?;
+        Ok(AuthedUser {
+            store: PdsLinkStore::new(session, did.clone()),
+            did,
+        })
+    }
+
+    async fn start_login(&self, handle: &str) -> Result<String, AppError> {
+        self.oauth
+            .start_auth(handle, AuthorizeOptions::<SmolStr>::default())
+            .await
+            .map_err(|e| AppError::Upstream(anyhow::anyhow!("{e:#?}")))
+    }
+
+    async fn complete_login(&self, input: CallbackInput) -> Result<String, AppError> {
+        let params: CallbackParams<SmolStr> = CallbackParams {
+            code: SmolStr::from(input.code),
+            state: input.state.map(SmolStr::from),
+            iss: input.iss.map(SmolStr::from),
+        };
+
+        let session = self
+            .oauth
+            .callback(params)
+            .await
+            .map_err(|e| AppError::Upstream(anyhow::anyhow!("OAuth callback failed: {e}")))?;
+
+        let (did, session_id) = session.session_info().await;
+        Ok(format!("{}|{}", did.as_ref(), session_id.as_str()))
     }
 }
 
@@ -213,7 +322,9 @@ pub fn build_oauth_client(
 /// Built from the same `client_id` / `redirect_uri` / `SCOPE` helpers the client
 /// itself registers with, so the published document cannot describe a client
 /// different from the one running.
-pub async fn client_metadata(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+pub async fn client_metadata<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
+) -> Json<serde_json::Value> {
     let base = &state.config.base_url;
     Json(serde_json::json!({
         "client_id": client_id(base),
@@ -238,54 +349,23 @@ pub struct LoginRequest {
 
 /// Start OAuth login flow. User submits their handle.
 #[tracing::instrument(skip_all)]
-// coverage:excl-start
-pub async fn login(
-    State(state): State<Arc<AppState>>,
+pub async fn login<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
     Form(body): Form<LoginRequest>,
 ) -> Result<Redirect, AppError> {
-    let options = AuthorizeOptions::<SmolStr>::default();
-    tracing::debug!("login: handle={}", body.handle);
-    let auth_url = state
-        .oauth
-        .start_auth(&body.handle, options)
-        .await
-        .map_err(|e| AppError::Upstream(anyhow::anyhow!("{e:#?}")))?;
+    tracing::debug!(handle = %body.handle, "starting login");
+    let auth_url = state.auth.start_login(&body.handle).await?;
     Ok(Redirect::to(&auth_url))
 }
-// coverage:excl-stop
 
-/// Query parameters received on the OAuth callback redirect.
-#[derive(Deserialize)]
-pub struct OAuthCallbackQuery {
-    /// Authorization code from the authorization server.
-    pub code: String,
-    /// State parameter echoed back from the authorization server.
-    pub state: Option<String>,
-    /// Issuer identifier, used for PAR/DPoP validation.
-    pub iss: Option<String>,
-}
-
-/// Handle OAuth callback after user authorizes.
-// coverage:excl-start
-pub async fn oauth_callback(
-    State(state): State<Arc<AppState>>,
-    Query(query): Query<OAuthCallbackQuery>,
+/// Handle OAuth callback after the user authorizes.
+pub async fn oauth_callback<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
+    Query(query): Query<CallbackInput>,
     jar: CookieJar,
 ) -> Result<Response, AppError> {
-    let params: CallbackParams<SmolStr> = CallbackParams {
-        code: SmolStr::from(query.code),
-        state: query.state.map(SmolStr::from),
-        iss: query.iss.map(SmolStr::from),
-    };
+    let cookie_value = state.auth.complete_login(query).await?;
 
-    let session = state
-        .oauth
-        .callback(params)
-        .await
-        .map_err(|e| AppError::Upstream(anyhow::anyhow!("OAuth callback failed: {e}")))?;
-
-    let (did, session_id) = session.session_info().await;
-    let cookie_value = format!("{}|{}", did.as_ref(), session_id.as_str());
     let cookie = Cookie::build(("session", cookie_value))
         .path("/")
         .http_only(true)
@@ -295,7 +375,6 @@ pub async fn oauth_callback(
 
     Ok((jar.add(cookie), Redirect::temporary("/")).into_response())
 }
-// coverage:excl-stop
 
 /// Extract DID and session_id from the session cookie.
 /// Returns None if no valid session cookie exists.
@@ -306,15 +385,92 @@ pub fn parse_session_cookie(jar: &CookieJar) -> Option<(String, String)> {
     Some((did.to_string(), session_id.to_string()))
 }
 
+/// An [`Authenticator`] that accepts a fixed cookie value and hands out an
+/// in-memory store.
+///
+/// Not behind `#[cfg(test)]`: the integration tests in `tests/` are a separate
+/// crate and need it. This is what makes the whole authed write path testable
+/// without a live PDS — the reason `shorten`, `delete_link` and `list_links`
+/// were previously annotated out of coverage rather than covered.
+pub struct FakeAuthenticator {
+    /// The DID handed to every authenticated caller.
+    pub did: Did,
+    /// The cookie value that authenticates. Any other value is rejected.
+    pub accepts_cookie: String,
+    /// The store handed to every authenticated caller.
+    pub store: Arc<crate::store::InMemoryLinkStore>,
+    /// When set, `start_login` and `complete_login` fail with this message.
+    pub login_fails: Option<String>,
+}
+
+impl FakeAuthenticator {
+    /// An authenticator accepting `session=<did>|test-session`.
+    pub fn new(did: &str) -> Self {
+        Self {
+            did: Did::new_owned(did).expect("test DID is valid"),
+            accepts_cookie: format!("{did}|test-session"),
+            store: Arc::new(crate::store::InMemoryLinkStore::new()),
+            login_fails: None,
+        }
+    }
+
+    /// The cookie header value a client should send to authenticate.
+    pub fn cookie_header(&self) -> String {
+        format!("session={}", self.accepts_cookie)
+    }
+
+    /// Replace the backing store, e.g. with one that always fails.
+    pub fn with_store(mut self, store: crate::store::InMemoryLinkStore) -> Self {
+        self.store = Arc::new(store);
+        self
+    }
+
+    /// Make the login endpoints fail.
+    pub fn with_failing_login(mut self, message: impl Into<String>) -> Self {
+        self.login_fails = Some(message.into());
+        self
+    }
+}
+
+impl Authenticator for FakeAuthenticator {
+    type Store = Arc<crate::store::InMemoryLinkStore>;
+
+    async fn authenticate(&self, jar: &CookieJar) -> Result<AuthedUser<Self>, AppError> {
+        let cookie = jar.get("session").ok_or(AppError::Unauthorized)?;
+        if cookie.value() != self.accepts_cookie {
+            return Err(AppError::Unauthorized);
+        }
+        Ok(AuthedUser {
+            did: self.did.clone(),
+            store: Arc::clone(&self.store),
+        })
+    }
+
+    async fn start_login(&self, handle: &str) -> Result<String, AppError> {
+        if let Some(m) = &self.login_fails {
+            return Err(AppError::Upstream(anyhow::anyhow!("{m}")));
+        }
+        Ok(format!(
+            "https://pds.test/oauth/authorize?handle={}",
+            urlencoding::encode(handle)
+        ))
+    }
+
+    async fn complete_login(&self, _input: CallbackInput) -> Result<String, AppError> {
+        if let Some(m) = &self.login_fails {
+            return Err(AppError::Upstream(anyhow::anyhow!("{m}")));
+        }
+        Ok(self.accepts_cookie.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use axum::extract::State;
     use axum_extra::extract::cookie::CookieJar;
 
     use super::*;
-    use crate::{config::Config, AppState};
+    use crate::config::Config;
 
     #[test]
     fn test_parse_session_cookie_valid() {
@@ -349,14 +505,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client_metadata_fields() {
-        let config = Config::default();
-        let http = crate::http_client();
-        let state = Arc::new(AppState {
-            oauth: build_oauth_client(&config.base_url, &config.session_store, http.clone()),
-            resolver: crate::identity_resolver(http.clone()),
-            http,
-            config,
-        });
+        let state = crate::build_state(Config::default());
         let result = client_metadata(State(state)).await;
         let json = &result.0;
         assert!(json["client_id"]

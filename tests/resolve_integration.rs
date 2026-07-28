@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use atpr_to::auth::FakeAuthenticator;
 use atpr_to::{router_with_state, AppState};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -10,7 +11,7 @@ use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Build an AppState pointing Slingshot at the given mock server URL.
-async fn test_state(slingshot_url: String) -> Arc<AppState> {
+async fn test_state(slingshot_url: String) -> Arc<AppState<FakeAuthenticator>> {
     state_with_client(slingshot_url, atpr_to::http_client()).await
 }
 
@@ -18,21 +19,15 @@ async fn test_state(slingshot_url: String) -> Arc<AppState> {
 ///
 /// Used to force a transport timeout without making the test sleep for the
 /// production 5s budget.
-async fn state_with_client(slingshot_url: String, http: reqwest::Client) -> Arc<AppState> {
+async fn state_with_client(
+    slingshot_url: String,
+    http: reqwest::Client,
+) -> Arc<AppState<FakeAuthenticator>> {
     let config = atpr_to::config::Config {
         slingshot_url,
         ..atpr_to::config::Config::default()
     };
-    Arc::new(AppState {
-        oauth: atpr_to::auth::build_oauth_client(
-            &config.base_url,
-            &config.session_store,
-            http.clone(),
-        ),
-        resolver: atpr_to::identity_resolver(http.clone()),
-        http,
-        config,
-    })
+    atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http)
 }
 
 #[tokio::test]

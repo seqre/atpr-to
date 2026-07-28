@@ -90,10 +90,12 @@ impl ClientAuthStore for AuthStore {
     }
 }
 
+/// The identity resolver this application uses, over the shared `reqwest` client.
+pub type Resolver = JacquardResolver<reqwest::Client>;
 /// Concrete OAuth client type used by this application.
-pub type OAuthClientType = OAuthClient<JacquardResolver, AuthStore>;
+pub type OAuthClientType = OAuthClient<Resolver, AuthStore>;
 /// Concrete OAuth session type returned after a successful authorization.
-pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<JacquardResolver, AuthStore>;
+pub type OAuthSessionType = jacquard::oauth::client::OAuthSession<Resolver, AuthStore>;
 
 /// Axum extractor that restores an authenticated OAuth session from the session cookie.
 ///
@@ -145,7 +147,15 @@ fn is_loopback_base_url(base_url: &str) -> bool {
 }
 
 /// Build the OAuth client for the given base URL and optional session file path.
-pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType {
+///
+/// `http` is the application's shared `reqwest` client — jacquard 0.12 takes the
+/// HTTP client as a constructor argument rather than building its own, so the
+/// OAuth and identity paths inherit whatever timeouts and user-agent it carries.
+pub fn build_oauth_client(
+    base_url: &str,
+    session_file: &str,
+    http: reqwest::Client,
+) -> OAuthClientType {
     // Loopback client_id must be "http://localhost" with scope and redirect_uri
     // encoded as query params — the PDS derives metadata from these params
     // without fetching any URL. Discoverable (production) clients use the full
@@ -190,7 +200,7 @@ pub fn build_oauth_client(base_url: &str, session_file: &str) -> OAuthClientType
     } else {
         AuthStore::File(FileAuthStore::new(session_file))
     };
-    OAuthClient::new(store, client_data)
+    OAuthClient::new(store, client_data, http)
 }
 
 /// Serve OAuth client metadata for atproto OAuth discovery.
@@ -325,16 +335,17 @@ mod tests {
 
     #[test]
     fn test_build_oauth_client() {
-        let _client = build_oauth_client("https://atpr.to", "");
+        let _client = build_oauth_client("https://atpr.to", "", reqwest::Client::new());
         // Just verify it doesn't panic during construction
     }
 
     #[tokio::test]
     async fn test_client_metadata_fields() {
         let config = Config::default();
+        let http = reqwest::Client::new();
         let state = Arc::new(AppState {
-            oauth: build_oauth_client(&config.base_url, &config.session_file),
-            http: reqwest::Client::new(),
+            oauth: build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+            http,
             config,
         });
         let result = client_metadata(State(state)).await;

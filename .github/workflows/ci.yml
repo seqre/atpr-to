@@ -32,9 +32,9 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Check
-        run: cargo check
-
+      # `src/generated/` is checked into git, so formatting can be verified
+      # before anything is compiled. This used to require `cargo check` first,
+      # because build.rs generated those files as a side effect of building.
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -43,6 +43,25 @@ jobs:
 
       - name: Run tests
         run: cargo nextest run
+
+  codegen:
+    name: Lexicon codegen is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Regenerate from lexicons/
+        run: cargo run --features codegen --bin codegen
+      - name: Fail if src/generated/ is stale
+        run: git diff --exit-code -- src/generated
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
 
   coverage:
     name: Coverage

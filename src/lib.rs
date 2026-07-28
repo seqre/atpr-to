@@ -1,5 +1,7 @@
 //! atpr.to — AT Protocol URL shortener, deployed on AWS Lambda.
-#![warn(missing_docs)]
+//!
+//! `missing_docs` is enforced via `[lints.rust]` in `Cargo.toml` so that local
+//! builds and CI agree without either restating the lint.
 extern crate alloc;
 
 /// AT Protocol OAuth login, callback, and session handling.
@@ -56,10 +58,11 @@ pub struct AppState {
 /// Build the application router, loading config from the environment.
 pub fn router() -> Router {
     let config = config::load();
+    let http = reqwest::Client::new();
 
     let state = Arc::new(AppState {
-        oauth: auth::build_oauth_client(&config.base_url, &config.session_file),
-        http: reqwest::Client::new(),
+        oauth: auth::build_oauth_client(&config.base_url, &config.session_file, http.clone()),
+        http,
         config,
     });
 
@@ -142,9 +145,10 @@ mod tests {
             slingshot_url,
             ..config::Config::default()
         };
+        let http = reqwest::Client::new();
         std::sync::Arc::new(AppState {
-            oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_file),
-            http: reqwest::Client::new(),
+            oauth: auth::build_oauth_client(&cfg.base_url, &cfg.session_file, http.clone()),
+            http,
             config: cfg,
         })
     }

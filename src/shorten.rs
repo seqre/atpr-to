@@ -10,6 +10,7 @@ use jacquard_common::types::did::Did;
 use jacquard_common::types::ident::AtIdentifier;
 use jacquard_common::types::nsid::Nsid;
 use jacquard_common::types::recordkey::{RecordKey, Rkey};
+use jacquard_common::types::string::Datetime;
 use jacquard_common::types::uri::UriValue;
 use jacquard_common::types::value::to_data;
 use jacquard_common::xrpc::XrpcClient;
@@ -40,10 +41,10 @@ const CODE_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 
 /// Generate a random short code (6-8 alphanumeric chars).
 fn generate_code() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let len = 6;
     (0..len)
-        .map(|_| CODE_CHARSET[rng.gen_range(0..CODE_CHARSET.len())] as char)
+        .map(|_| CODE_CHARSET[rng.random_range(0..CODE_CHARSET.len())] as char)
         .collect()
 }
 
@@ -151,7 +152,7 @@ pub async fn shorten(
 
     let record: Link = Link::new()
         .url(link_url)
-        .updated_at(chrono::Utc::now().fixed_offset())
+        .updated_at(Datetime::now())
         .build();
 
     // Serialize to Data for the XRPC request

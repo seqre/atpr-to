@@ -1,3 +1,5 @@
+//! End-to-end resolution tests: the router driven against a wiremock Slingshot.
+
 use std::sync::Arc;
 
 use atpr_to::{router_with_state, AppState};
@@ -13,9 +15,14 @@ async fn test_state(slingshot_url: String) -> Arc<AppState> {
         slingshot_url,
         ..atpr_to::config::Config::default()
     };
+    let http = reqwest::Client::new();
     Arc::new(AppState {
-        oauth: atpr_to::auth::build_oauth_client(&config.base_url, &config.session_file),
-        http: reqwest::Client::new(),
+        oauth: atpr_to::auth::build_oauth_client(
+            &config.base_url,
+            &config.session_file,
+            http.clone(),
+        ),
+        http,
         config,
     })
 }

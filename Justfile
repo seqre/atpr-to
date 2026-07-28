@@ -12,6 +12,18 @@ build:
 test:
     cargo test
 
+# Regenerate src/generated/ from lexicons/ (checked into git — commit the result)
+codegen:
+    cargo run --features codegen --bin codegen
+
+# Fail if src/generated/ is stale relative to lexicons/
+codegen-check: codegen
+    git diff --exit-code -- src/generated
+
+# Audit dependencies and licences
+deny:
+    cargo deny check
+
 # Run clippy
 lint:
     cargo clippy --all-targets -- -D warnings

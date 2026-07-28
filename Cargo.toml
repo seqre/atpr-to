@@ -3,27 +3,42 @@ name = "atpr-to"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Enables the `codegen` binary that regenerates `src/generated/` from `lexicons/`.
+# Off by default so normal builds don't compile the lexicon code generator.
+codegen = ["jacquard-lexicon/codegen"]
+
+[[bin]]
+name = "codegen"
+path = "src/bin/codegen.rs"
+required-features = ["codegen"]
+
 [dependencies]
-axum = { version = "0.8.8", features = ["macros"] }
-axum-extra = { version = "0.10", features = ["cookie"] }
-chrono = { version = "0.4", features = ["serde"] }
-jacquard = "0.12.0-beta.2"
-jacquard-common = "0.12.0-beta.2"
-jacquard-derive = "0.12.0-beta.2"
-jacquard-lexicon = "0.12.0-beta.2"
-# jacquard = { path = "../jacquard/crates/jacquard" }
-# jacquard-common = { path = "../jacquard/crates/jacquard-common" }
-# jacquard-derive = { path = "../jacquard/crates/jacquard-derive" }
-# jacquard-lexicon = { path = "../jacquard/crates/jacquard-lexicon" }
-lambda_http = "1.0.0"
-inventory = "0.3"
-rustversion = "1"
+axum = { version = "0.8.9", features = ["macros"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
+# `loopback` (jacquard's CLI browser-open flow) pulls in rouille — a full
+# synchronous HTTP server — which is dead weight in a Lambda function. The
+# Bluesky AppView and community lexicon surfaces (`api_full`) are unused too:
+# this app calls four `com.atproto.repo.*` endpoints plus identity resolution.
+# `tracing` is not a default feature and must be opted into explicitly.
+jacquard = { version = "0.12.1", default-features = false, features = [
+    "api",
+    "cache",
+    "derive",
+    "dns",
+    "tracing",
+] }
+jacquard-common = "0.12.1"
+jacquard-derive = "0.12.1"
+jacquard-lexicon = "0.12.1"
+lambda_http = "1.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rand = "0.8"
+# 0.9 rather than 0.10 so this shares a copy with jacquard-common.
+rand = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 time = "0.3"
-tokio = { version = "1", features = ["macros"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tower = "0.5"
 url = "2"
 urlencoding = "2"
@@ -36,9 +51,17 @@ tower_governor = "0.8.0"
 rust-embed = "8"
 mime_guess = "2"
 
-[build-dependencies]
-jacquard-lexicon = { version = "0.12.0-beta.2", features = ["codegen"] }
-# jacquard-lexicon = { path = "../jacquard/crates/jacquard-lexicon", features = ["codegen"] }
-
 [dev-dependencies]
 wiremock = "0.6.5"
+
+[lints.rust]
+missing_docs = "warn"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+# Deliberately NOT `panic = "abort"`. `lambda_runtime` wraps each invocation in
+# `catch_unwind` so a panicking handler becomes a reported error; aborting would
+# instead kill the execution environment and force a cold start on the next
+# caller. On a cold-start-bound function that trade is the wrong way round.

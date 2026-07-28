@@ -1,33 +1,40 @@
-use jacquard_lexicon::codegen::CodeGenerator;
-use jacquard_lexicon::corpus::LexiconCorpus;
+//! Regenerates `src/generated/` from the Lexicon schemas in `lexicons/`.
+//!
+//! This used to be a `build.rs` that rewrote `src/` on every build, which broke
+//! read-only and vendored checkouts, raced rust-analyzer, and forced CI to run
+//! `cargo check` before `cargo fmt --check`. The generated code is now checked
+//! into git and regenerated explicitly:
+//!
+//! ```sh
+//! just codegen        # cargo run --features codegen --bin codegen
+//! ```
+//!
+//! CI runs the same recipe and `git diff --exit-code`s the result, so a lexicon
+//! change that is not accompanied by regenerated code fails the build.
+
 use std::path::Path;
 
-fn main() {
-    println!("cargo:rerun-if-changed=lexicons/");
-    println!("cargo:rerun-if-changed=Cargo.toml");
-    println!("cargo:rerun-if-changed=Cargo.lock");
-    println!("cargo:rerun-if-changed=build.rs");
+use jacquard_lexicon::codegen::CodeGenerator;
+use jacquard_lexicon::corpus::LexiconCorpus;
 
+fn main() {
     let output_dir = Path::new("src/generated");
 
-    // Clean previous output
     if output_dir.exists() {
         std::fs::remove_dir_all(output_dir).expect("failed to clean generated dir");
     }
 
     let corpus = LexiconCorpus::load_from_dir("lexicons/").expect("failed to load lexicons");
-
     let codegen = CodeGenerator::new(&corpus, "crate::generated");
-
     codegen
         .write_to_disk(output_dir)
         .expect("failed to generate code");
 
-    // Rename lib.rs -> mod.rs (codegen produces lib.rs for root module)
+    // Codegen emits a crate root as `lib.rs`; this is a module, not a crate.
     let lib_rs = output_dir.join("lib.rs");
     let mod_rs = output_dir.join("mod.rs");
     if lib_rs.exists() {
-        // Also strip feature gates — we don't use cargo features for our own lexicons
+        // Strip feature gates — we don't put our own lexicons behind cargo features.
         let content = std::fs::read_to_string(&lib_rs).expect("failed to read lib.rs");
         let content = content
             .lines()
@@ -38,8 +45,11 @@ fn main() {
         std::fs::remove_file(&lib_rs).expect("failed to remove lib.rs");
     }
 
-    // Fix builder_types use path: crate::builder_types -> crate::generated::builder_types
+    // Codegen assumes it is generating a crate root, so builder types resolve as
+    // `crate::builder_types`. Under `crate::generated` they are one level deeper.
     fix_builder_paths(output_dir);
+
+    println!("regenerated {}", output_dir.display());
 }
 
 fn fix_builder_paths(dir: &Path) {

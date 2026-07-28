@@ -1,3 +1,6 @@
+//! Lambda entry point: initialises tracing and hands the axum router to the
+//! `provided.al2023` runtime.
+
 use lambda_http::{run, tracing, Error};
 
 #[tokio::main]

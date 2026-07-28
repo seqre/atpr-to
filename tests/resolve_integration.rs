@@ -12,21 +12,25 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Build an AppState pointing Slingshot at the given mock server URL.
 async fn test_state(slingshot_url: String) -> Arc<AppState<FakeAuthenticator>> {
-    state_with_client(slingshot_url, atpr_to::http_client()).await
+    state_with_timeout_ms(slingshot_url, None).await
 }
 
-/// As `test_state`, but with a caller-supplied HTTP client.
+/// As `test_state`, but with a shorter outbound timeout.
 ///
 /// Used to force a transport timeout without making the test sleep for the
 /// production 5s budget.
-async fn state_with_client(
+async fn state_with_timeout_ms(
     slingshot_url: String,
-    http: reqwest::Client,
+    timeout_ms: Option<u64>,
 ) -> Arc<AppState<FakeAuthenticator>> {
-    let config = atpr_to::config::Config {
+    let mut config = atpr_to::config::Config {
         slingshot_url,
         ..atpr_to::config::Config::default()
     };
+    if let Some(ms) = timeout_ms {
+        config.http_timeout_ms = std::num::NonZeroU64::new(ms).expect("timeout must be nonzero");
+    }
+    let http = atpr_to::http_client(&config);
     atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http)
 }
 
@@ -192,11 +196,7 @@ async fn test_code_containing_404_is_not_treated_as_not_found() {
         .mount(&mock)
         .await;
 
-    let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(300))
-        .build()
-        .unwrap();
-    let state = state_with_client(mock.uri(), http).await;
+    let state = state_with_timeout_ms(mock.uri(), Some(300)).await;
     let app = router_with_state(state);
 
     let response = app
@@ -455,10 +455,32 @@ async fn test_info_page_happy_path() {
         .await
         .unwrap();
 
-    // TODO(rebrand): this asserted the rendered info page carried the destination
-    // URL, the inline QR <svg>, and the updated_at date. Restore those checks
-    // against the new `templates/info.html` once it exists.
     assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let html = String::from_utf8(body.to_vec()).expect("the page is UTF-8");
+
+    // Restored: these assertions were deleted with the old frontend and left as
+    // a TODO. They are about what the page *carries*, not how it looks, so they
+    // do not pin the redesign to any particular markup.
+    assert!(
+        html.contains("https://example.com/target"),
+        "the destination must appear on the page"
+    );
+    assert!(
+        html.contains("<svg"),
+        "the QR code must be rendered inline, not linked"
+    );
+    assert!(
+        html.contains("2024-01-15T10:00:00Z"),
+        "the last-modified date must appear"
+    );
+    assert!(
+        html.contains("alice.test") && html.contains("abc123"),
+        "the short link's own identity must appear"
+    );
 }
 
 #[tokio::test]

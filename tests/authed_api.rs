@@ -19,7 +19,8 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const DID: &str = "did:plc:testdid123";
 
 /// A Slingshot that resolves our DID back to a handle, which `shorten` needs to
-/// build the short URL.
+/// build the short URL, doubling as the AppView the dashboard asks for an
+/// avatar.
 async fn mock_slingshot() -> MockServer {
     let mock = MockServer::start().await;
     Mock::given(method("GET"))
@@ -28,6 +29,13 @@ async fn mock_slingshot() -> MockServer {
             ResponseTemplate::new(200)
                 .set_body_json(serde_json::json!({ "handle": "alice.test", "did": DID })),
         )
+        .mount(&mock)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/xrpc/app.bsky.actor.getProfile"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            serde_json::json!({ "did": DID, "avatar": "https://cdn.test/avatar.jpg" }),
+        ))
         .mount(&mock)
         .await;
     mock
@@ -49,11 +57,13 @@ impl Harness {
         let mock = mock_slingshot().await;
         let config = atpr_to::config::Config {
             slingshot_url: mock.uri(),
+            appview_url: mock.uri(),
             ..atpr_to::config::Config::default()
         };
         let cookie = auth.cookie_header();
         let store = Arc::clone(&auth.store);
-        let state = atpr_to::build_state_with(config, auth, atpr_to::http_client());
+        let http = atpr_to::http_client(&config);
+        let state = atpr_to::build_state_with(config, auth, http);
         Self {
             state,
             cookie,
@@ -230,6 +240,150 @@ async fn test_shorten_upstream_failure_is_502() {
     assert!(
         !json.to_string().contains("PDS unreachable"),
         "upstream detail must not leak"
+    );
+}
+
+/// Bug #2: when handle resolution failed after the record was written,
+/// `shorten` fell back to the DID and returned `.../@did:plc:xyz/code`.
+/// `resolve` parses that segment with `Handle::new_owned` and a DID is not a
+/// valid handle, so the user was handed a permanently dead link and told it
+/// succeeded.
+#[tokio::test]
+async fn test_shorten_errors_rather_than_minting_a_did_url() {
+    // A Slingshot that cannot answer describeRepo, so no handle is available.
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&mock)
+        .await;
+
+    let config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        // Keep the DID-document fallback from doing real DNS.
+        http_timeout_ms: std::num::NonZeroU64::new(200).unwrap(),
+        ..atpr_to::config::Config::default()
+    };
+    let auth = FakeAuthenticator::new(DID);
+    let cookie = auth.cookie_header();
+    let http = atpr_to::http_client(&config);
+    let state = atpr_to::build_state_with(config, auth, http);
+
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/shorten")
+                .header("cookie", &cookie)
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"url":"https://example.com","code":"dead"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_GATEWAY,
+        "an unresolvable handle must be an error, not a dead link"
+    );
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(
+        !body.contains("did:plc:"),
+        "the response must not contain a DID-based short URL: {body}"
+    );
+    assert!(!body.contains("short_url"), "no short URL may be returned");
+}
+
+/// Bug #10: there were no HTTP timeouts anywhere, so the only bound on a hung
+/// upstream was Lambda's 30s function timeout.
+#[tokio::test]
+async fn test_hung_upstream_is_bounded_by_the_client_timeout() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30)))
+        .mount(&mock)
+        .await;
+
+    let config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        http_timeout_ms: std::num::NonZeroU64::new(200).unwrap(),
+        ..atpr_to::config::Config::default()
+    };
+    let http = atpr_to::http_client(&config);
+    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
+
+    let started = std::time::Instant::now();
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/api/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "the request must be bounded by the client timeout, took {:?}",
+        started.elapsed()
+    );
+}
+
+/// Bug #7: the limiter used one global bucket, so a single noisy client could
+/// deny login to everyone on the instance. It is now keyed per client IP.
+#[tokio::test]
+async fn test_rate_limit_is_per_client_ip() {
+    let h = Harness::new().await;
+    // One router, so one limiter: `Harness::router` builds a fresh
+    // `GovernorLayer` each call, which would hand every request its own
+    // untouched bucket.
+    let app = h.router();
+
+    // Burst is 10. One client exhausts its own bucket...
+    let mut saw_429 = false;
+    for _ in 0..25 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/links")
+                    .header("x-forwarded-for", "203.0.113.1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        if response.status() == StatusCode::TOO_MANY_REQUESTS {
+            saw_429 = true;
+            break;
+        }
+    }
+    assert!(saw_429, "a client exceeding the burst must be limited");
+
+    // ...without affecting anyone else. Under the old global key this would
+    // have been 429 too.
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/links")
+                .header("x-forwarded-for", "198.51.100.7")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "a different client must still be served (401 for want of a cookie, not 429)"
     );
 }
 
@@ -519,8 +673,8 @@ async fn test_production_session_cookie_uses_the_host_prefix() {
         // The default base_url is https://atpr.to, i.e. not loopback.
         ..atpr_to::config::Config::default()
     };
-    let state =
-        atpr_to::build_state_with(config, FakeAuthenticator::new(DID), atpr_to::http_client());
+    let http = atpr_to::http_client(&config);
+    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
 
     let response = router_with_state(state)
         .oneshot(
@@ -553,8 +707,8 @@ async fn test_loopback_session_cookie_uses_the_plain_name() {
         base_url: atpr_to::config::BaseUrl::parse("http://127.0.0.1:9000").unwrap(),
         ..atpr_to::config::Config::default()
     };
-    let state =
-        atpr_to::build_state_with(config, FakeAuthenticator::new(DID), atpr_to::http_client());
+    let http = atpr_to::http_client(&config);
+    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
 
     let response = router_with_state(state)
         .oneshot(
@@ -617,6 +771,32 @@ async fn test_home_with_valid_session_redirects_to_dashboard() {
 
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     assert_eq!(response.headers().get("location").unwrap(), "/dashboard");
+}
+
+/// The dashboard's authenticated path: resolve the handle, fetch the avatar,
+/// render. Untestable while the AppView URL was hardcoded into the handler.
+#[tokio::test]
+async fn test_dashboard_renders_for_an_authenticated_user() {
+    let h = Harness::new().await;
+    let response = h
+        .router()
+        .oneshot(h.authed("GET", "/dashboard", None))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    // The DID was resolved to a handle rather than rendered raw, and the
+    // avatar came back from the AppView.
+    assert!(body.contains("alice.test"), "body: {body}");
+    assert!(
+        !body.contains(DID),
+        "the raw DID must not leak into the page"
+    );
+    assert!(body.contains("https://cdn.test/avatar.jpg"), "body: {body}");
 }
 
 /// `ui.rs` names this as the top regression risk left by the frontend removal.

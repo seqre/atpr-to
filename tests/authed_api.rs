@@ -441,6 +441,184 @@ async fn test_callback_cookie_authenticates_subsequent_requests() {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// Bug #6: logging out must revoke the session server-side, not merely drop the
+/// cookie. The access token, refresh token and DPoP key used to stay live in the
+/// store forever, so a cookie captured before "sign out" kept working after it.
+#[tokio::test]
+async fn test_logout_revokes_the_session_server_side() {
+    let auth = FakeAuthenticator::new(DID);
+    let revoked = Arc::clone(&auth.revoked);
+    let h = Harness::with_auth(auth).await;
+
+    assert!(
+        !revoked.load(std::sync::atomic::Ordering::SeqCst),
+        "precondition: not yet revoked"
+    );
+
+    let response = h
+        .router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/logout")
+                .header("cookie", &h.cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert!(
+        revoked.load(std::sync::atomic::Ordering::SeqCst),
+        "logout must revoke the session, not just clear the cookie"
+    );
+}
+
+/// The clearing cookie must match the attributes of the cookie it clears, or the
+/// browser matches nothing and the session cookie survives "sign out".
+#[tokio::test]
+async fn test_logout_clearing_cookie_mirrors_attributes() {
+    let h = Harness::new().await;
+    let response = h
+        .router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/logout")
+                .header("cookie", &h.cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let set_cookie = response
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap();
+
+    assert!(set_cookie.contains("Path=/"), "{set_cookie}");
+    assert!(set_cookie.contains("HttpOnly"), "{set_cookie}");
+    assert!(set_cookie.contains("SameSite=Lax"), "{set_cookie}");
+    assert!(
+        set_cookie.contains("Max-Age=0") || set_cookie.contains("session=;"),
+        "{set_cookie}"
+    );
+}
+
+/// `__Host-` is free hardening: a browser refuses such a cookie unless it is
+/// Secure, Path=/ and Domain-less, so a subdomain cannot overwrite it.
+#[tokio::test]
+async fn test_production_session_cookie_uses_the_host_prefix() {
+    let mock = mock_slingshot().await;
+    let config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        // The default base_url is https://atpr.to, i.e. not loopback.
+        ..atpr_to::config::Config::default()
+    };
+    let state =
+        atpr_to::build_state_with(config, FakeAuthenticator::new(DID), atpr_to::http_client());
+
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/oauth/callback?code=abc")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let set_cookie = response
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(set_cookie.starts_with("__Host-session="), "{set_cookie}");
+    assert!(set_cookie.contains("Secure"), "{set_cookie}");
+    assert!(!set_cookie.contains("Domain="), "{set_cookie}");
+}
+
+/// On loopback the plain name is used, because `__Host-` requires Secure and
+/// local development is over http.
+#[tokio::test]
+async fn test_loopback_session_cookie_uses_the_plain_name() {
+    let mock = mock_slingshot().await;
+    let config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        base_url: atpr_to::config::BaseUrl::parse("http://127.0.0.1:9000").unwrap(),
+        ..atpr_to::config::Config::default()
+    };
+    let state =
+        atpr_to::build_state_with(config, FakeAuthenticator::new(DID), atpr_to::http_client());
+
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/oauth/callback?code=abc")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let set_cookie = response
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(set_cookie.starts_with("session="), "{set_cookie}");
+    assert!(!set_cookie.contains("Secure"), "{set_cookie}");
+}
+
+/// `ui::home` used to treat cookie *presence* as authentication, so a client
+/// holding any junk cookie was bounced to /dashboard and straight back.
+#[tokio::test]
+async fn test_home_with_junk_cookie_does_not_redirect() {
+    let h = Harness::new().await;
+    let response = h
+        .router()
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .header("cookie", "session=not-a-real|session")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "an invalid session must render the login page, not redirect"
+    );
+}
+
+#[tokio::test]
+async fn test_home_with_valid_session_redirects_to_dashboard() {
+    let h = Harness::new().await;
+    let response = h
+        .router()
+        .oneshot(
+            Request::builder()
+                .uri("/")
+                .header("cookie", &h.cookie)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(response.headers().get("location").unwrap(), "/dashboard");
+}
+
 /// `ui.rs` names this as the top regression risk left by the frontend removal.
 #[tokio::test]
 async fn test_dashboard_redirects_without_auth() {

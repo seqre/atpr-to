@@ -62,11 +62,9 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use crate::router;
-
     #[tokio::test]
     async fn test_links_requires_auth() {
-        let app = router();
+        let app = crate::test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -86,7 +84,7 @@ mod tests {
     /// parses the body.
     #[tokio::test]
     async fn test_links_error_body_is_json() {
-        let app = router();
+        let app = crate::test_router().await;
         let response = app
             .oneshot(
                 Request::builder()

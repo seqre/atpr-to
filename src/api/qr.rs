@@ -43,11 +43,9 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use crate::router;
-
     #[tokio::test]
     async fn test_qr_route_returns_svg() {
-        let app = router();
+        let app = crate::test_router().await;
         let response = app
             .oneshot(
                 Request::builder()

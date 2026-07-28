@@ -1,15 +1,31 @@
-//! `POST /api/logout` — clear the session cookie.
+//! `POST /api/logout` — revoke the session and clear its cookie.
 
-use axum::response::{IntoResponse, Redirect};
-use axum_extra::extract::cookie::Cookie;
+use std::sync::Arc;
+
+use axum::extract::State;
+use axum::response::{IntoResponse, Redirect, Response};
 use axum_extra::extract::CookieJar;
 
-/// Clear the session cookie and redirect to the home page.
+use crate::auth::{clear_session, Authenticator};
+use crate::AppState;
+
+/// Revoke the session server-side, then clear the cookie.
 ///
-/// No authentication required — clearing a non-existent cookie is harmless.
-pub async fn logout(jar: CookieJar) -> impl IntoResponse {
-    let jar = jar.remove(Cookie::build(("session", "")).path("/"));
-    (jar, Redirect::to("/"))
+/// Bug #6: this used to only clear the cookie. The access token, refresh token
+/// and DPoP key stayed live in the store forever, so a cookie captured before
+/// "sign out" kept working afterwards — the user was told they had logged out
+/// and had not.
+///
+/// Still requires no authentication: clearing a cookie that names no live
+/// session is harmless, and refusing would leave a user with a stale cookie no
+/// way to get rid of it.
+pub async fn logout<A: Authenticator>(
+    State(state): State<Arc<AppState<A>>>,
+    jar: CookieJar,
+) -> Response {
+    state.auth.revoke(&jar).await;
+    let jar = clear_session(jar, &state.config.base_url);
+    (jar, Redirect::to("/")).into_response()
 }
 
 #[cfg(test)]
@@ -18,11 +34,9 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use crate::router;
-
     #[tokio::test]
     async fn test_logout_clears_cookie_and_redirects() {
-        let app = router();
+        let app = crate::test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -42,26 +56,21 @@ mod tests {
             .get("set-cookie")
             .map(|v| v.to_str().unwrap_or(""))
             .unwrap_or("");
-        // The session cookie should be removed (empty value or max-age=0) with path="/"
         assert!(
-            set_cookie.contains("session=")
-                && (set_cookie.contains("Max-Age=0")
-                    || set_cookie.is_empty()
-                    || set_cookie.contains("session=;")),
-            "expected session cookie to be cleared, got: {set_cookie}"
+            set_cookie.contains("Max-Age=0") || set_cookie.contains("session=;"),
+            "expected the session cookie to be cleared, got: {set_cookie}"
         );
         assert!(
             set_cookie.contains("Path=/"),
             "expected Path=/ in Set-Cookie, got: {set_cookie}"
         );
 
-        let location = response.headers().get("location").unwrap();
-        assert_eq!(location, "/");
+        assert_eq!(response.headers().get("location").unwrap(), "/");
     }
 
     #[tokio::test]
     async fn test_logout_without_cookie() {
-        let app = router();
+        let app = crate::test_router().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -73,9 +82,7 @@ mod tests {
             .await
             .unwrap();
 
-        // Should succeed even without a session cookie
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
-        let location = response.headers().get("location").unwrap();
-        assert_eq!(location, "/");
+        assert_eq!(response.headers().get("location").unwrap(), "/");
     }
 }

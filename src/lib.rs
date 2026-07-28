@@ -60,11 +60,6 @@ impl KeyExtractor for ClientIpKeyExtractor {
     }
 }
 
-/// Total budget for a single outbound request, including connect and body read.
-const HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
-/// Budget for establishing a connection, so a black-holed host fails fast.
-const HTTP_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
-
 /// Shared application state passed to all route handlers.
 ///
 /// Generic over the one seam that genuinely needs swapping. Production wires
@@ -113,7 +108,6 @@ impl IdentityService {
     ///
     /// Tries Slingshot's `describeRepo` (1 hop), then the DID document directly.
     /// `None` means neither worked.
-    // coverage:excl-start
     pub async fn handle_for(&self, did_str: &str) -> Option<String> {
         let url = format!(
             "{}/xrpc/com.atproto.repo.describeRepo?repo={}",
@@ -140,7 +134,6 @@ impl IdentityService {
             .next()
             .map(|h| h.as_ref().to_string())
     }
-    // coverage:excl-stop
 }
 
 /// Build the shared outbound HTTP client.
@@ -148,10 +141,14 @@ impl IdentityService {
 /// Every outbound call in the app goes through this one client, so the timeouts
 /// apply everywhere. Without them the only bound on a hung upstream is Lambda's
 /// own 30s function timeout.
-pub fn http_client() -> reqwest::Client {
+pub fn http_client(config: &config::Config) -> reqwest::Client {
     reqwest::Client::builder()
-        .timeout(HTTP_TIMEOUT)
-        .connect_timeout(HTTP_CONNECT_TIMEOUT)
+        .timeout(std::time::Duration::from_millis(
+            config.http_timeout_ms.get(),
+        ))
+        .connect_timeout(std::time::Duration::from_millis(
+            config.http_connect_timeout_ms.get(),
+        ))
         .user_agent(concat!("atpr.to/", env!("CARGO_PKG_VERSION")))
         .build()
         .expect("failed to build HTTP client")
@@ -175,7 +172,7 @@ pub fn identity_resolver(http: reqwest::Client) -> auth::Resolver {
 pub async fn build_state(
     config: config::Config,
 ) -> Result<Arc<AppState<auth::OAuthAuthenticator>>, std::io::Error> {
-    let http = http_client();
+    let http = http_client(&config);
     let oauth =
         auth::build_oauth_client(&config.base_url, &config.session_store, http.clone()).await?;
     Ok(build_state_with(
@@ -219,17 +216,31 @@ pub async fn router() -> Router {
     router_with_state(state)
 }
 
-/// Build a router from compiled defaults, ignoring `Config.toml` and the
-/// environment.
+/// A Slingshot URL that is guaranteed not to answer.
 ///
-/// For tests. `router()` reads the repo's `Config.toml`, which points
-/// `session_file` at a real file — so every test that called it shared one
-/// on-disk session store and raced the others. Compiled defaults use the
-/// in-memory store.
+/// Port 1 on loopback: connection refused immediately, no DNS, no packets off
+/// the machine.
+#[cfg(test)]
+pub(crate) const UNREACHABLE_SLINGSHOT: &str = "http://127.0.0.1:1";
+
+/// Build a router for tests, from compiled defaults.
+///
+/// Two hermeticity properties, both of which the suite lacked:
+///
+/// - It ignores `Config.toml`, which points `session_file` at a real file — so
+///   every test that called `router()` shared one on-disk session store and
+///   raced the others.
+/// - It points Slingshot at an address that cannot answer, so a test cannot
+///   silently start depending on `slingshot.microcosm.blue` being up. Tests that
+///   need an upstream mount a mock and say so.
 #[cfg(test)]
 pub(crate) async fn test_router() -> Router {
+    let config = config::Config {
+        slingshot_url: UNREACHABLE_SLINGSHOT.to_string(),
+        ..config::Config::default()
+    };
     router_with_state(
-        build_state(config::Config::default())
+        build_state(config)
             .await
             .expect("the in-memory store cannot fail"),
     )
@@ -390,9 +401,18 @@ mod tests {
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
+    /// Route existence only. Backed by a mock that answers 404 authoritatively,
+    /// so no fallback runs — the direct resolver would otherwise do real DNS on
+    /// `alice.bsky.social`, which is how this test used to reach the network.
     #[tokio::test]
     async fn test_resolve_route_exists() {
-        let app = test_router().await;
+        let mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(404))
+            .mount(&mock)
+            .await;
+
+        let app = router_with_state(test_state_with_slingshot(mock.uri()).await);
         let response = app
             .oneshot(
                 Request::builder()
@@ -403,9 +423,8 @@ mod tests {
             .await
             .unwrap();
 
-        // Route exists — should not be 405 (Method Not Allowed).
-        // Will be 404 or 502 since resolution hits network.
         assert_ne!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
@@ -458,25 +477,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
-    #[tokio::test]
-    async fn test_health_route() {
-        let app = test_router().await;
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/health")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        // Route existence only. The status now reflects real upstream health,
-        // and this test reaches the network, so it cannot assert 200.
-        // `test_health_ok` / `test_health_degraded` cover the codes hermetically.
-        assert_ne!(response.status(), StatusCode::NOT_FOUND);
-        assert_ne!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
-    }
+    // `test_health_route` lived here. It probed the real Slingshot and, because
+    // the status now reflects genuine upstream health, could only assert
+    // "not 404, not 405" — which `test_health_ok` and `test_health_degraded`
+    // already establish hermetically, along with the status codes.
 
     #[tokio::test]
     async fn test_health_ok() {

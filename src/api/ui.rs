@@ -1,24 +1,19 @@
 //! The HTML UI: home page and dashboard.
 //!
-// TODO(rebrand): this module's test suite was deleted with the old frontend.
-// All 12 tests asserted on rendered markup (Pico/Alpine CDN strings, Alpine
-// directives, `x-ref="qrDialog"`, placeholder copy, `width:100%`), so they
-// would have pinned the redesign to the design being replaced.
-//
-// Coverage to write back, roughly in priority order:
-//  1. `test_dashboard_redirects_without_auth` — GET /dashboard with no session
-//     cookie => 303 with Location: /. This one was pure behaviour, not markup,
-//     and is the only real regression risk right now. Restore it first.
-//  2. GET / with a session cookie => 303 to /dashboard (was never covered).
-//  3. GET /dashboard with a stale/unrestorable session => 303 to / *and* the
-//     `session` cookie cleared, guarding the redirect loop that `ui::dashboard`
-//     works around.
-//  4. Once the new UI exists: that the login form still posts `handle` to
-//     /api/login, asserted structurally rather than by substring match.
-//
-// `dashboard` is `coverage:excl` and needs live OAuth state, so a test-only
-// `render_dashboard_template()` helper existed to render the template directly.
-// It was removed with the tests; reintroduce it if the new suite needs it.
+//! This module's original test suite was deleted with the old frontend: all 12
+//! tests asserted on rendered markup (Pico/Alpine CDN strings, Alpine
+//! directives, placeholder copy, `width:100%`), so they would have pinned the
+//! redesign to the design being replaced.
+//!
+//! The behavioural coverage that mattered is back, in `tests/authed_api.rs`,
+//! written against behaviour rather than markup:
+//! `test_dashboard_redirects_without_auth`,
+//! `test_dashboard_clears_a_stale_cookie`,
+//! `test_home_with_valid_session_redirects_to_dashboard` and
+//! `test_home_with_junk_cookie_does_not_redirect`.
+//!
+//! Still to write once the new UI exists: that the login form posts `handle` to
+//! `/api/login`, asserted structurally rather than by substring match.
 
 use std::sync::Arc;
 
@@ -57,10 +52,14 @@ pub async fn home<A: Authenticator>(auth: MaybeAuth<A>) -> Result<Response, AppE
     Ok(Html(html).into_response())
 }
 
-// coverage:excl-start
-async fn fetch_bsky_avatar(client: &reqwest::Client, did: &str) -> Option<String> {
+async fn fetch_bsky_avatar(
+    client: &reqwest::Client,
+    appview_url: &str,
+    did: &str,
+) -> Option<String> {
     let url = format!(
-        "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={}",
+        "{}/xrpc/app.bsky.actor.getProfile?actor={}",
+        appview_url.trim_end_matches('/'),
         urlencoding::encode(did),
     );
     let body: serde_json::Value = client.get(&url).send().await.ok()?.json().await.ok()?;
@@ -68,13 +67,11 @@ async fn fetch_bsky_avatar(client: &reqwest::Client, did: &str) -> Option<String
         .and_then(|a| a.as_str())
         .map(str::to_owned)
 }
-// coverage:excl-stop
 
 /// Serve the user dashboard (authenticated).
 ///
 /// Redirects to `/` if the session cookie is missing or invalid.
 #[tracing::instrument(skip_all)]
-// coverage:excl-start
 pub async fn dashboard<A: Authenticator>(
     State(state): State<Arc<AppState<A>>>,
     jar: CookieJar,
@@ -91,7 +88,7 @@ pub async fn dashboard<A: Authenticator>(
     let did_str = user.did.as_ref().to_string();
     let (handle, avatar) = tokio::join!(
         state.identity.handle_for(&did_str),
-        fetch_bsky_avatar(&state.http, &did_str),
+        fetch_bsky_avatar(&state.http, &state.config.appview_url, &did_str),
     );
     let handle = handle.unwrap_or(did_str);
 
@@ -103,4 +100,3 @@ pub async fn dashboard<A: Authenticator>(
     .map_err(AppError::internal)?;
     Ok(Html(html).into_response())
 }
-// coverage:excl-stop

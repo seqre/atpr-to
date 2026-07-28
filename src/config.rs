@@ -151,10 +151,24 @@ pub struct Config {
     pub base_url: BaseUrl,
     /// Slingshot relay URL used for fast AT Protocol resolution.
     pub slingshot_url: String,
+    /// Bluesky AppView base URL, used only to look up a dashboard avatar.
+    ///
+    /// Configurable for the same reason `slingshot_url` is: hardcoded into the
+    /// handler, it made the dashboard's authenticated path impossible to test
+    /// without reaching the public internet.
+    pub appview_url: String,
     /// Rate limiting parameters for mutation routes.
     pub rate_limit: RateLimitConfig,
     /// `Cache-Control: max-age` value (seconds) for static files.
     pub static_cache_max_age: u32,
+    /// Total budget for one outbound request, in milliseconds.
+    ///
+    /// Worth tuning against the Lambda function timeout: the direct resolution
+    /// path makes three sequential hops, so the worst case is roughly three
+    /// times this.
+    pub http_timeout_ms: NonZeroU64,
+    /// Budget for establishing an outbound connection, in milliseconds.
+    pub http_connect_timeout_ms: NonZeroU64,
     /// Where OAuth sessions are persisted.
     #[serde(rename = "session_file")]
     pub session_store: SessionStore,
@@ -165,8 +179,11 @@ impl Default for Config {
         Self {
             base_url: BaseUrl::parse("https://atpr.to").expect("compiled default is a valid URL"),
             slingshot_url: "https://slingshot.microcosm.blue/".to_string(),
+            appview_url: "https://public.api.bsky.app".to_string(),
             rate_limit: RateLimitConfig::default(),
             static_cache_max_age: 15,
+            http_timeout_ms: NonZeroU64::new(5_000).expect("5000 is nonzero"),
+            http_connect_timeout_ms: NonZeroU64::new(2_000).expect("2000 is nonzero"),
             session_store: SessionStore::Memory,
         }
     }

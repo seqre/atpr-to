@@ -12,10 +12,10 @@ use jacquard_common::types::string::Datetime;
 use jacquard_common::types::uri::UriValue;
 use jacquard_common::types::value::to_data;
 use jacquard_common::xrpc::XrpcClient;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::{AuthSession, Resolver};
+use crate::domain::{ShortCode, TargetUrl};
 use crate::error::AppError;
 use crate::generated::to_atpr::link::Link;
 use crate::AppState;
@@ -34,37 +34,6 @@ pub struct ShortenRequest {
 pub struct ShortenResponse {
     /// The resulting short URL (e.g. `https://atpr.to/@alice/abc123`).
     pub short_url: String,
-}
-
-const CODE_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-/// Maximum destination URL length, mirroring `maxLength` on `url` in
-/// `lexicons/to/atpr/link.json`. Phase 3 pins the two together with a test.
-const MAX_TARGET_LEN: usize = 2048;
-
-/// Generate a random short code (6-8 alphanumeric chars).
-fn generate_code() -> String {
-    let mut rng = rand::rng();
-    let len = 6;
-    (0..len)
-        .map(|_| CODE_CHARSET[rng.random_range(0..CODE_CHARSET.len())] as char)
-        .collect()
-}
-
-/// Validate a short code: alphanumeric + `-_`, 1-64 chars.
-pub fn validate_code(code: &str) -> bool {
-    !code.is_empty()
-        && code.len() <= 64
-        && code
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-}
-
-/// Returns `true` if the URL has an allowed scheme (`http` or `https`).
-pub fn is_allowed_scheme(url_str: &str) -> bool {
-    url::Url::parse(url_str)
-        .map(|u| matches!(u.scheme(), "http" | "https"))
-        .unwrap_or(false)
 }
 
 /// Resolve a DID to its primary handle.
@@ -118,28 +87,15 @@ pub async fn shorten(
     let (did, _) = session.session_info().await;
     let did_str = did.as_ref().to_string();
 
+    // Four separate validation steps and three parses of `body.url` collapse
+    // into two constructors that either produce a valid value or say why not.
     let code = match &body.code {
-        Some(c) if !validate_code(c) => {
-            return Err(AppError::BadRequest(
-                "Invalid code: must be 1-64 chars, alphanumeric or -_",
-            ))
-        }
-        Some(c) => c.clone(),
-        None => generate_code(),
+        Some(c) => ShortCode::parse(c)?,
+        None => ShortCode::generate(),
     };
+    let target = TargetUrl::parse(&body.url)?;
 
-    if body.url.len() > MAX_TARGET_LEN {
-        return Err(AppError::BadRequest("URL too long (max 2048 chars)"));
-    }
-    if url::Url::parse(&body.url).is_err() {
-        return Err(AppError::BadRequest("Invalid URL"));
-    }
-    if !is_allowed_scheme(&body.url) {
-        return Err(AppError::BadRequest("Only http/https URLs are allowed"));
-    }
-
-    let link_url: UriValue =
-        UriValue::new_owned(&body.url).map_err(|_| AppError::BadRequest("Invalid URL"))?;
+    let link_url: UriValue = UriValue::new_owned(target.as_str()).map_err(AppError::internal)?;
 
     let record: Link = Link::new()
         .url(link_url)
@@ -147,8 +103,10 @@ pub async fn shorten(
         .build();
 
     let data = to_data(&record).map_err(AppError::internal)?;
-    let rkey: RecordKey<Rkey> =
-        RecordKey::any_owned(&code).map_err(|_| AppError::BadRequest("Invalid code"))?;
+    // `ShortCode`'s charset is a subset of the atproto rkey charset, so this
+    // branch is unreachable; it is an internal error rather than a 400 because
+    // reaching it would mean the two have drifted apart.
+    let rkey: RecordKey<Rkey> = RecordKey::any_owned(code.as_str()).map_err(AppError::internal)?;
     let owned_did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
     let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
 
@@ -180,60 +138,7 @@ pub async fn shorten(
     };
 
     Ok(Json(ShortenResponse {
-        short_url: state.config.base_url.short_url(&handle, &code),
+        short_url: state.config.base_url.short_url(&handle, code.as_str()),
     }))
 }
 // coverage:excl-stop
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_generate_code_length() {
-        for _ in 0..100 {
-            let code = generate_code();
-            assert_eq!(code.len(), 6);
-            assert!(validate_code(&code));
-        }
-    }
-
-    #[test]
-    fn test_generate_code_charset() {
-        for _ in 0..200 {
-            let code = generate_code();
-            assert!(
-                code.chars().all(|c| c.is_ascii_alphanumeric()),
-                "non-alphanumeric char in: {code}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_validate_code_valid() {
-        assert!(validate_code("abc123"));
-        assert!(validate_code("my-code"));
-        assert!(validate_code("my_code"));
-        assert!(validate_code("A"));
-        assert!(validate_code(&"a".repeat(64)));
-    }
-
-    #[test]
-    fn test_validate_code_invalid() {
-        assert!(!validate_code(""));
-        assert!(!validate_code(&"a".repeat(65)));
-        assert!(!validate_code("has spaces"));
-        assert!(!validate_code("has/slash"));
-        assert!(!validate_code("has.dot"));
-    }
-
-    #[test]
-    fn test_is_allowed_scheme() {
-        assert!(is_allowed_scheme("https://example.com"));
-        assert!(is_allowed_scheme("http://example.com/path?q=1"));
-        assert!(!is_allowed_scheme("ftp://example.com/file.txt"));
-        assert!(!is_allowed_scheme("javascript:void(0)"));
-        assert!(!is_allowed_scheme("data:text/html,<h1>hi</h1>"));
-        assert!(!is_allowed_scheme("not-a-valid-url"));
-    }
-}

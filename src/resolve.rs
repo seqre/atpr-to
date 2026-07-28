@@ -7,16 +7,9 @@ use jacquard_common::types::string::Handle;
 use tracing::Instrument;
 
 use crate::auth::Resolver;
+use crate::domain::{InvalidTarget, ShortLink, TargetUrl};
 use crate::error::AppError;
 use crate::AppState;
-
-/// A successfully resolved short link.
-pub(crate) struct ResolvedLink {
-    /// The destination URL to redirect to.
-    pub url: String,
-    /// Last-modified datetime string (ISO 8601).
-    pub updated_at: Option<String>,
-}
 
 /// Why a resolution attempt failed.
 ///
@@ -33,16 +26,22 @@ pub(crate) enum ResolveError {
     HandleNotFound,
     /// The repo exists but holds no record under this short code.
     RecordNotFound,
+    /// The record exists but its destination is not one we will redirect to —
+    /// a `javascript:` URL, say. Anyone can write such a record to their own
+    /// repo, so this is expected input, not an upstream fault.
+    UnusableRecord(InvalidTarget),
     /// Transport failure, malformed response, or an upstream 5xx.
     Upstream(anyhow::Error),
 }
 
 impl ResolveError {
-    /// True when the upstream gave a definitive "this does not exist".
-    ///
-    /// Only these justify skipping the fallback path.
+    /// True when there is no usable link at this address, and retrying or
+    /// falling back to another resolver would not change that.
     pub(crate) fn is_not_found(&self) -> bool {
-        matches!(self, Self::HandleNotFound | Self::RecordNotFound)
+        matches!(
+            self,
+            Self::HandleNotFound | Self::RecordNotFound | Self::UnusableRecord(_)
+        )
     }
 }
 
@@ -51,6 +50,7 @@ impl std::fmt::Display for ResolveError {
         match self {
             Self::HandleNotFound => write!(f, "handle not found"),
             Self::RecordNotFound => write!(f, "record not found"),
+            Self::UnusableRecord(e) => write!(f, "unusable record: {e}"),
             Self::Upstream(e) => write!(f, "{e}"),
         }
     }
@@ -66,31 +66,39 @@ impl From<ResolveError> for AppError {
     fn from(e: ResolveError) -> Self {
         match e {
             ResolveError::HandleNotFound | ResolveError::RecordNotFound => AppError::NotFound,
+            // 404 rather than 502: the record is permanently unusable, so
+            // "try again later" would be a lie, and paging on it would be noise.
+            ResolveError::UnusableRecord(reason) => {
+                tracing::warn!(%reason, "record rejected on the read path");
+                AppError::NotFound
+            }
             ResolveError::Upstream(e) => AppError::Upstream(e),
         }
     }
 }
 
-/// Pull the link fields out of a `com.atproto.repo.getRecord` response body.
-fn link_from_get_record(
-    body: &serde_json::Value,
-    source: &str,
-) -> Result<ResolvedLink, ResolveError> {
+/// Pull a `ShortLink` out of a `com.atproto.repo.getRecord` response body.
+///
+/// The destination goes through `TargetUrl::parse` here, which is the whole
+/// point: a repo is user-writable, so a record's `url` is attacker-controlled
+/// and was previously trusted verbatim on this path.
+fn link_from_get_record(body: &serde_json::Value, source: &str) -> Result<ShortLink, ResolveError> {
     let missing =
         |field: &str| ResolveError::Upstream(anyhow::anyhow!("{source} getRecord missing {field}"));
 
     let value = body.get("value").ok_or_else(|| missing("value"))?;
-    let url = value
+    let raw_url = value
         .get("url")
         .and_then(|u| u.as_str())
-        .ok_or_else(|| missing("url field"))?
-        .to_string();
+        .ok_or_else(|| missing("url field"))?;
+
+    let target = TargetUrl::parse(raw_url).map_err(ResolveError::UnusableRecord)?;
     let updated_at = value
         .get("updatedAt")
         .and_then(|c| c.as_str())
         .map(|s| s.to_string());
 
-    Ok(ResolvedLink { url, updated_at })
+    Ok(ShortLink { target, updated_at })
 }
 
 /// Try to resolve via Slingshot (2-hop: resolveHandle + getRecord).
@@ -99,7 +107,7 @@ pub(crate) async fn resolve_via_slingshot(
     slingshot_url: &str,
     handle: &str,
     code: &str,
-) -> Result<ResolvedLink, ResolveError> {
+) -> Result<ShortLink, ResolveError> {
     let base = slingshot_url.trim_end_matches('/');
 
     // Hop 1: resolveHandle
@@ -155,7 +163,7 @@ async fn resolve_via_direct(
     resolver: &Resolver,
     handle: &Handle,
     code: &str,
-) -> Result<ResolvedLink, ResolveError> {
+) -> Result<ShortLink, ResolveError> {
     let did = async { resolver.resolve_handle(handle).await }
         .instrument(tracing::info_span!("resolve_handle"))
         .await
@@ -247,7 +255,9 @@ pub async fn resolve(
         }
     };
 
-    Ok(Redirect::temporary(&link.url).into_response())
+    // `link.target` is a `TargetUrl`, so the scheme has already been checked.
+    // There is no longer a raw string here that could carry `javascript:`.
+    Ok(Redirect::temporary(link.target.as_str()).into_response())
 }
 
 #[cfg(test)]

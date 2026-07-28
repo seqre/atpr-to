@@ -9,9 +9,9 @@ use jacquard_common::types::recordkey::{RecordKey, Rkey};
 use jacquard_common::xrpc::XrpcClient;
 
 use crate::auth::AuthSession;
+use crate::domain::ShortCode;
 use crate::error::AppError;
 use crate::generated::to_atpr::link::Link;
-use crate::shorten::validate_code;
 
 /// Delete a short URL record. Requires authentication.
 #[tracing::instrument(skip_all, fields(code))]
@@ -24,12 +24,8 @@ pub async fn delete_link(
     let (did, _) = session.session_info().await;
     let did_str = did.as_ref().to_string();
 
-    if !validate_code(&code) {
-        return Err(AppError::BadRequest("Invalid code"));
-    }
-
-    let rkey: RecordKey<Rkey> =
-        RecordKey::any_owned(&code).map_err(|_| AppError::BadRequest("Invalid code"))?;
+    let code = ShortCode::parse(&code)?;
+    let rkey: RecordKey<Rkey> = RecordKey::any_owned(code.as_str()).map_err(AppError::internal)?;
     let owned_did: Did = Did::new_owned(&did_str).map_err(|_| AppError::Unauthorized)?;
     let collection = Nsid::new_static(<Link as Collection>::NSID).expect("valid NSID");
 

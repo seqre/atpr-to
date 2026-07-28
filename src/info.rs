@@ -35,7 +35,10 @@ pub async fn info(
         .unwrap_or_default();
 
     let tmpl = InfoTemplate {
-        url: link.url,
+        // Already scheme-checked by `TargetUrl`, so `info.html`'s `<a href>`
+        // cannot receive a `javascript:` destination. Askama escapes characters,
+        // not schemes, so it was never the guard here.
+        url: link.target.to_string(),
         updated_at: link.updated_at,
         handle,
         code,

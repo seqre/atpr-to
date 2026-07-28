@@ -10,7 +10,9 @@ pub mod auth;
 pub mod config;
 /// Short URL deletion endpoint.
 pub mod delete;
-/// Error response helpers.
+/// Short-link domain types: validated codes and destinations.
+pub mod domain;
+/// The application error type.
 pub mod error;
 #[allow(
     missing_docs,

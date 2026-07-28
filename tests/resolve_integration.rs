@@ -249,6 +249,131 @@ async fn test_handle_not_found_is_404() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+/// Mount a Slingshot that resolves a handle and serves a record with the given
+/// destination URL, however dangerous.
+async fn mock_serving_record_url(destination: &str) -> MockServer {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "uri": "at://did:plc:testdid123/to.atpr.link/evil",
+            "cid": "bafycid",
+            "value": {
+                "$type": "to.atpr.link",
+                "url": destination,
+                "updatedAt": "2024-01-01T00:00:00Z"
+            }
+        })))
+        .mount(&mock)
+        .await;
+
+    mock
+}
+
+/// Regression test for bug #3, the redirect half.
+///
+/// A repo is user-writable: anyone can `putRecord` a `javascript:` URL to their
+/// own PDS. The scheme was checked on the write path and not on the read path,
+/// so such a record went straight into `Redirect::temporary`.
+#[tokio::test]
+async fn test_dangerous_scheme_is_not_redirected_to() {
+    for destination in [
+        "javascript:alert(document.cookie)",
+        "data:text/html,<script>alert(1)</script>",
+        "file:///etc/passwd",
+    ] {
+        let mock = mock_serving_record_url(destination).await;
+        let state = test_state(mock.uri()).await;
+        let app = router_with_state(state);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/@alice.test/evil")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.status(),
+            StatusCode::NOT_FOUND,
+            "{destination} must not resolve"
+        );
+        assert!(
+            response.headers().get("location").is_none(),
+            "{destination} must not produce a Location header"
+        );
+    }
+}
+
+/// Regression test for bug #3, the info-page half.
+///
+/// `info.html` renders the destination into an `<a href>`. Askama escapes
+/// characters, not schemes, so escaping was never a defence here.
+#[tokio::test]
+async fn test_dangerous_scheme_never_reaches_an_href() {
+    let mock = mock_serving_record_url("javascript:alert(document.cookie)").await;
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/evil/info")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(
+        !body.contains("javascript:"),
+        "destination scheme leaked into the rendered page: {body}"
+    );
+}
+
+/// The read path must still accept ordinary destinations.
+#[tokio::test]
+async fn test_https_destination_still_resolves() {
+    let mock = mock_serving_record_url("https://example.com/target").await;
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/evil")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(
+        response.headers().get("location").unwrap(),
+        "https://example.com/target"
+    );
+}
+
 /// Regression test for the missing `.fallback()` route: unmatched paths used to
 /// return a bodyless 404.
 #[tokio::test]

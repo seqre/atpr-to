@@ -83,6 +83,131 @@ async fn test_resolve_via_slingshot_happy_path() {
     assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
     let location = response.headers().get("location").unwrap();
     assert_eq!(location, "https://example.com/target");
+
+    // The redirect is the product and costs two upstream hops. Caching it is
+    // the single highest-leverage thing on the hot path, and there was none.
+    assert_eq!(
+        response.headers().get("cache-control").unwrap(),
+        "public, max-age=60"
+    );
+
+    // Set on every response, including this one.
+    assert_eq!(
+        response.headers().get("x-content-type-options").unwrap(),
+        "nosniff"
+    );
+    assert!(response
+        .headers()
+        .get("content-security-policy")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .contains("default-src 'self'"));
+    assert!(
+        response.headers().contains_key("strict-transport-security"),
+        "the default base_url is https, so HSTS must be sent"
+    );
+}
+
+/// A cached 404 outlives the link that would fix it: everyone who probed a
+/// code before it existed keeps getting the 404 for the whole redirect TTL.
+#[tokio::test]
+async fn test_errors_are_not_cached() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(
+            serde_json::json!({ "error": "InvalidRequest", "message": "Unable to resolve handle" }),
+        ))
+        .mount(&mock)
+        .await;
+
+    let state = state_with_timeout_ms(mock.uri(), Some(200)).await;
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/@nobody.test/abc123")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert!(response.status().is_client_error() || response.status().is_server_error());
+    assert_eq!(response.headers().get("cache-control").unwrap(), "no-store");
+}
+
+/// The request timeout sits below the Lambda function timeout on purpose: over
+/// there, overrunning kills the execution environment and produces no response
+/// and no log line. 504 rather than 408 because the wait is always on an
+/// upstream, never on a slow client.
+#[tokio::test]
+async fn test_request_timeout_returns_504() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30)))
+        .mount(&mock)
+        .await;
+
+    let mut config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        ..atpr_to::config::Config::default()
+    };
+    // Well above the request budget, so the server-side layer is unambiguously
+    // what fires — not the outbound client timeout.
+    config.http_timeout_ms = std::num::NonZeroU64::new(20_000).unwrap();
+    config.request_timeout_ms = std::num::NonZeroU64::new(200).unwrap();
+    let http = atpr_to::http_client(&config);
+    let state =
+        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+
+    let started = std::time::Instant::now();
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/abc123")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "the timeout layer did not bound the request"
+    );
+}
+
+/// HSTS from a loopback dev server is worse than useless: a browser that
+/// honours it makes every other local http service on the host unreachable.
+#[tokio::test]
+async fn test_loopback_does_not_send_hsts() {
+    let mock = MockServer::start().await;
+    let mut config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        ..atpr_to::config::Config::default()
+    };
+    config.base_url = atpr_to::config::BaseUrl::parse("http://localhost:9000").unwrap();
+    let http = atpr_to::http_client(&config);
+    let state =
+        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+
+    let response = router_with_state(state)
+        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        !response.headers().contains_key("strict-transport-security"),
+        "HSTS must not be sent from a loopback origin"
+    );
+    // The rest of the policy still applies.
+    assert_eq!(
+        response.headers().get("x-content-type-options").unwrap(),
+        "nosniff"
+    );
 }
 
 #[tokio::test]

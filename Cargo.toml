@@ -41,6 +41,9 @@ time = "0.3"
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread", "sync"] }
 thiserror = "2"
 tower = "0.5"
+# `set-header` for the security headers and cache policy, `trace` so requests are
+# actually logged, `timeout` as the backstop below Lambda's 30s.
+tower-http = { version = "0.6", features = ["set-header", "timeout", "trace"] }
 url = { version = "2", features = ["serde"] }
 urlencoding = "2"
 tracing = "0.1"
@@ -62,6 +65,11 @@ wiremock = "0.6.5"
 missing_docs = "warn"
 
 [profile.release]
+# Measured, not assumed: the release binary went 20.9 MiB -> 11.9 MiB (-43%)
+# across the jacquard feature trim and this profile together. Both numbers are
+# host x86_64 builds of the same tree before and after, so they are indicative
+# of the arm64 Lambda artifact rather than equal to it. Smaller binary means
+# less to read off S3 and less to relocate, which is cold-start time.
 lto = "fat"
 codegen-units = 1
 strip = "symbols"

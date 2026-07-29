@@ -31,14 +31,19 @@ pub mod session;
 pub mod store;
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use axum::http::StatusCode;
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::{extract::State, routing::delete, routing::get, routing::post, Router};
 use jacquard::identity::resolver::ResolverOptions;
 use jacquard::identity::JacquardResolver;
+use tower::ServiceBuilder;
 use tower_governor::errors::GovernorError;
 use tower_governor::key_extractor::{KeyExtractor, SmartIpKeyExtractor};
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
+use tower_http::timeout::TimeoutLayer;
+use tower_http::trace::TraceLayer;
 
 /// Rate-limit key: the client IP when one can be determined, otherwise a single
 /// shared bucket.
@@ -287,6 +292,18 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
         .route("/oauth/callback", get(auth::oauth_callback::<A>))
         .layer(GovernorLayer::new(governor_config));
 
+    // Below the Lambda function timeout on purpose: overrunning here produces a
+    // 408 and a log line, where overrunning there produces a killed execution
+    // environment and nothing to read afterwards.
+    let request_timeout = Duration::from_millis(state.config.request_timeout_ms.get());
+
+    // HSTS over plain HTTP is ignored by browsers, but sending it from a
+    // loopback dev server is still wrong: get the header onto `localhost` in a
+    // browser that does honour it and every other local service on that host
+    // becomes unreachable over http. `None` omits the header.
+    let hsts = (!state.config.base_url.is_loopback())
+        .then(|| HeaderValue::from_static("max-age=63072000; includeSubDomains"));
+
     Router::new()
         .route("/static/{*path}", get(api::static_files::static_file::<A>))
         .route("/", get(api::ui::home))
@@ -301,8 +318,56 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
         .merge(rate_limited_oauth)
         .nest("/api", api_router)
         .fallback(not_found)
+        .layer(
+            // `if_not_present` throughout, so a handler with its own policy —
+            // `Cache-Control` on redirects, say — still wins.
+            ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    header::X_CONTENT_TYPE_OPTIONS,
+                    HeaderValue::from_static("nosniff"),
+                ))
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    header::REFERRER_POLICY,
+                    HeaderValue::from_static("strict-origin-when-cross-origin"),
+                ))
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    header::CONTENT_SECURITY_POLICY,
+                    HeaderValue::from_static(CSP),
+                ))
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    header::STRICT_TRANSPORT_SECURITY,
+                    hsts,
+                )),
+        )
+        // 504 rather than the layer's default 408: 408 says the *client* was
+        // too slow sending its request, and that is never what happened here.
+        // Every route that can run long is waiting on a PDS or a relay, which
+        // is precisely what a gateway timeout describes.
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::GATEWAY_TIMEOUT,
+            request_timeout,
+        ))
+        // Outermost, so it sees the response the client actually gets —
+        // including the limiter's 429s and the timeout's 504s. There was no
+        // request logging at all before this.
+        .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
+
+/// Content Security Policy sent on every response.
+///
+/// No inline script or style, and the only third-party asset is the dashboard
+/// avatar — `img-src https:` is what keeps that working. Tighten it to the
+/// AppView's CDN once the rebrand settles on a stack; whatever that stack is,
+/// it has to be same-origin or this needs revisiting, which is the point of
+/// setting the header before the rebrand rather than after.
+const CSP: &str = "default-src 'self'; \
+     img-src 'self' https: data:; \
+     style-src 'self'; \
+     script-src 'self'; \
+     form-action 'self'; \
+     frame-ancestors 'none'; \
+     base-uri 'none'";
 
 /// Catch-all for unmatched paths, so `/favicon.ico` and friends get a body
 /// rather than axum's default empty 404.

@@ -63,6 +63,22 @@ jobs:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
 
+  # CI never built the artifact it deploys, so an arm64-only break — a
+  # dependency without a target, a linker problem — surfaced at `just deploy`
+  # rather than on the pull request.
+  lambda-build:
+    name: Lambda artifact (arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-lambda
+      - name: Build release artifact
+        run: cargo lambda build --release --arm64
+      - name: Report artifact size
+        run: ls -l target/lambda/atpr-to/bootstrap
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

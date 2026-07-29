@@ -13,7 +13,7 @@
 //! trap of `/api/*` endpoints answering `text/plain`. When a styled error page
 //! comes back, `IntoResponse` is the single place to add negotiation.
 
-use axum::http::StatusCode;
+use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 
 /// Everything a handler can fail with.
@@ -92,7 +92,16 @@ impl IntoResponse for AppError {
         // server-authored text reaches the client.
         let message = self.to_string();
 
-        (status, axum::Json(serde_json::json!({ "error": message }))).into_response()
+        (
+            status,
+            // Successful redirects are cached; failures must not be. A cached
+            // 404 outlives the link that fixes it — someone shortens a code,
+            // and everyone who probed it first keeps getting the 404 for the
+            // whole TTL.
+            [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+            axum::Json(serde_json::json!({ "error": message })),
+        )
+            .into_response()
     }
 }
 

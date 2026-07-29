@@ -8,14 +8,24 @@
    must stay referenced here or rustc reports them dead and clippy -D warnings
    fails the build.
 
-   Backend contracts the rebuilt UI talks to:
-     GET    /api/links          -> {"links":[{"code","url","updated_at"}]}
-                                   auth-gated; error paths return a non-JSON
-                                   body (src/links.rs), so don't assume JSON
-     POST   /api/shorten        -> {url, code?} => {short_url}; rate limited
-     DELETE /api/shorten/{code} -> 204; plain-text body on error
+   Backend contracts the rebuilt UI talks to. Every error body is now
+   `{"error": "..."}` with a JSON content type, on every route -- the old
+   text/plain and alert()-worthy responses are gone, so error handling can be
+   one shared helper:
+     GET    /api/links          -> {"links":[{"code","url","updated_at"}],
+                                    "cursor": string|null}
+                                   auth-gated; ?limit= and ?cursor= paginate
+     POST   /api/shorten        -> {url, code?} => {short_url}; rate limited.
+                                   409 if the code is taken -- it no longer
+                                   silently overwrites, so surface the conflict
+     DELETE /api/shorten/{code} -> 204
      POST   /api/logout         -> form POST, 303 to / and clears the cookie
      GET    /@{handle}/{code}/qr -> standalone image/svg+xml
+
+   CSP is `default-src 'self'` with no 'unsafe-inline' (see src/lib.rs). Inline
+   <script> and inline style attributes will be blocked -- whatever stack the
+   rebrand picks has to be same-origin and external, or the policy needs
+   revisiting deliberately.
 
    Removed feature set, all rebuildable on the above:
    - link table with sort by code/destination/last-modified and a text filter

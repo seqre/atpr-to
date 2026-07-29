@@ -161,6 +161,19 @@ pub struct Config {
     pub rate_limit: RateLimitConfig,
     /// `Cache-Control: max-age` value (seconds) for static files.
     pub static_cache_max_age: u32,
+    /// `Cache-Control: max-age` value (seconds) for successful redirects.
+    ///
+    /// The redirect *is* the product, and it costs two upstream hops with no
+    /// caching at all today. It is a knob rather than a constant because the
+    /// cost is real: an edit or a delete takes up to this long to propagate to
+    /// anyone who already followed the link. `0` disables caching entirely.
+    pub redirect_cache_max_age: u32,
+    /// Server-side budget for one inbound request, in milliseconds.
+    ///
+    /// Sits below the Lambda function timeout deliberately, so a request that
+    /// overruns returns a 504 we can see in the logs rather than being killed
+    /// by the runtime with no response at all.
+    pub request_timeout_ms: NonZeroU64,
     /// Total budget for one outbound request, in milliseconds.
     ///
     /// Worth tuning against the Lambda function timeout: the direct resolution
@@ -182,6 +195,8 @@ impl Default for Config {
             appview_url: "https://public.api.bsky.app".to_string(),
             rate_limit: RateLimitConfig::default(),
             static_cache_max_age: 15,
+            redirect_cache_max_age: 60,
+            request_timeout_ms: NonZeroU64::new(25_000).expect("25000 is nonzero"),
             http_timeout_ms: NonZeroU64::new(5_000).expect("5000 is nonzero"),
             http_connect_timeout_ms: NonZeroU64::new(2_000).expect("2000 is nonzero"),
             session_store: SessionStore::Memory,
@@ -238,6 +253,25 @@ mod tests {
     #[test]
     fn test_static_cache_max_age_default() {
         assert_eq!(Config::default().static_cache_max_age, 15);
+    }
+
+    #[test]
+    fn test_cache_and_timeout_defaults() {
+        let c = Config::default();
+        assert_eq!(c.redirect_cache_max_age, 60);
+        // Under the 30s Lambda function timeout, or the layer never fires.
+        assert!(c.request_timeout_ms.get() < 30_000);
+        // And above the outbound budget, so a slow upstream is attributed to
+        // the upstream rather than reported as a server-side overrun.
+        assert!(c.request_timeout_ms.get() > c.http_timeout_ms.get());
+    }
+
+    /// `0` is a meaningful value here — "do not cache redirects" — so unlike
+    /// the rate limits it must stay representable.
+    #[test]
+    fn test_redirect_cache_may_be_disabled() {
+        let cfg: Config = toml::from_str("redirect_cache_max_age = 0").unwrap();
+        assert_eq!(cfg.redirect_cache_max_age, 0);
     }
 
     /// `Url` normalises a bare origin to a trailing slash; concatenating that

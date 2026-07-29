@@ -3,15 +3,56 @@ Transform: AWS::Serverless-2016-10-31
 
 Description: atpr.to — AT Protocol URL Shortener
 
+Parameters:
+  DomainName:
+    Type: String
+    Default: ""
+    Description: >-
+      Custom domain to map the API to. Leave empty to deploy without one — the
+      stack then serves from the execute-api URL in the outputs. Previously the
+      mapping was unconditional and pointed at a DomainName resource this
+      template never created, so a from-scratch deploy could not succeed.
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: >-
+      ACM certificate for DomainName, in this stack's region. Required when
+      DomainName is set. HTTP APIs need a regional certificate, not us-east-1.
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: CloudWatch retention. The default is "never expire", which bills forever.
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+
 Globals:
   Function:
     Timeout: 30
-    MemorySize: 128
+    # 128MB was the default, not a measurement. vCPU is allocated in proportion
+    # to memory, so a cold start that is dominated by runtime init gets faster
+    # roughly in step with the size increase — which usually makes the larger
+    # setting *cheaper*, since duration falls faster than the per-ms rate rises.
+    # Worth re-measuring against real invocations before tuning further.
+    MemorySize: 512
+    Tracing: Active
     Environment:
       Variables:
         RUST_LOG: info
 
 Resources:
+  AtprToApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      # The real rate limit. The in-process governor is per execution
+      # environment by construction, so under any concurrency it bounds nothing
+      # global; this does.
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 50
+        ThrottlingBurstLimit: 100
+        DetailedMetricsEnabled: true
+
   AtprToFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -27,27 +68,58 @@ Resources:
         Variables:
           ATPR__BASE_URL: "https://atpr.to"
           ATPR__SLINGSHOT_URL: "https://slingshot.microcosm.blue/"
+          # Per-execution-environment, which is why logins can fail
+          # nondeterministically across cold starts. A shared backend is the
+          # fix; this is the known-broken status quo, recorded rather than
+          # papered over.
           ATPR__SESSION_FILE: "/tmp/sessions.json"
       Events:
         Api:
           Type: HttpApi
           Properties:
+            ApiId: !Ref AtprToApi
             Path: /{proxy+}
             Method: ANY
         Root:
           Type: HttpApi
           Properties:
+            ApiId: !Ref AtprToApi
             Path: /
             Method: ANY
 
+  # Declared explicitly only to set retention. CloudFormation will not adopt a
+  # log group that already exists, so a stack that has run without this needs
+  # the existing /aws/lambda/atpr-to group deleted before the first deploy that
+  # includes it.
+  AtprToLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/atpr-to
+      RetentionInDays: !Ref LogRetentionDays
+
+  AtprToDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: HasDomain
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
   AtprToDomainMapping:
     Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: HasDomain
     Properties:
-      DomainName: atpr.to
-      ApiId: !Ref ServerlessHttpApi
+      DomainName: !Ref AtprToDomain
+      ApiId: !Ref AtprToApi
       Stage: $default
 
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
-    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+    Value: !Sub "https://${AtprToApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  DomainTarget:
+    Description: Point the custom domain's DNS at this (CNAME or Route 53 alias).
+    Condition: HasDomain
+    Value: !GetAtt AtprToDomain.RegionalDomainName

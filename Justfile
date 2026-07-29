@@ -54,6 +54,13 @@ logs:
 local:
     cargo lambda watch
 
+# Run locally as a plain HTTP server on 127.0.0.1:9000 (no cargo-lambda needed)
+#
+# `main.rs` picks this path whenever AWS_LAMBDA_FUNCTION_NAME is unset, so
+# there is no flag to pass and no way to start the wrong one by accident.
+run:
+    ATPR_PORT=9000 cargo run
+
 # Generate test coverage report (requires cargo-llvm-cov)
 #
 # The gate is 80, and it is real. It was 100, which never passed: measured

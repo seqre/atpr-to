@@ -7,7 +7,7 @@ use axum::extract::{Path, State};
 use axum::response::{Html, IntoResponse, Response};
 use jacquard_common::types::string::Handle;
 
-use crate::api::shortlink::qr_svg;
+use crate::api::shortlink::qr_svg_inline;
 use crate::auth::Authenticator;
 use crate::domain::ShortCode;
 use crate::error::AppError;
@@ -21,6 +21,11 @@ struct InfoTemplate {
     updated_at: Option<String>,
     handle: String,
     code: String,
+    /// The canonical short link, built from the configured base URL.
+    ///
+    /// The template used to assemble `atpr.to/@{handle}/{code}` itself, which
+    /// is a lie on any instance not served from that domain.
+    short_url: String,
     qr_svg: String,
 }
 
@@ -49,7 +54,8 @@ pub async fn info<A: Authenticator>(
         updated_at: link.updated_at,
         handle,
         code,
-        qr_svg: qr_svg(&short_url)?,
+        qr_svg: qr_svg_inline(&short_url)?,
+        short_url,
     };
     let html = tmpl.render().map_err(AppError::internal)?;
     Ok(Html(html).into_response())

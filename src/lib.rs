@@ -377,11 +377,20 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
 /// AppView's CDN once the rebrand settles on a stack; whatever that stack is,
 /// it has to be same-origin or this needs revisiting, which is the point of
 /// setting the header before the rebrand rather than after.
+///
+/// `form-action` allows `https:` because sign-in depends on it. `POST /login`
+/// answers a browser form with a 303 to the user's *own* PDS authorize URL,
+/// and Chromium enforces `form-action` against the redirect target, not just
+/// the form's action — so `'self'` alone blocks the navigation and the login
+/// button appears to do nothing. The PDS origin is per-user and unknowable
+/// here, so an exact allowlist is not available. `https:` still refuses
+/// `javascript:` and `data:` form targets, which is the attack this directive
+/// is actually for.
 const CSP: &str = "default-src 'self'; \
      img-src 'self' https: data:; \
      style-src 'self'; \
      script-src 'self'; \
-     form-action 'self'; \
+     form-action 'self' https:; \
      frame-ancestors 'none'; \
      base-uri 'none'";
 
@@ -444,6 +453,32 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::*;
+
+    /// The policy is a constant, so what it permits is worth asserting
+    /// directly rather than only through whatever a handler happens to do.
+    ///
+    /// The `unsafe-*` assertions are the load-bearing ones: the client side is
+    /// vanilla JS with every stylesheet and script same-origin, so nothing
+    /// here needs to evaluate a string or parse an inline style. Both are easy
+    /// to add under deadline and effectively impossible to remove afterwards,
+    /// so a future loosening should fail a test that says why.
+    #[test]
+    fn test_csp_permits_what_the_app_needs_and_nothing_looser() {
+        assert!(CSP.contains("default-src 'self'"));
+
+        // Sign-in 303s to the user's own PDS, and Chromium checks
+        // `form-action` against redirect targets.
+        assert!(
+            CSP.contains("form-action 'self' https:"),
+            "cross-origin sign-in redirect must be permitted"
+        );
+
+        assert!(!CSP.contains("unsafe-eval"), "the client JS is vanilla");
+        assert!(
+            !CSP.contains("unsafe-inline"),
+            "all CSS and JS is same-origin and external"
+        );
+    }
 
     async fn test_state_with_slingshot(
         slingshot_url: String,

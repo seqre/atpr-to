@@ -1,14 +1,9 @@
-# cargo-deny configuration — see https://embarkstudios.github.io/cargo-deny/
-#
-# Run locally with `just deny`.
-
 [advisories]
 # Fail on any unmaintained or vulnerable crate in the graph.
 yanked = "deny"
 ignore = []
 
 [licenses]
-# Permissive licences plus MPL-2.0, which jacquard uses.
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",

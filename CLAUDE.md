@@ -84,7 +84,3 @@ Dependency rule: `api` → `domain`/`store`/`resolver`; `domain` depends on noth
 **Known issue:** OAuth sessions live on the instance's `/tmp` and are per execution environment, so logins
 fail intermittently under concurrency. The `session/` seam exists so a shared backend can be added without
 touching handlers.
-
-## Version control
-
-This project uses **git**. Branch work off `main`.

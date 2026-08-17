@@ -15,6 +15,7 @@
 //! and never back.
 
 pub mod delete;
+pub mod error_page;
 pub mod info;
 pub mod links;
 pub mod logout;

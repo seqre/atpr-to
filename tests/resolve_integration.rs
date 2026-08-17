@@ -197,6 +197,53 @@ async fn test_request_timeout_returns_504() {
     );
 }
 
+/// The timeout's 504 is synthesised by a layer, not by a handler, so it only
+/// becomes a page because the negotiation middleware sits outside that layer.
+#[tokio::test]
+async fn test_request_timeout_is_an_html_page_for_a_browser() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30)))
+        .mount(&mock)
+        .await;
+
+    let mut config = atpr_to::config::Config {
+        slingshot_url: mock.uri(),
+        ..atpr_to::config::Config::default()
+    };
+    config.http_timeout_ms = std::num::NonZeroU64::new(20_000).unwrap();
+    config.request_timeout_ms = std::num::NonZeroU64::new(200).unwrap();
+    let http = atpr_to::http_client(&config);
+    let state =
+        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/abc123")
+                .header(
+                    "accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(body.contains("<!DOCTYPE html>"), "body: {body}");
+}
+
 /// HSTS from a loopback dev server is worse than useless: a browser that
 /// honours it makes every other local http service on the host unreachable.
 #[tokio::test]
@@ -485,6 +532,48 @@ async fn test_dangerous_scheme_never_reaches_an_href() {
     assert!(
         !body.contains("javascript:"),
         "destination scheme leaked into the rendered page: {body}"
+    );
+}
+
+/// The same guarantee on the other body a browser can get here.
+///
+/// The request above sends no `Accept`, so it is answered with JSON. A real
+/// browser sends one and is answered with `templates/error.html` instead —
+/// a second rendering path, reached by exactly the visitor this matters for.
+#[tokio::test]
+async fn test_dangerous_scheme_never_reaches_an_href_as_html() {
+    let mock = mock_serving_record_url("javascript:alert(document.cookie)").await;
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/evil/info")
+                .header(
+                    "accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                )
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8",
+        "a browser should be getting the page, or this test proves nothing"
+    );
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&body);
+    assert!(
+        !body.contains("javascript:"),
+        "destination scheme leaked into the error page: {body}"
     );
 }
 

@@ -2,6 +2,11 @@
 name = "atpr-to"
 version = "0.1.0"
 edition = "2021"
+# Without this `cargo run` refuses to pick, because `codegen` is declared as a
+# binary even though its `required-features` keep it out of a normal build. So
+# `just run` — the documented way to serve this locally — failed with "could
+# not determine which binary to run".
+default-run = "atpr-to"
 
 [features]
 # Enables the `codegen` binary that regenerates `src/generated/` from `lexicons/`.

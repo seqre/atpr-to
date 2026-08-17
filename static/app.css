@@ -407,6 +407,125 @@ dialog::backdrop { background: #0d0d0cad; }
   .lockup-word { font-size: 18px; }
 }
 
+/* ── landing ────────────────────────────────────────────────────────────── */
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--s6);
+  margin-top: var(--s6);
+  align-items: start;
+}
+
+/* The anatomy is the headline: each part is labelled where it sits, so the
+   shape of a short link is learned by reading it rather than from a caption. */
+.address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0;
+  font-size: clamp(23px, 3.6vw, 44px);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  line-height: 1.05;
+}
+.address-part { display: inline-flex; flex-direction: column; min-width: 0; }
+.address-text { word-break: break-word; }
+.address-sep { color: var(--ink-faint); padding: 0 0.12em; }
+.address-tag {
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+/* The separators sit on the type baseline, not the label baseline. */
+.address-sep { align-self: flex-start; }
+
+.hero-say > * + * { margin-top: var(--s3); }
+.signin { display: block; }
+.signin .lbl { display: block; margin-bottom: var(--s1); }
+.signin-row { display: flex; gap: var(--s1); align-items: stretch; }
+.signin-row .field { flex: 1; min-width: 0; position: relative; }
+.signin .note { margin-top: var(--s1); }
+
+/* Suggestions. Anchored to the field and drawn in the same ruled vocabulary,
+   so it reads as part of the control rather than as an overlay. */
+.suggest {
+  position: absolute;
+  top: 100%;
+  left: calc(var(--rule) * -1);
+  right: calc(var(--rule) * -1);
+  z-index: 20;
+  margin: var(--rule) 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--plate);
+  border: var(--rule) solid var(--ink);
+  max-height: min(46vh, 320px);
+  overflow-y: auto;
+}
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 8px var(--s1);
+  cursor: pointer;
+  border-bottom: var(--rule) solid var(--hair);
+}
+.suggest-item:last-child { border-bottom: 0; }
+.suggest-item:hover, .suggest-item.is-active { background: var(--ink); color: var(--ground); }
+.suggest-avatar { width: 26px; height: 26px; flex: none; object-fit: cover; }
+.suggest-avatar--blank { background: var(--silver-mid); }
+.suggest-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.suggest-handle { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-name { font-size: 12px; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The wall. */
+.wall-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--rule); }
+.wall-list:empty { display: none; }
+.wall-quiet { margin-top: var(--s2); }
+
+.record-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: var(--s4);
+  align-items: start;
+}
+.record { padding: var(--s2); }
+.record-body {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--ink-soft);
+}
+.record-key { color: var(--ink); }
+.record-val { color: var(--ink-soft); }
+.code-inline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  border-bottom: var(--rule) solid var(--hair);
+}
+
+@media (max-width: 899px) {
+  /* One column, and sign-in comes first: on a phone the visitor came to do
+     something, and the demonstration still meets them immediately after. */
+  .hero { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+  .record-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+}
+
+@media (max-width: 599px) {
+  .signin-row { flex-direction: column; }
+  .signin-row .btn { width: 100%; }
+  /* The labels stack under a wrapped address rather than crowding it. */
+  .address { font-size: clamp(21px, 6.4vw, 30px); }
+  .address-tag { font-size: 10px; letter-spacing: 0.1em; }
+}
+
 /* ── layout helpers ─────────────────────────────────────────────────────── */
 
 .shell { max-width: 1180px; margin: 0 auto; padding: var(--s3) var(--s2) var(--s6); }

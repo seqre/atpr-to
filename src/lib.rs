@@ -386,10 +386,17 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
 /// here, so an exact allowlist is not available. `https:` still refuses
 /// `javascript:` and `data:` form targets, which is the attack this directive
 /// is actually for.
+/// `connect-src` enumerates the origins the vendored client JS in `static/`
+/// talks to directly, and the two are edited together. It is deliberately not
+/// derived from config: `appview_url` is the *server-side* avatar fetch, so
+/// deriving from it would produce a header that looks configurable and is not,
+/// while the endpoint the browser actually calls stayed hardcoded in the JS.
 const CSP: &str = "default-src 'self'; \
      img-src 'self' https: data:; \
      style-src 'self'; \
      script-src 'self'; \
+     font-src 'self'; \
+     connect-src 'self' https://public.api.bsky.app; \
      form-action 'self' https:; \
      frame-ancestors 'none'; \
      base-uri 'none'";
@@ -471,6 +478,12 @@ mod tests {
         assert!(
             CSP.contains("form-action 'self' https:"),
             "cross-origin sign-in redirect must be permitted"
+        );
+
+        // Handle autocomplete on the sign-in field.
+        assert!(
+            CSP.contains("connect-src 'self' https://public.api.bsky.app"),
+            "the client JS must be able to reach what it calls"
         );
 
         assert!(!CSP.contains("unsafe-eval"), "the client JS is vanilla");

@@ -1,27 +1,103 @@
 {% extends "base.html" %}
 {% block title %}atpr.to — AT Protocol URL Shortener{% endblock %}
 {% block content %}
-{# TODO(rebrand): landing page. Everything below the form was removed.
+{# The landing page. Persuade, demonstration-led: it shows the mechanism
+   rather than arguing for it.
 
-   Hard contract — must survive any redesign:
-     POST /api/login is a browser *form* target, not a JSON endpoint
-     (`Form<LoginRequest>`, src/auth.rs). One field, named `handle`.
-     On success it 303s to the user's PDS authorize URL; on failure it
-     returns an error response from `src/error.rs`.
+   Hard contract, unchanged by any redesign: POST /api/login is a browser
+   *form* target, not a JSON endpoint (`Form<LoginRequest>`, src/auth.rs). One
+   field, named `handle`. On success it 303s to the user's PDS authorize URL.
+   The form works with JavaScript off; the autocomplete only decorates it.
 
-   Removed, reinstate deliberately if wanted:
-   - handle autocomplete: 150ms-debounced fetch of
-     public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=…&limit=3,
-     rendering handle + displayName + avatar in a dropdown
-   - rotating input placeholder cycling PDS domains every 5s
-   - long-URL → short-URL fade demo loop
-   - live feed: WebSocket to jetstream{1,2}.us-east.bsky.network subscribed to
-     `wantedCollections=to.atpr.link`, resolving each DID via plc.directory,
-     showing the last 5 create/update events. Had no reconnect and no
-     onerror/onclose handling — fix that if it comes back.
-   - feature list, hero copy, logo lockup #}
-<form method="post" action="/api/login">
-  <input type="text" name="handle" autocomplete="off" required>
-  <button type="submit">Sign in</button>
-</form>
+   `HomeTemplate` has no fields and should stay that way -- everything here is
+   either static or fetched client-side, and an unused field is a build
+   failure under `-D warnings`, not a warning. #}
+
+<section class="hero">
+  <div class="hero-say">
+    {# The anatomy is the headline. A newcomer learns what a short link is
+       made of by reading the thing itself, rather than from a caption. #}
+    <h1 class="address">
+      <span class="address-part"><span class="address-text">atpr.to</span><span class="address-tag">the shortener</span></span><span class="address-sep">/</span><span class="address-part"><span class="address-text">@alice.bsky.social</span><span class="address-tag">whose link it is</span></span><span class="address-sep">/</span><span class="address-part"><span class="address-text">rust</span><span class="address-tag">the code they chose</span></span>
+    </h1>
+
+    <p class="lede">
+      Every atpr.to link is a record kept in your own repository — not in our
+      database. It travels with your account, you can change where it points
+      whenever you like, and it does not need us to keep existing.
+    </p>
+
+    <form class="signin" method="post" action="/api/login" autocomplete="off">
+      <label class="lbl" for="handle">Sign in with your handle</label>
+      <div class="signin-row">
+        <div class="field" id="handle-field">
+          <input type="text" id="handle" name="handle" required
+                 placeholder="alice.bsky.social"
+                 autocapitalize="none" autocorrect="off" spellcheck="false"
+                 role="combobox" aria-expanded="false" aria-autocomplete="list"
+                 aria-controls="handle-results" aria-describedby="handle-hint">
+          <span class="cap" aria-hidden="true">
+            <svg class="mark" viewBox="0 0 15 15" focusable="false">
+              <g fill="currentColor">
+                <rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>
+                <rect x="1" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>
+              </g>
+            </svg>
+          </span>
+          <ul class="suggest" id="handle-results" role="listbox" hidden></ul>
+        </div>
+        <button class="btn btn--fill" type="submit">Sign in</button>
+      </div>
+      <p class="note" id="handle-hint">
+        Any AT Protocol account works — Bluesky or your own server. You will
+        approve the sign-in on the server that holds your account.
+      </p>
+    </form>
+  </div>
+
+  <aside class="wall" aria-labelledby="wall-title">
+    <div class="tabrow">
+      <span class="tab" id="wall-title">Being written now</span>
+      <span class="joint"></span>
+      <span class="line"></span>
+    </div>
+    {# Live region: records land here as they are written across the network.
+       Populated by static/wall.js. Until then, and whenever the network is
+       genuinely quiet, the empty state below is what shows -- this is a
+       low-traffic product and a quiet wall must read as calm, not broken. #}
+    <ol class="wall-list" id="wall" aria-live="polite" aria-relevant="additions"></ol>
+    <p class="note wall-quiet" id="wall-quiet">
+      Nothing in the last few minutes. Links appear here the moment someone
+      writes one, anywhere on the network.
+    </p>
+  </aside>
+</section>
+
+<section class="section record-section">
+  <div class="tabrow">
+    <span class="tab">What actually gets written</span>
+    <span class="joint"></span>
+    <span class="line"></span>
+  </div>
+  <div class="record-grid">
+    <p>
+      Creating a link writes one record to your repository, at
+      <span class="code-inline">to.atpr.link</span>. Any AT Protocol client can
+      read it, you can delete it without asking us, and if you move your account
+      to another server it moves with you. This is the whole mechanism.
+    </p>
+    {# A real record, in its own register -- the sheet bound into the middle of
+       the book at a different paper weight. Values are illustrative. #}
+    <div class="record ruled plate scroll-x">
+      <pre class="record-body"><span class="record-key">"$type"</span>: <span class="record-val">"to.atpr.link"</span>,
+<span class="record-key">"code"</span>: <span class="record-val">"rust"</span>,
+<span class="record-key">"target"</span>: <span class="record-val">"https://doc.rust-lang.org/book/"</span>,
+<span class="record-key">"createdAt"</span>: <span class="record-val">"2026-08-18T09:42:00Z"</span></pre>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/handle.js" defer></script>
 {% endblock %}

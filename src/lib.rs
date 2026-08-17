@@ -396,7 +396,8 @@ const CSP: &str = "default-src 'self'; \
      style-src 'self'; \
      script-src 'self'; \
      font-src 'self'; \
-     connect-src 'self' https://public.api.bsky.app; \
+     connect-src 'self' https://public.api.bsky.app https://plc.directory \
+       wss://jetstream1.us-east.bsky.network wss://jetstream2.us-east.bsky.network; \
      form-action 'self' https:; \
      frame-ancestors 'none'; \
      base-uri 'none'";
@@ -480,11 +481,21 @@ mod tests {
             "cross-origin sign-in redirect must be permitted"
         );
 
-        // Handle autocomplete on the sign-in field.
-        assert!(
-            CSP.contains("connect-src 'self' https://public.api.bsky.app"),
-            "the client JS must be able to reach what it calls"
-        );
+        // Every origin the vendored client JS in static/ calls directly. The
+        // header and that JS are edited together, so a new endpoint that
+        // nobody allowed here shows up as a failing test rather than as a
+        // console error in production.
+        for origin in [
+            "https://public.api.bsky.app", // handle autocomplete
+            "https://plc.directory",       // DID -> handle on the live wall
+            "wss://jetstream1.us-east.bsky.network",
+            "wss://jetstream2.us-east.bsky.network",
+        ] {
+            assert!(
+                CSP.contains(origin),
+                "the client JS calls {origin} and the policy must allow it"
+            );
+        }
 
         assert!(!CSP.contains("unsafe-eval"), "the client JS is vanilla");
         assert!(

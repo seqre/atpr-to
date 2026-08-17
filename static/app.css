@@ -489,6 +489,34 @@ dialog::backdrop { background: #0d0d0cad; }
 .wall-list:empty { display: none; }
 .wall-quiet { margin-top: var(--s2); }
 
+/* Identical rows, so the wall reads in one sweep rather than item by item. */
+.wall-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 9px var(--s1);
+  border: var(--rule) solid var(--hair);
+}
+.wall-item .cellsq { width: 14px; flex: none; }
+.wall-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.wall-who {
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wall-code {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .record-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="325.73 325.72 348.55 348.55">
+<!-- atpr.to mark. Monochrome by rule: pure ink on light, pure paper on dark,
+     never the site accent. See .claude/skills/logo-guidelines.
+     Generated from static/logo.svg, which stays the canonical asset. -->
+<style>
+  :root { color-scheme: light dark; }
+  .m { fill: #000; }
+  @media (prefers-color-scheme: dark) { .m { fill: #fff; } }
+</style>
+<path class="m" d="M475.29,373.72c-56,0-101.56,45.56-101.56,101.56v150.99h37.06V475.28c0-35.56,28.93-64.5,64.5-64.5h113.92v166.29h13.82l-27.91,27.92l-27.91-27.92h13.81V438.99h-77.76c-24.41,0-44.27,19.86-44.27,44.27v77.75h84.97v65.27h102.32V373.72H475.29z M523.95,523.95h-47.9v-40.69c0-3.97,3.23-7.21,7.21-7.21h40.69V523.95z"/>
+</svg>

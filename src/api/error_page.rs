@@ -301,8 +301,11 @@ mod tests {
         }
         .render()
         .unwrap();
+        // Scoped to the injected string: the shell legitimately carries a
+        // `<script src>` of its own, so a bare `<script` check would pass or
+        // fail for reasons that have nothing to do with escaping.
         assert!(
-            !html.contains("<script"),
+            !html.contains("<script>alert"),
             "raw markup reached the page: {html}"
         );
         assert!(

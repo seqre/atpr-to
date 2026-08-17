@@ -2,3 +2,10 @@ target
 progress.md
 sessions.json
 .aws-sam
+
+# Impeccable session state. `.impeccable/surfaces/` is durable strategy and is
+# tracked; everything else here is per-session scratch -- decision-page logs,
+# live-mode journals, generated mockups.
+.impeccable/questions
+.impeccable/live
+.impeccable/mocks

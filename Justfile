@@ -1,5 +1,3 @@
-# atpr.to — development and deployment tasks
-
 # List available recipes
 default:
     @just --list

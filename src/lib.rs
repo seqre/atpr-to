@@ -334,6 +334,9 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
             StatusCode::GATEWAY_TIMEOUT,
             request_timeout,
         ))
+        // Outside the timeout, so its 504 gets a page too, and outside the
+        // whole router, so axum's own rejections do as well.
+        .layer(axum::middleware::from_fn(api::error_page::html_errors))
         .layer(
             // Outside the timeout, so the 504 it synthesises carries them too.
             // Inside, the timeout short-circuits before this layer ever sees

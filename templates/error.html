@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ status }} — atpr.to{% endblock %}
+{% block og_title %}{{ status }} — atpr.to{% endblock %}
+{% block og_description %}{{ heading }}{% endblock %}
+{% block content %}
+{# TODO(rebrand): unstyled, like every other template on this branch.
+
+   Rendered by the `html_errors` middleware (src/api/error_page.rs), not by a
+   handler -- it swaps the body of any 4xx/5xx when the caller is a browser
+   navigating. So this page has no state, no session and no nav context: it is
+   reached by someone who may never have seen the site before.
+
+   All four fields must stay referenced or rustc reports them dead and
+   `clippy -D warnings` fails the build. `detail` is the machine message from
+   the JSON body and is absent for a 405, 429 or 504.
+
+   Careful: `tests/resolve_integration.rs` asserts a 404 body never contains
+   the literal string "javascript:", and this template is in that path. Do not
+   add an href idiom that spells it. #}
+<h1>{{ heading }}</h1>
+<p>{{ message }}</p>
+{% if let Some(d) = detail %}<p>{{ d }}</p>{% endif %}
+<p>{{ status }}</p>
+<p><a href="/">atpr.to</a></p>
+{% endblock %}

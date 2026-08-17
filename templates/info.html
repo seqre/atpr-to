@@ -11,9 +11,22 @@
    `updated_at` is a raw ISO-8601 string; it used to be reformatted client-side
    with toLocaleString(), which is gone along with the JS runtime.
 
+   `short_url` is the canonical link, built from the configured base URL --
+   prefer it over reassembling `atpr.to/@{handle}/{code}` here, which was
+   wrong on any instance not served from that domain. `handle` and `code`
+   stay available for the byline and the code chip; keep both referenced
+   somewhere real or rustc reports them dead.
+
+   `qr_svg` is now a fragment painted in `currentColor` on a `none` ground,
+   so it inherits the page's ink. Do not invert it on a dark surface -- pin
+   ink and ground on its container instead; light-on-dark QR codes fail on a
+   meaningful share of scanners.
+
    Removed: card layout, QR framing, primary "Follow this link" button,
    back-to-home link. #}
-<h1>atpr.to/@{{ handle }}/{{ code }}</h1>
+<h1>{{ short_url }}</h1>
+<p>@{{ handle }}</p>
+<p>{{ code }}</p>
 <div>{{ qr_svg|safe }}</div>
 <p><a href="{{ url }}">{{ url }}</a></p>
 {% if let Some(u) = updated_at %}<p><time datetime="{{ u }}">{{ u }}</time></p>{% endif %}

@@ -45,6 +45,14 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
+/// Where the JSON API is mounted.
+///
+/// Named rather than spelled twice: anything that needs to know where JSON
+/// territory begins — content negotiation, most obviously — has to agree with
+/// the router, and two string literals that must match is exactly the pair
+/// that drifts.
+pub const API_PREFIX: &str = "/api";
+
 /// Rate-limit key: the client IP when one can be determined, otherwise a single
 /// shared bucket.
 ///
@@ -316,9 +324,22 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
         .route("/@{handle}/{code}/info", get(api::info::info::<A>))
         .route("/@{handle}/{code}/qr", get(api::qr::qr_code::<A>))
         .merge(rate_limited_oauth)
-        .nest("/api", api_router)
+        .nest(API_PREFIX, api_router)
         .fallback(not_found)
+        // 504 rather than the layer's default 408: 408 says the *client* was
+        // too slow sending its request, and that is never what happened here.
+        // Every route that can run long is waiting on a PDS or a relay, which
+        // is precisely what a gateway timeout describes.
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::GATEWAY_TIMEOUT,
+            request_timeout,
+        ))
         .layer(
+            // Outside the timeout, so the 504 it synthesises carries them too.
+            // Inside, the timeout short-circuits before this layer ever sees
+            // the response, and the one status most likely to be served from a
+            // stranger's browser went out with no CSP, no HSTS and no nosniff.
+            //
             // `if_not_present` throughout, so a handler with its own policy —
             // `Cache-Control` on redirects, say — still wins.
             ServiceBuilder::new()
@@ -339,14 +360,6 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
                     hsts,
                 )),
         )
-        // 504 rather than the layer's default 408: 408 says the *client* was
-        // too slow sending its request, and that is never what happened here.
-        // Every route that can run long is waiting on a PDS or a relay, which
-        // is precisely what a gateway timeout describes.
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::GATEWAY_TIMEOUT,
-            request_timeout,
-        ))
         // Outermost, so it sees the response the client actually gets —
         // including the limiter's 429s and the timeout's 504s. There was no
         // request logging at all before this.

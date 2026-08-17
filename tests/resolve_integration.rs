@@ -177,6 +177,24 @@ async fn test_request_timeout_returns_504() {
         started.elapsed() < std::time::Duration::from_secs(5),
         "the timeout layer did not bound the request"
     );
+
+    // The timeout synthesises this response itself, so it only carries the
+    // security headers because that layer sits outside the timeout rather than
+    // inside it. A 504 is as likely to be seen by a stranger's browser as any
+    // other status, and it used to go out bare.
+    let headers = response.headers();
+    assert!(
+        headers
+            .get("content-security-policy")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|csp| csp.contains("default-src 'self'")),
+        "the timeout's 504 must carry the CSP"
+    );
+    assert_eq!(
+        headers.get("x-content-type-options").unwrap(),
+        "nosniff",
+        "the timeout's 504 must carry nosniff"
+    );
 }
 
 /// HSTS from a loopback dev server is worse than useless: a browser that

@@ -1,16 +1,384 @@
-/* TODO(rebrand): intentionally empty.
+/* atpr.to — The Gridsmith
  *
- * The previous 471 lines were overrides on top of Pico CSS v2 (--pico-* vars,
- * nav, table, dialog, landing grid, live feed, mobile breakpoints at 1024px
- * and 640px). Pico is no longer loaded — see templates/base.html.
+ * One module governs the system. `--cell` is the lattice unit; every space in
+ * this file is a multiple of it, and there is no second spacing scale. That is
+ * why there is no framework here: a library's value is its scale, its component
+ * defaults and its colour system, and none of the three would survive contact
+ * with a design derived from its own geometry.
  *
- * This file is served at /static/app.css, embedded into the binary by
- * rust-embed (#[folder = "static/"] in src/static_files.rs). Adding new assets
- * means dropping files into static/ and rebuilding; there is no bundler.
+ * Served at /static/app.css and baked into the binary by rust-embed. In debug
+ * builds rust-embed reads from disk, so edits here need no rebuild.
  *
- * Cache-Control max-age comes from config `static_cache_max_age` (default 15s,
- * src/config.rs) — raise it once assets are fingerprinted or stable.
- *
- * Do not delete this file: base.html links it and src/static_files.rs tests
- * assert it returns 200 + text/css.
+ * Two renditions. Galerie is gallery white ruled in lacquer black. Vitrine is
+ * the same objects in a case at night — not an inversion: silver stops being a
+ * surface and becomes the light source, so its ramp reverses while ink and
+ * ground swap. Every colour is defined on bare :root first and only
+ * *redefined* under the theme selectors, so the un-stamped state (a viewer on
+ * "system") is always a complete palette.
  */
+
+@font-face {
+  font-family: "Cinzel";
+  src: url("/static/fonts/cinzel-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/static/fonts/jost-latin.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+/* ── tokens ─────────────────────────────────────────────────────────────── */
+
+:root {
+  /* The module. Stepped at breakpoints, never fluid: the lattice re-counts its
+     squares as the viewport narrows, it never stretches one. */
+  --cell: 12px;
+  --sq: 5px;
+  --rule: 1.5px;
+
+  --s1: var(--cell);
+  --s2: calc(var(--cell) * 2);
+  --s3: calc(var(--cell) * 3);
+  --s4: calc(var(--cell) * 4);
+  --s6: calc(var(--cell) * 6);
+  --s9: calc(var(--cell) * 9);
+
+  /* Galerie. */
+  --ground: #f0eee8;
+  --plate: #f7f6f1;
+  --ink: #0d0d0c;
+  --ink-soft: #4a4843;
+  --ink-faint: #78756d;
+  --hair: #0d0d0c26;
+
+  --silver-hi: #edebe6;
+  --silver-mid: #bab7b0;
+  --silver-lo: #87847d;
+  --silver-ink: #0d0d0c;
+
+  /* The only chromatic value in the system, and it is semantic: destructive
+     actions and errors. Never decoration, or it stops meaning anything. */
+  --signal: #9b2c1e;
+  --signal-ground: #9b2c1e14;
+
+  --display: "Cinzel", Georgia, "Times New Roman", serif;
+  --body: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Exponential ease-out: fast departure, long settle. One curve everywhere. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --quick: 0.24s;
+  --settle: 0.62s;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #100f0e;
+    --plate: #191817;
+    --ink: #edebe4;
+    --ink-soft: #a8a49b;
+    --ink-faint: #7c786f;
+    --hair: #edebe42e;
+    --silver-hi: #d6d3cb;
+    --silver-mid: #8b8880;
+    --silver-lo: #43413c;
+    --silver-ink: #0d0d0c;
+    --signal: #d4674f;
+    --signal-ground: #d4674f1f;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #100f0e;
+  --plate: #191817;
+  --ink: #edebe4;
+  --ink-soft: #a8a49b;
+  --ink-faint: #7c786f;
+  --hair: #edebe42e;
+  --silver-hi: #d6d3cb;
+  --silver-mid: #8b8880;
+  --silver-lo: #43413c;
+  --silver-ink: #0d0d0c;
+  --signal: #d4674f;
+  --signal-ground: #d4674f1f;
+}
+
+/* The lattice never stretches a cell, so the module steps rather than scales. */
+@media (max-width: 1023px) {
+  :root { --cell: 11px; }
+}
+@media (max-width: 767px) {
+  :root { --cell: 10px; --sq: 4px; }
+}
+@media (max-width: 479px) {
+  :root { --cell: 9px; }
+}
+
+/* ── reset ──────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+img, svg { max-width: 100%; }
+img { height: auto; }
+
+/* Browser surfaces. These ship with defaults belonging to no design system,
+   and theming them is the cheapest signal that a page was built rather than
+   assembled. */
+::selection { background: var(--ink); color: var(--ground); }
+:root { scrollbar-color: var(--silver-lo) var(--ground); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--ground); }
+::-webkit-scrollbar-thumb { background: var(--silver-lo); border: 3px solid var(--ground); }
+input, textarea { caret-color: var(--ink); }
+
+/* A square outline, not a rounded glow — the world has no round corners. */
+:focus-visible { outline: var(--rule) solid var(--ink); outline-offset: 3px; }
+:focus:not(:focus-visible) { outline: none; }
+
+a { color: inherit; text-underline-offset: 0.22em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+
+/* ── the pierced frame ──────────────────────────────────────────────────── */
+
+/* The signature device: a run of squares on all four edges, drawn as four
+   gradients rather than a border-image so it re-counts its own squares as the
+   container narrows. Responsive with no per-breakpoint work. */
+.pierced {
+  --f: var(--ink);
+  background-image:
+    repeating-linear-gradient(to right, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)),
+    repeating-linear-gradient(to right, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)),
+    repeating-linear-gradient(to bottom, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)),
+    repeating-linear-gradient(to bottom, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2));
+  background-size: 100% var(--sq), 100% var(--sq), var(--sq) 100%, var(--sq) 100%;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  background-repeat: no-repeat;
+  padding: var(--s1);
+}
+
+.ruled { border: var(--rule) solid var(--ink); }
+.plate { background: var(--plate); }
+
+/* ── hammered silver ────────────────────────────────────────────────────── */
+
+/* A material, not a grey fill: a directional ramp, a specular bloom, the
+   dimpling of planished metal, and a fine tooth over the top. */
+.silver {
+  background-color: var(--silver-mid);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 22% 18%, #ffffffb0, transparent 46%),
+    repeating-radial-gradient(circle at 50% 50%, #ffffff12 0 3px, #00000012 3px 7px),
+    linear-gradient(148deg, var(--silver-hi) 0%, var(--silver-mid) 38%, var(--silver-lo) 58%, var(--silver-mid) 78%, var(--silver-hi) 100%);
+  background-blend-mode: overlay, screen, overlay, normal;
+  color: var(--silver-ink);
+}
+
+/* ── type ───────────────────────────────────────────────────────────────── */
+
+h1, h2, h3, .disp {
+  font-family: var(--display);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* Tracking eases in as size falls: letterspaced capitals are hostile small,
+   and this is where the world is most likely to fail on a phone. */
+h1 { font-size: clamp(28px, 5.2vw, 56px); letter-spacing: 0.16em; line-height: 1.08; }
+h2 { font-size: clamp(17px, 2.4vw, 21px); letter-spacing: 0.2em; line-height: 1.25; }
+h3 { font-size: 14px; letter-spacing: 0.14em; line-height: 1.35; }
+
+p { margin: 0; max-width: 68ch; }
+.lede { font-size: clamp(16px, 1.6vw, 18px); font-weight: 300; color: var(--ink-soft); }
+.note { font-size: 13px; color: var(--ink-faint); max-width: 62ch; }
+
+/* Never below 11px, or the tracking closes up and the caps turn to noise. */
+.lbl {
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* The inverted black tab — the world's section label. */
+.tab {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--ground);
+  padding: 5px var(--s1) 4px;
+  font-family: var(--display);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* A ruled divider with a square joint, rather than a bare line. */
+.tabrow { display: flex; align-items: center; gap: var(--s1); }
+.tabrow .line { flex: 1; height: var(--rule); background: var(--ink); }
+.tabrow .joint { width: 7px; height: 7px; background: var(--ink); flex: none; }
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+
+/* Hard-edged, so a control is unmistakably a control. Nothing here is an
+   ambiguous flat rectangle. */
+.btn {
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s1);
+  padding: 11px var(--s2);
+  min-height: 40px;
+  border: var(--rule) solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--quick) var(--ease), color var(--quick) var(--ease);
+}
+.btn:hover { background: var(--ink); color: var(--ground); }
+.btn--fill { background: var(--ink); color: var(--ground); }
+.btn--fill:hover { background: transparent; color: var(--ink); }
+.btn--danger { border-color: var(--signal); color: var(--signal); }
+.btn--danger:hover { background: var(--signal); color: var(--ground); }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.34; cursor: not-allowed; }
+.btn[disabled]:hover { background: transparent; color: var(--ink); }
+
+.field { display: flex; align-items: stretch; border: var(--rule) solid var(--ink); background: var(--plate); }
+.field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px; /* below this iOS zooms the viewport on focus */
+  padding: 11px var(--s1);
+  outline: 0;
+}
+.field input::placeholder { color: var(--ink-faint); }
+.field:focus-within { outline: var(--rule) solid var(--ink); outline-offset: 2px; }
+.field .cap { display: flex; align-items: center; padding: 0 10px; border-left: var(--rule) solid var(--ink); }
+
+/* Icon buttons carry the four-square mark. Small by design, so they need the
+   floor restored wherever the pointer is a finger. */
+.icobtn {
+  border: var(--rule) solid var(--hair);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 6px;
+  line-height: 0;
+  transition: border-color var(--quick) var(--ease), background var(--quick) var(--ease),
+    color var(--quick) var(--ease);
+}
+.icobtn:hover { border-color: var(--ink); background: var(--ink); color: var(--ground); }
+.icobtn--danger:hover { border-color: var(--signal); background: var(--signal); color: var(--ground); }
+.mark { width: 15px; height: 15px; display: block; }
+
+@media (pointer: coarse) {
+  .icobtn { padding: 14px; }
+  .btn { min-height: 44px; }
+}
+
+/* ── state lines ────────────────────────────────────────────────────────── */
+
+/* States print themselves, in the system's own voice. No toasts, no foreign
+   modal chrome for something that is only information. */
+.state {
+  display: flex;
+  gap: var(--s1);
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 10px var(--s2);
+  border: var(--rule) solid var(--ink);
+}
+.state .lbl { flex: none; color: inherit; }
+.state--err { border-color: var(--signal); color: var(--signal); background: var(--signal-ground); }
+
+/* ── the lattice, and the strike ────────────────────────────────────────── */
+
+.lattice { display: grid; grid-template-columns: repeat(auto-fill, minmax(24px, 1fr)); gap: 5px; }
+.cellsq { aspect-ratio: 1; border: var(--rule) solid var(--ink); background: transparent; }
+.cellsq.on { background: var(--ink); }
+
+/* The one authored moment in the system: a cell being struck as the record is
+   written. Used at every scale, orchestrated, rather than scattered hovers. */
+.cellsq.strike { animation: strike var(--settle) var(--ease) both; }
+@keyframes strike {
+  0% { transform: scale(0.42); background: transparent; }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); background: var(--ink); }
+}
+
+/* ── dialog ─────────────────────────────────────────────────────────────── */
+
+/* Native, so focus trapping, escape-to-close and background inerting come from
+   the platform rather than from us. */
+dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  max-width: min(430px, calc(100vw - var(--s4)));
+}
+dialog::backdrop { background: #0d0d0cad; }
+.modal { background: var(--ground); border: var(--rule) solid var(--ink); padding: var(--s3); }
+
+/* ── layout helpers ─────────────────────────────────────────────────────── */
+
+.shell { max-width: 1180px; margin: 0 auto; padding: var(--s3) var(--s2) var(--s9); }
+.stack { display: flex; flex-direction: column; gap: var(--s2); }
+.stack-s { display: flex; flex-direction: column; gap: var(--s1); }
+.wrap { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; }
+
+/* More space above a heading than below it. */
+.section { margin-top: var(--s9); }
+.section > .tabrow { margin-bottom: var(--s2); }
+
+/* Wide content scrolls inside its own container; the page body never does. */
+.scroll-x { overflow-x: auto; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

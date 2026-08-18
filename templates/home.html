@@ -62,13 +62,15 @@
       <span class="line"></span>
     </div>
     {# Live region: records land here as they are written across the network.
-       Populated by static/wall.js. Until then, and whenever the network is
-       genuinely quiet, the empty state below is what shows -- this is a
-       low-traffic product and a quiet wall must read as calm, not broken. #}
+       Populated by static/wall.js. Until the first one lands -- connected or
+       not -- the empty state below is what shows. This is a low-traffic
+       product, so that is the state most visitors will see, and it must read
+       as calm rather than broken. The wording holds for both cases, because
+       from here they are the same case: nothing has been written yet. #}
     <ol class="wall-list" id="wall" aria-live="polite" aria-relevant="additions"></ol>
     <p class="note wall-quiet" id="wall-quiet">
-      Nothing in the last few minutes. Links appear here the moment someone
-      writes one, anywhere on the network.
+      Nothing so far. Links appear here the moment someone writes one, anywhere
+      on the network.
     </p>
   </aside>
 </section>

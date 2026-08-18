@@ -636,6 +636,10 @@ dialog::backdrop { background: #0d0d0cad; }
   max-width: 22ch;
 }
 .signout { margin: 0; }
+/* Wide: a labelled button, and the glyph stays out of it. Narrow: the glyph
+   alone, at the icon button's own square, so the masthead's two controls are
+   the same size instead of one being twice the other. */
+.signout-mark { display: none; }
 
 .make { margin-top: var(--s4); }
 .make-form { margin-top: var(--s2); }
@@ -711,6 +715,40 @@ dialog::backdrop { background: #0d0d0cad; }
 .rackrow-dest:hover { text-decoration: underline; }
 .rackrow-when { font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
 .rackrow-acts { display: flex; gap: 6px; }
+
+/* The narrow shape of the same four actions. Both are in every row; only one is
+   ever shown, so a rotation or a dragged window cannot leave a row holding
+   controls for a width it no longer has. */
+.rowmenu { position: relative; display: none; }
+.rowmenu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--rule));
+  z-index: 30;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 168px;
+  background: var(--plate);
+  border: var(--rule) solid var(--ink);
+}
+.rowmenu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px var(--s1);
+  border: 0;
+  border-bottom: var(--rule) solid var(--hair);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  cursor: pointer;
+}
+.rowmenu-list li:last-child .rowmenu-item { border-bottom: 0; }
+.rowmenu-item:hover { background: var(--ink); color: var(--ground); }
+.rowmenu-item--danger { color: var(--signal); }
+.rowmenu-item--danger:hover { background: var(--signal); color: var(--ground); }
 .rackrow-flash {
   grid-column: 1 / -1;
   color: var(--ink-soft);
@@ -748,23 +786,54 @@ dialog::backdrop { background: #0d0d0cad; }
   .make-grid { grid-template-columns: minmax(0, 1fr); }
   .make-grid .make-go { width: 100%; }
 
-  /* Two lines: what it is, then when and what you can do to it. */
+  /* The link and the way to act on it stay on one line; only the timestamp
+     drops. Four icon buttons need about 150px that a phone does not have to
+     spare, so they collapse into the single overflow control.
+
+     The column gap comes down to one cell: at `--s2` the struck square sat
+     20px off the code it belongs to, which reads as a mistake rather than as
+     spacing. */
   .rackrow {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "cell body"
-      "when acts";
-    row-gap: var(--s1);
+      "cell body menu"
+      ".    when .";
+    column-gap: var(--s1);
+    row-gap: 4px;
   }
-  .rackrow-cell { grid-area: cell; }
+  .rackrow-cell { grid-area: cell; align-self: center; }
   .rackrow-body { grid-area: body; }
   .rackrow-when { grid-area: when; }
-  .rackrow-acts { grid-area: acts; justify-self: end; }
+  .rackrow-acts { display: none; }
+  .rowmenu { grid-area: menu; display: block; align-self: center; }
   .rackrow-flash { grid-column: 1 / -1; }
+}
+
+/* The masthead has to carry a lockup, a handle, a way out and a rendition
+   toggle. A labelled "SIGN OUT" was wider than the rest of it and visibly
+   larger than the icon button beside it, so below this width the word goes and
+   the glyph takes over at the toggle's own square. The label survives for
+   assistive technology in a `.visually-hidden` span. */
+@media (max-width: 599px) {
+  .signout-word { display: none; }
+  .signout-mark { display: block; }
+  .signout-btn {
+    padding: 6px;
+    min-height: 0;
+    gap: 0;
+    border-color: var(--hair);
+  }
+  .signout-btn:hover { border-color: var(--ink); }
 }
 
 @media (max-width: 479px) {
   .whoami-handle { max-width: 14ch; }
+}
+
+/* Both masthead controls stay finger-sized, and stay the same size as each
+   other, which is the whole point of the swap above. */
+@media (max-width: 599px) and (pointer: coarse) {
+  .signout-btn { padding: 14px; }
 }
 
 /* ── link preview ───────────────────────────────────────────────────────── */

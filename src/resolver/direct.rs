@@ -24,6 +24,27 @@ impl Direct {
     }
 }
 
+/// Build the `getRecord` URL for a PDS endpoint taken from a DID document.
+///
+/// Split out and given its own tests because the endpoint is a value from a
+/// third party and its shape is not ours to assume. It was interpolated as
+/// `{pds_url}xrpc/…`, which is only correct when the DID document happens to
+/// carry a trailing slash. Almost none do — `https://pds.rip` produced
+/// `https://pds.ripxrpc/…`, a hostname that is not the PDS and, on a wildcard
+/// domain, one that answers just enough to fail late. Every direct resolution
+/// against a real PDS ended as a transport error, so the fallback the whole
+/// resolver chain exists for had never once worked; the only reason nothing
+/// caught it is that the integration tests reach this path expecting it to
+/// fail for want of a routable PDS, and got the failure they expected.
+fn get_record_url(pds_url: &str, did: &str, code: &ShortCode) -> String {
+    format!(
+        "{}/xrpc/com.atproto.repo.getRecord?repo={}&collection=to.atpr.link&rkey={}",
+        pds_url.trim_end_matches('/'),
+        urlencoding::encode(did),
+        urlencoding::encode(code.as_str()),
+    )
+}
+
 impl LinkResolver for Direct {
     async fn resolve(&self, handle: &Handle, code: &ShortCode) -> Result<ShortLink, ResolveError> {
         async {
@@ -45,30 +66,58 @@ impl LinkResolver for Direct {
                 ResolveError::Upstream(anyhow::anyhow!("No PDS endpoint in DID document"))
             })?;
 
-            let get_record_url = format!(
-                "{}xrpc/com.atproto.repo.getRecord?repo={}&collection=to.atpr.link&rkey={}",
-                pds_url,
-                urlencoding::encode(did.as_ref()),
-                urlencoding::encode(code.as_str()),
-            );
+            let get_record_url = get_record_url(pds_url.as_ref(), did.as_ref(), code);
 
             let resp = async { self.http.get(&get_record_url).send().await }
                 .instrument(tracing::info_span!("fetch_record"))
                 .await?;
 
-            if resp.status() == reqwest::StatusCode::NOT_FOUND {
-                return Err(ResolveError::RecordNotFound);
-            }
             if !resp.status().is_success() {
-                return Err(ResolveError::Upstream(anyhow::anyhow!(
-                    "PDS getRecord returned {}",
-                    resp.status()
-                )));
+                return Err(super::getrecord_failure("PDS", resp).await);
             }
 
             link_from_get_record(&resp.json().await?, "PDS")
         }
         .instrument(tracing::info_span!("direct"))
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DID: &str = "did:plc:erpkpcbofe5zdtbmdc3mx7fo";
+
+    fn code(s: &str) -> ShortCode {
+        ShortCode::parse(s).unwrap()
+    }
+
+    /// The shape almost every DID document actually uses.
+    #[test]
+    fn test_endpoint_without_a_trailing_slash_still_gets_one_separator() {
+        let url = get_record_url("https://pds.rip", DID, &code("gridsmith"));
+        assert!(
+            url.starts_with("https://pds.rip/xrpc/com.atproto.repo.getRecord?"),
+            "the host must survive the join: {url}"
+        );
+    }
+
+    /// And the shape that used to be assumed must not now produce `//xrpc`.
+    #[test]
+    fn test_endpoint_with_a_trailing_slash_does_not_double_it() {
+        let url = get_record_url("https://pds.rip/", DID, &code("gridsmith"));
+        assert!(url.starts_with("https://pds.rip/xrpc/"), "{url}");
+    }
+
+    #[test]
+    fn test_repo_and_rkey_are_encoded() {
+        let url = get_record_url("https://pds.rip", DID, &code("a-b_c"));
+        assert!(
+            url.contains("repo=did%3Aplc%3Aerpkpcbofe5zdtbmdc3mx7fo"),
+            "{url}"
+        );
+        assert!(url.ends_with("&rkey=a-b_c"), "{url}");
+        assert!(url.contains("&collection=to.atpr.link&"), "{url}");
     }
 }

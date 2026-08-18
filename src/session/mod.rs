@@ -5,12 +5,13 @@
 //! object-safe, and threading another type parameter through `AppState` for a
 //! choice made once at startup is not worth it.
 //!
-//! The seam is deliberate. A shared backend (DynamoDB) is the only real fix for
-//! sessions being per-execution-environment on Lambda — PAR state written by
-//! one instance is missing when the callback lands on another, so logins fail
-//! nondeterministically. That fix is a third variant here plus its
-//! `ClientAuthStore` impl, and nothing else changes.
+//! The seam was built for exactly one thing, and that thing has now happened:
+//! sessions being per-execution-environment on Lambda meant PAR state written
+//! by one instance was missing when the callback landed on another, so logins
+//! failed nondeterministically. The fix was a third variant here plus its
+//! `ClientAuthStore` impl — see [`dynamo`] — and nothing else changed.
 
+pub mod dynamo;
 pub mod file;
 
 use jacquard::oauth::authstore::{ClientAuthStore, MemoryAuthStore};
@@ -19,6 +20,7 @@ use jacquard_common::bos::BosStr;
 use jacquard_common::session::SessionStoreError;
 use jacquard_common::types::did::Did;
 
+pub use dynamo::DynamoStore;
 pub use file::FileStore;
 
 /// Where OAuth sessions live.
@@ -27,6 +29,9 @@ pub enum AuthStore {
     Memory(MemoryAuthStore),
     /// File-backed; see [`FileStore`].
     File(FileStore),
+    /// Shared across instances; see [`DynamoStore`]. The only variant that
+    /// survives more than one Lambda execution environment.
+    Dynamo(DynamoStore),
 }
 
 /// Forward a `ClientAuthStore` call to whichever variant is active.
@@ -38,6 +43,7 @@ macro_rules! delegate {
         match $self {
             AuthStore::Memory(s) => s.$method($($arg),*).await,
             AuthStore::File(s) => s.$method($($arg),*).await,
+            AuthStore::Dynamo(s) => s.$method($($arg),*).await,
         }
     };
 }
@@ -123,6 +129,14 @@ mod tests {
     #[tokio::test]
     async fn test_memory_variant_delegates() {
         exercise(&AuthStore::Memory(MemoryAuthStore::new())).await;
+    }
+
+    /// The point of the shared suite: a new backend is not "done" until it
+    /// answers the same way the other two do. Four calls, so four canned
+    /// responses -- an empty item for each.
+    #[tokio::test]
+    async fn test_dynamo_variant_delegates() {
+        exercise(&AuthStore::Dynamo(dynamo::tests::empty_store(4))).await;
     }
 
     #[tokio::test]

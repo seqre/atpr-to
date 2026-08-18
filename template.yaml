@@ -68,11 +68,24 @@ Resources:
         Variables:
           ATPR__BASE_URL: "https://atpr.to"
           ATPR__SLINGSHOT_URL: "https://slingshot.microcosm.blue/"
-          # Per-execution-environment, which is why logins can fail
-          # nondeterministically across cold starts. A shared backend is the
-          # fix; this is the known-broken status quo, recorded rather than
-          # papered over.
-          ATPR__SESSION_FILE: "/tmp/sessions.json"
+          # Shared across every execution environment, which is the whole point.
+          # This used to be /tmp/sessions.json -- per-instance, so an
+          # authorization request written while a login started was missing when
+          # the callback landed elsewhere, and logins failed nondeterministically
+          # under any concurrency at all.
+          ATPR__SESSION_FILE: !Sub "dynamodb://${AtprToSessions}"
+      Policies:
+        # The four calls session/dynamo.rs makes, on the one table it makes them
+        # against. Not a managed policy: `AmazonDynamoDBFullAccess` would grant
+        # this function the right to drop every table in the account.
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt AtprToSessions.Arn
       Events:
         Api:
           Type: HttpApi
@@ -86,6 +99,38 @@ Resources:
             ApiId: !Ref AtprToApi
             Path: /
             Method: ANY
+
+  # OAuth sessions and in-flight authorization requests, keyed by `pk`.
+  #
+  # On-demand billing because the load is one small read and one small write per
+  # sign-in: provisioned capacity would mean paying for idle throughput on a
+  # table that is empty most of the day.
+  #
+  # `expires_at` is the TTL attribute. It is what reaps abandoned logins --
+  # every item is written with a deadline, so nothing here has to be swept by
+  # hand. AWS deletes within a few days of expiry rather than at it, which is
+  # why the store also filters expired items on read.
+  AtprToSessions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      SSESpecification:
+        # It holds DPoP private keys and refresh tokens. The file store creates
+        # its file 0600 for the same reason.
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        # Sessions are disposable: the worst case for losing this table is that
+        # everyone signs in again. Not worth the continuous-backup charge.
+        PointInTimeRecoveryEnabled: false
 
   # Declared explicitly only to set retention. CloudFormation will not adopt a
   # log group that already exists, so a stack that has run without this needs

@@ -61,9 +61,32 @@ askama = "0.15"
 qrcode = "0.14"
 tower_governor = "0.8.0"
 rust-embed = "8"
+# The shared session store.
+#
+# Neither of these enables a TLS feature, and that is deliberate. The SDK's own
+# `rustls` feature resolves to rustls-aws-lc, which builds `aws-lc-sys` from C
+# -- a cross-compilation hazard for the arm64 Lambda target and a second crypto
+# backend in a binary that already links ring through reqwest. The HTTPS client
+# is built explicitly in `session/dynamo.rs` from `aws-smithy-http-client` with
+# the ring provider instead, so there is exactly one.
+aws-config = { version = "1", default-features = false, features = [
+    "behavior-version-latest",
+    "rt-tokio",
+] }
+aws-sdk-dynamodb = { version = "1", default-features = false, features = [
+    "rt-tokio",
+] }
+aws-smithy-http-client = { version = "1", default-features = false, features = [
+    "rustls-ring",
+] }
 mime_guess = "2"
 
 [dev-dependencies]
+# `test-util` brings the SDK's own replay client, so the DynamoDB store can be
+# exercised against canned wire responses instead of AWS.
+aws-smithy-http-client = { version = "1", features = ["test-util"] }
+aws-smithy-types = "1"
+http = { package = "http", version = "1" }
 # Used to exercise config deserialization directly, without touching the
 # process environment or the working directory.
 toml = "0.9"

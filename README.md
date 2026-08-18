@@ -125,10 +125,11 @@ bound anything globally.
 A custom domain is optional. Pass `DomainName` **and** a regional `CertificateArn` to have the stack create
 the domain and its mapping; omit both and it serves from the `execute-api` URL in the stack outputs.
 
-> **Known issue:** OAuth sessions are stored on the Lambda instance's `/tmp`, which is per execution
-> environment. Login state written while handling the redirect can be missing when the callback lands on a
-> different instance, so **logins fail intermittently under concurrency**. Reserved concurrency of 1 avoids
-> it at the cost of throughput; a shared session backend is the real fix.
+OAuth sessions live in the DynamoDB table the stack creates, shared by every execution environment. They
+used to be written to the instance's `/tmp`, so login state saved while handling the redirect could be
+missing when the callback landed on a different instance and logins failed intermittently under any
+concurrency. `session_file` selects the backend: `dynamodb://{table}` for the deployed stack, a path for a
+file, and `""` for memory.
 
 ---
 

@@ -188,7 +188,15 @@ async fn test_upstream_detail_does_not_reach_the_page() {
         .unwrap();
     let body = String::from_utf8(bytes.to_vec()).unwrap();
 
-    assert!(status.is_server_error(), "got {status}");
+    // The status is incidental to what this test guards. Under test the relay's
+    // 500 sends resolution to the direct path, where the handle does not
+    // resolve, so this is a 404 page rather than a 502 one — either way it is a
+    // rendered error page, and either way the upstream's words must not be on it.
+    assert!(
+        status.is_client_error() || status.is_server_error(),
+        "got {status}"
+    );
+    assert!(body.contains("<!DOCTYPE html>"), "expected a page: {body}");
     assert!(!body.contains("10.0.0.7"), "body: {body}");
     assert!(!body.contains("on fire"), "body: {body}");
     assert!(!body.contains("2583"), "body: {body}");

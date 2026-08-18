@@ -399,10 +399,18 @@ async fn test_xrpc_400_record_not_found_is_a_404_not_a_502() {
     );
 }
 
-/// A 400 that is *not* a missing record must still be an upstream fault, or the
-/// fix above would turn every relay malfunction into a confident "no such link".
+/// A 400 that is *not* a missing record must not be read as one, or the fix
+/// above would turn every relay malfunction into a confident "no such link".
+///
+/// Asserted on the body rather than the status for the same reason as
+/// `test_code_containing_404_is_not_treated_as_not_found`: the relay's
+/// malfunction sends us to the fallback, and under test the fallback cannot
+/// resolve `alice.test`, so the honest end state is "no such account". What
+/// must never appear is a bare `not found`, which would mean the relay's 400
+/// had been taken for a missing record. The classification itself is asserted
+/// directly in `resolver::tests`.
 #[tokio::test]
-async fn test_other_xrpc_400s_are_still_upstream_failures() {
+async fn test_other_xrpc_400s_are_not_read_as_a_missing_record() {
     let mock = MockServer::start().await;
 
     Mock::given(method("GET"))
@@ -436,7 +444,60 @@ async fn test_other_xrpc_400s_are_still_upstream_failures() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&bytes);
+    assert!(
+        !body.contains(r#""error":"not found""#),
+        "a relay 400 that names something other than RecordNotFound was taken \
+         for a missing record: {body}"
+    );
+}
+
+/// The handle half of not-found, stated on its own rather than left to be
+/// inferred from the tests above.
+///
+/// jacquard reports `HandleResolutionExhausted` once DNS, the well-known
+/// document and the PDS fallback have all been tried. That used to be an
+/// upstream fault, so mistyping a handle produced a 502 telling the visitor the
+/// network was down. It is a 404 now, and it says which of the two 404s it is.
+#[tokio::test]
+async fn test_an_unresolvable_handle_is_a_404_that_names_the_handle() {
+    let mock = MockServer::start().await;
+
+    // The relay cannot answer, so resolution falls through to the direct path,
+    // where the handle itself is what fails.
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                // `.test` like the rest of this file: syntactically a handle,
+                // resolvable by nothing. A reserved TLD such as `.invalid` is
+                // rejected by `Handle` parsing and never reaches resolution.
+                .uri("/@nobody-has-this-handle.test/abc")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        json["error"], "handle not found",
+        "a 404 for a handle must be distinguishable from a 404 for a link"
+    );
 }
 
 /// Regression test for the `contains("404")` misclassification.
@@ -449,9 +510,19 @@ async fn test_other_xrpc_400s_are_still_upstream_failures() {
 /// 404 "Link not found", and the direct PDS fallback was skipped entirely
 /// because the caller believed the answer was authoritative.
 ///
-/// Verified against the pre-fix code: this returned 404. Correct behaviour is
-/// to attempt the fallback and, when that also fails (no route to a real PDS
-/// under test), return 502.
+/// Verified against the pre-fix code: this returned 404 with `not found`.
+///
+/// The assertion moved once an unresolvable handle became its own 404. Both
+/// outcomes are now 404, so the status alone can no longer tell the two apart —
+/// but the *body* can, and more precisely than the status ever did:
+///
+/// - `not found` means the slingshot error was string-matched into
+///   `RecordNotFound` and the fallback was skipped. That is the bug.
+/// - `handle not found` can only be produced by the direct resolver's own
+///   handle lookup, so it is proof the fallback was actually attempted.
+///
+/// `alice.test` does not resolve under test, which is why the fallback's honest
+/// verdict is "no such account".
 ///
 /// Note the failure must be at the transport layer. reqwest attaches the URL to
 /// send errors but not to decode errors, and an HTTP status error is formatted
@@ -489,10 +560,15 @@ async fn test_code_containing_404_is_not_treated_as_not_found() {
         .await
         .unwrap();
 
-    assert_eq!(
-        response.status(),
-        StatusCode::BAD_GATEWAY,
-        "a transport error on a code containing '404' must not be reported as not-found"
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body = String::from_utf8_lossy(&bytes);
+    assert!(
+        body.contains("handle not found"),
+        "the fallback must be attempted; a body of `not found` would mean the \
+         slingshot transport error was string-matched into a record-not-found. \
+         got: {body}"
     );
 }
 
@@ -862,5 +938,13 @@ async fn test_info_page_slingshot_error() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    // Not 200, and not a panic: the preview page has to fail as an error rather
+    // than render half a link. Which error depends on how far resolution gets —
+    // under test the relay's 500 sends it to the direct path, where
+    // `alice.test` does not resolve, so it lands on the handle 404.
+    assert!(
+        response.status().is_client_error() || response.status().is_server_error(),
+        "got {}",
+        response.status()
+    );
 }

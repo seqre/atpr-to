@@ -83,9 +83,14 @@
     --ink-soft: #a8a49b;
     --ink-faint: #7c786f;
     --hair: #edebe42e;
-    --silver-hi: #d6d3cb;
-    --silver-mid: #8b8880;
-    --silver-lo: #43413c;
+    /* Stays lit. In the vitrine the metal is the light source, not a surface
+       taking light, so the ramp brightens rather than darkening with the
+       ground — which is also what keeps dark ink legible on it (6.4:1 at the
+       darkest stop; the earlier darkening ramp reached 1.9:1 and could not
+       carry a label at all). */
+    --silver-hi: #e8e5dd;
+    --silver-mid: #c2beb4;
+    --silver-lo: #98948b;
     --silver-ink: #0d0d0c;
     --signal: #d4674f;
     --signal-ground: #d4674f1f;
@@ -99,9 +104,9 @@
   --ink-soft: #a8a49b;
   --ink-faint: #7c786f;
   --hair: #edebe42e;
-  --silver-hi: #d6d3cb;
-  --silver-mid: #8b8880;
-  --silver-lo: #43413c;
+  --silver-hi: #e8e5dd;
+  --silver-mid: #c2beb4;
+  --silver-lo: #98948b;
   --silver-ink: #0d0d0c;
   --signal: #d4674f;
   --signal-ground: #d4674f1f;
@@ -265,6 +270,13 @@ p { margin: 0; max-width: 68ch; }
 .btn:hover { background: var(--ink); color: var(--ground); }
 .btn--fill { background: var(--ink); color: var(--ground); }
 .btn--fill:hover { background: transparent; color: var(--ink); }
+/* The material's home. Wiener Werkstätte is metalwork, so the one place the
+   hammered surface belongs is an object you press — a struck plate rather than
+   a painted rectangle. Its label takes `--silver-ink`, which stays dark in both
+   renditions because the ramp stays lit in both. */
+.btn--silver { border-color: var(--ink); }
+.btn--silver:hover { filter: brightness(1.05); background: none; color: var(--silver-ink); }
+
 .btn--danger { border-color: var(--signal); color: var(--signal); }
 .btn--danger:hover { background: var(--signal); color: var(--ground); }
 .btn[disabled], .btn[aria-disabled="true"] { opacity: 0.34; cursor: not-allowed; }

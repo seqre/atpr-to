@@ -1,33 +1,82 @@
 {% extends "base.html" %}
-{% block title %}Link Preview — atpr.to{% endblock %}
+{% block title %}{{ short_url }} — atpr.to{% endblock %}
+{% block og_title %}{{ short_url }}{% endblock %}
+{% block og_description %}Goes to {{ url }}{% endblock %}
 {% block content %}
-{# TODO(rebrand): public link preview page (GET /@{handle}/{code}/info).
+{# The public preview, GET /@{handle}/{code}/info.
 
-   All five `InfoTemplate` fields (src/info.rs) must stay referenced here or
-   rustc reports them dead and clippy -D warnings fails the build.
+   Read, with one clear action. Reached by a stranger with no account and no
+   context, usually because someone handed them a short link and they want to
+   know where it goes before following it. Their question is exactly three
+   things: where does this go, whose is it, and is it current.
 
-   `qr_svg` is generated server-side in src/info.rs and is the only `|safe`
-   expression in the codebase — keep it `|safe`, keep everything else escaped.
-   `updated_at` is a raw ISO-8601 string; it used to be reformatted client-side
-   with toLocaleString(), which is gone along with the JS runtime.
+   All six InfoTemplate fields must stay referenced here or rustc reports them
+   dead and `clippy -D warnings` fails the build. `short_url` is the canonical
+   link built from the configured base URL -- do not reassemble it from
+   `handle` and `code`, which was wrong on any self-hosted instance.
 
-   `short_url` is the canonical link, built from the configured base URL --
-   prefer it over reassembling `atpr.to/@{handle}/{code}` here, which was
-   wrong on any instance not served from that domain. `handle` and `code`
-   stay available for the byline and the code chip; keep both referenced
-   somewhere real or rustc reports them dead.
+   `qr_svg` is the only `|safe` expression in the codebase. Keep it `|safe`,
+   keep everything else escaped. It is now a fragment painted in currentColor
+   on a `none` ground, so its container pins the ink and ground -- see
+   .qr-plate, which stays black on white in both renditions because a
+   light-on-dark code fails on a lot of scanners.
 
-   `qr_svg` is now a fragment painted in `currentColor` on a `none` ground,
-   so it inherits the page's ink. Do not invert it on a dark surface -- pin
-   ink and ground on its container instead; light-on-dark QR codes fail on a
-   meaningful share of scanners.
+   `updated_at` is a raw ISO-8601 string and may be absent. It is rendered
+   verbatim inside <time datetime>, which a test depends on. #}
 
-   Removed: card layout, QR framing, primary "Follow this link" button,
-   back-to-home link. #}
-<h1>{{ short_url }}</h1>
-<p>@{{ handle }}</p>
-<p>{{ code }}</p>
-<div>{{ qr_svg|safe }}</div>
-<p><a href="{{ url }}">{{ url }}</a></p>
-{% if let Some(u) = updated_at %}<p><time datetime="{{ u }}">{{ u }}</time></p>{% endif %}
+<article class="preview">
+  <div class="preview-say">
+    {# Size is billing: the link is the subject of this page, so it is set at
+       poster scale rather than at UI scale. #}
+    <h1 class="preview-link">{{ short_url }}</h1>
+
+    <div class="preview-facts">
+      <div class="preview-fact">
+        <span class="lbl">Goes to</span>
+        <a class="preview-dest" href="{{ url }}" rel="noopener nofollow">{{ url }}</a>
+      </div>
+
+      <div class="preview-fact-row">
+        <div class="preview-fact">
+          <span class="lbl">Made by</span>
+          <a class="preview-who" href="https://bsky.app/profile/{{ handle }}"
+             target="_blank" rel="noopener">@{{ handle }}</a>
+        </div>
+        <div class="preview-fact">
+          <span class="lbl">Code</span>
+          <span class="preview-code">{{ code }}</span>
+        </div>
+        {% if let Some(u) = updated_at %}
+        <div class="preview-fact">
+          <span class="lbl">Last changed</span>
+          <time class="preview-when num" datetime="{{ u }}">{{ u }}</time>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <a class="btn btn--fill preview-go" href="{{ url }}" rel="noopener nofollow">
+      Follow this link
+      <svg class="mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false">
+        <g fill="currentColor">
+          <rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>
+          <rect x="1" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>
+        </g>
+      </svg>
+    </a>
+
+    <p class="note preview-note">
+      This link is a record in its author's own repository, not an entry in a
+      database here. They can point it somewhere else or delete it at any time,
+      and it keeps working if they move their account to another server.
+    </p>
+  </div>
+
+  {# A QR code is a pierced square lattice in black and white -- the same
+     object this whole design is built from. It is the page's hero material,
+     not a utility tucked in a corner. #}
+  <div class="qr-plate" role="img" aria-label="QR code for {{ short_url }}">
+    {{ qr_svg|safe }}
+  </div>
+</article>
 {% endblock %}

@@ -93,6 +93,7 @@ Confirmed, working today (backend complete; only the UI is stripped):
 | Dashboard | `GET /dashboard` | auth-gated; has `handle` and `avatar` (avatar may be empty) |
 | List links | `GET /api/links` | `{"links":[{"code","url","updated_at"}],"cursor":…}`, `?limit=&cursor=` |
 | Create | `POST /api/shorten` | `{url, code?}` → `{short_url}`; **409** when the code is taken; rate limited |
+| Repoint | `PUT /api/shorten/{code}` | `{url}` → 204; replaces the destination, keeps the code; rate limited |
 | Delete | `DELETE /api/shorten/{code}` | 204 |
 | Log out | `POST /api/logout` | form POST, 303 to `/`, clears cookie |
 | Resolve | `GET /@{handle}/{code}` | public redirect |

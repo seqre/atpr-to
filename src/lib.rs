@@ -288,7 +288,10 @@ pub fn router_with_state<A: auth::Authenticator>(state: Arc<AppState<A>>) -> Rou
         .route("/login", post(auth::login::<A>))
         .route("/logout", post(api::logout::logout))
         .route("/shorten", post(api::shorten::shorten::<A>))
-        .route("/shorten/{code}", delete(api::delete::delete_link::<A>))
+        .route(
+            "/shorten/{code}",
+            delete(api::delete::delete_link::<A>).put(api::update::update_link::<A>),
+        )
         .route("/links", get(api::links::list_links::<A>))
         .layer(GovernorLayer::new(governor_config.clone()));
 

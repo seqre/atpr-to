@@ -19,6 +19,9 @@ Anyone with a Bluesky (or any atproto) account can create short links — no cen
 2. **Shorten** — `POST /api/shorten` writes a `to.atpr.link` record to your PDS via
    `com.atproto.repo.putRecord`. Only `http`/`https` URLs up to 2048 characters are accepted. Re-using an
    existing code returns **409 Conflict** rather than overwriting it.
+   `PUT /api/shorten/{code}` repoints an existing link instead, keeping the code. The asymmetry is
+   deliberate: `POST` refuses to overwrite so a duplicate code cannot quietly destroy a link someone
+   already has, while arriving at `PUT` is a statement that replacing it is the point.
 3. **Resolve** — `GET /@handle/code` looks up the record and redirects. Resolution tries
    [Slingshot](https://github.com/microcosm-blue/slingshot) first, falling back to direct PDS resolution.
    The destination's scheme is validated on read as well as on write, so a record written outside this app
@@ -44,7 +47,8 @@ Browser-facing routes are at the root; the JSON API is under `/api`.
 | `POST` | `/api/login` | Start OAuth flow |
 | `POST` | `/api/logout` | Revoke the session server-side, clear the cookie, redirect to `/` |
 | `GET` | `/api/links` | List your short links — `?limit=&cursor=` (auth required) |
-| `POST` | `/api/shorten` | Create short URL — `{ url, code? }` (auth required) |
+| `POST` | `/api/shorten` | Create short URL — `{ url, code? }`; **409** if the code is taken (auth required) |
+| `PUT` | `/api/shorten/{code}` | Repoint an existing short URL — `{ url }` → **204** (auth required) |
 | `DELETE` | `/api/shorten/{code}` | Delete short URL (auth required) |
 | `GET` | `/api/health` | Health check — pings Slingshot; **503** when degraded |
 

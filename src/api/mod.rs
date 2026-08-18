@@ -25,3 +25,4 @@ pub mod shorten;
 pub mod shortlink;
 pub mod static_files;
 pub mod ui;
+pub mod update;

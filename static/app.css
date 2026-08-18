@@ -61,7 +61,12 @@
   --plate: #f7f6f1;
   --ink: #0d0d0c;
   --ink-soft: #4a4843;
-  --ink-faint: #78756d;
+  /* The faint step carries 11-13px text -- notes, timestamps, the address
+     labels -- so it is held to normal-text AA, not to the large-text
+     exemption. Measured against `--plate`, the lighter of the two grounds it
+     ever sits on, because that is the harder direction: 5.89:1. The value it
+     replaces was 4.25:1 and did not pass. */
+  --ink-faint: #625f58;
   --hair: #0d0d0c26;
 
   --silver-hi: #edebe6;
@@ -90,8 +95,15 @@
     --ground: #100f0e;
     --plate: #191817;
     --ink: #edebe4;
-    --ink-soft: #a8a49b;
-    --ink-faint: #7c786f;
+    /* Both grey steps are lighter here than the mirrored logic would make
+       them. Dark grounds eat low-contrast type in a way light ones do not, and
+       the ramp has to climb from a floor of 6:1 without collapsing into the
+       ink above it: 14.86 / 9.76 / 6.01 on `--plate`, a step of about 1.5
+       between each. The values these replace measured 7.13 and 4.03, and the
+       faint one -- which carries every note, timestamp and label on the page
+       -- was below AA. */
+    --ink-soft: #c4c0b6;
+    --ink-faint: #9a968d;
     --hair: #edebe42e;
     /* Stays lit. In the vitrine the metal is the light source, not a surface
        taking light, so the ramp brightens rather than darkening with the
@@ -111,8 +123,8 @@
   --ground: #100f0e;
   --plate: #191817;
   --ink: #edebe4;
-  --ink-soft: #a8a49b;
-  --ink-faint: #7c786f;
+  --ink-soft: #c4c0b6;
+  --ink-faint: #9a968d;
   --hair: #edebe42e;
   --silver-hi: #e8e5dd;
   --silver-mid: #c2beb4;

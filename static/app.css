@@ -349,6 +349,21 @@ p { margin: 0; max-width: 68ch; }
 .icobtn--danger:hover { border-color: var(--signal); background: var(--signal); color: var(--ground); }
 .mark { width: 15px; height: 15px; display: block; }
 
+/* The rendition toggle carries both glyphs and shows the one naming what you
+   will get: a sun while the vitrine is on, a moon while the galerie is. The
+   switch is made on exactly the selectors the palette uses — including the
+   un-stamped "system" state — so it is decided before first paint rather than
+   corrected afterwards by script. */
+.mark--sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mark--sun { display: block; }
+  :root:not([data-theme="light"]) .mark--moon { display: none; }
+}
+:root[data-theme="dark"] .mark--sun { display: block; }
+:root[data-theme="dark"] .mark--moon { display: none; }
+:root[data-theme="light"] .mark--sun { display: none; }
+:root[data-theme="light"] .mark--moon { display: block; }
+
 @media (pointer: coarse) {
   .icobtn { padding: 14px; }
   .btn { min-height: 44px; }

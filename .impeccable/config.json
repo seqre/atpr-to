@@ -11,6 +11,54 @@
         ],
         "createdAt": "2026-08-18T06:18:09.728Z",
         "reason": "Askama template: the avatar <img> is wrapped in {% if avatar != \"\" %} so it never renders with an empty src. The detector cannot evaluate template conditionals. The tag must stay an <img src> because tests/authed_api.rs asserts the URL appears in the body."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#ffffffb0",
+        "createdAt": "2026-08-18T06:36:38.883Z",
+        "reason": "Specular bloom inside the .silver material, not a palette colour. DESIGN.md records the material as ramp + bloom + planished dimpling + noise tooth; these alpha layers ARE the bloom and dimples."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#ffffff12",
+        "createdAt": "2026-08-18T06:36:38.933Z",
+        "reason": "Planishing dimple highlight inside the .silver material. See DESIGN.md's material description; not a palette entry."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#00000012",
+        "createdAt": "2026-08-18T06:36:38.992Z",
+        "reason": "Planishing dimple shadow inside the .silver material. See DESIGN.md's material description; not a palette entry."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fff",
+        "createdAt": "2026-08-18T06:36:47.450Z",
+        "reason": "The QR's pinned ground (.qr-plate/.qr-frame). DESIGN.md's Pinned Ink Rule requires the code stay black-on-white in BOTH renditions because a light-on-dark QR fails on many scanners. Being outside the palette is the whole point; palette tokens here would break scanning."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "createdAt": "2026-08-18T06:36:47.501Z",
+        "reason": "The QR's pinned ink (.qr-plate/.qr-frame). Same Pinned Ink Rule: deliberately outside the palette so the code never follows the rendition."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "30px",
+        "createdAt": "2026-08-18T06:36:47.553Z",
+        "reason": "Upper bound of a clamp() on .address, not a ramp step. Fluid display type is bounded, not stepped; the documented ramp governs fixed sizes."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "24px",
+        "createdAt": "2026-08-18T06:36:47.602Z",
+        "reason": "Lower bound of a clamp() on .preview-link, not a ramp step. Same reason as 30px."
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "50px",
+        "createdAt": "2026-08-18T06:36:47.650Z",
+        "reason": "Upper bound of a clamp() on .preview-link, not a ramp step. Same reason as 30px."
       }
     ]
   }

@@ -190,6 +190,10 @@
         "displayName": "Label",
         "purpose": "Field and fact labels, counts. The 11px floor of the display face."
       },
+      "control": {
+        "displayName": "Control / Meta",
+        "purpose": "One size, two jobs. Button labels in the display face at 0.2em uppercase, one step above the label floor because a control must read at a glance. Secondary metadata in the body face, unspaced and faint: a suggestion's display name, a row's timestamp. Nothing load-bearing sits here."
+      },
       "code": {
         "displayName": "Short Code",
         "purpose": "A user's chosen short code wherever it appears."

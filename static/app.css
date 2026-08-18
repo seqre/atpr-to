@@ -573,9 +573,12 @@ dialog::backdrop { background: #0d0d0cad; }
 @media (max-width: 599px) {
   .signin-row { flex-direction: column; }
   .signin-row .btn { width: 100%; }
-  /* The labels stack under a wrapped address rather than crowding it. */
+  /* The labels stack under a wrapped address rather than crowding it. Only
+     the tracking eases — the size holds at the 11px floor, because these are
+     letterspaced capitals and below it the tracking closes and they turn to
+     noise. Shrinking them here was the obvious move and the wrong one. */
   .address { font-size: clamp(21px, 6.4vw, 30px); }
-  .address-tag { font-size: 10px; letter-spacing: 0.1em; }
+  .address-tag { letter-spacing: 0.1em; }
 }
 
 /* ── dashboard ──────────────────────────────────────────────────────────── */

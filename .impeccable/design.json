@@ -28,8 +28,8 @@
           "#22201e",
           "#3b3833",
           "#57534b",
-          "#7c786f",
-          "#a8a49b",
+          "#9a968d",
+          "#c4c0b6",
           "#d2cfc7",
           "#f7f6f1"
         ]
@@ -66,7 +66,7 @@
       },
       "silver-mid": {
         "role": "tertiary",
-        "displayName": "Hammered Silver",
+        "displayName": "Metal Grey",
         "canonical": "#bab7b0",
         "tonalRamp": [
           "#4d4a44",
@@ -78,7 +78,7 @@
           "#c2beb4",
           "#e8e5dd"
         ],
-        "note": "Galerie ramp #edebe6 / #bab7b0 / #87847d; Vitrine ramp #e8e5dd / #c2beb4 / #98948b. The ramp stays lit in the dark rendition rather than darkening with the ground, because the metal is the light source there. Measured against --silver-ink: 5.21:1 worst stop in Galerie, 6.43:1 in Vitrine."
+        "note": "What remains of the hammered silver after the material was retired. Furniture only: the scrollbar thumb and the blank-avatar fill. Galerie #bab7b0 / #87847d, Vitrine #c2beb4 / #98948b -- it brightens in the dark rendition rather than following the ground down. Never a control, never a surface anyone reads."
       },
       "plate": {
         "role": "neutral",
@@ -108,22 +108,24 @@
           "#8b877e",
           "#b6b2a9",
           "#e3e0d8"
-        ]
+        ],
+        "note": "Galerie #4a4843, Vitrine #c4c0b6. Vitrine's is lighter than mirroring Galerie would make it: a dark ground swallows a dim grey that a light ground carries. 8.44:1 and 9.76:1 against --plate."
       },
       "ink-faint": {
         "role": "neutral",
         "displayName": "Faint Ink",
-        "canonical": "#78756d",
+        "canonical": "#625f58",
         "tonalRamp": [
           "#1c1b18",
           "#2f2d29",
           "#46443e",
-          "#5f5c55",
-          "#78756d",
-          "#9c998f",
-          "#c2bfb6",
+          "#54514a",
+          "#625f58",
+          "#8a867d",
+          "#b4b0a7",
           "#e8e5dd"
-        ]
+        ],
+        "note": "Galerie #625f58, Vitrine #9a968d. Held to normal-text AA rather than the large-text exemption because it carries 11-13px type: 5.89:1 and 6.01:1 against --plate, measured. The values it replaced were 4.25:1 and 4.03:1 and failed."
       },
       "hair": {
         "role": "neutral",
@@ -139,22 +141,6 @@
           "#0d0d0cb3",
           "#0d0d0cd9"
         ]
-      },
-      "silver-ink": {
-        "role": "tertiary",
-        "displayName": "Silver Ink",
-        "canonical": "#0d0d0c",
-        "tonalRamp": [
-          "#0d0d0c",
-          "#1f1e1c",
-          "#33322e",
-          "#4a4843",
-          "#666359",
-          "#87847d",
-          "#bab7b0",
-          "#edebe6"
-        ],
-        "note": "The label colour on any silver surface, and the only token whose value is identical in both renditions. It can stay fixed because the ramp beneath it stays lit in both."
       }
     },
     "typographyMeta": {
@@ -275,12 +261,15 @@
       "note": "Stepped, never fluid. The lattice re-counts its squares as the viewport narrows; it never stretches one. The square drawing unit --sq drops 5px to 4px at 767px."
     },
     "verification": {
-      "rendered": false,
-      "note": "No browser tooling existed in the session that built this. Nothing here has been seen rendered and 320-1440 responsive behaviour is unconfirmed; contrast is by construction rather than measured, with one exception — the silver material's ramp against its label ink IS measured, at 5.21:1 worst stop in Galerie and 6.43:1 in Vitrine. The design detector ran degraded (HTML/CSS parser modules missing, regex fallback, no custom-property or computed-contrast evaluation), so its empty result is an undercount, not a clean bill of health.",
+      "rendered": true,
+      "note": "Seen running in Chrome at 1536px in both renditions, signed in against a real PDS: landing, dashboard with a real link in the rack, QR dialog, link preview, error page. Zero CSP violations, and all four cross-origin endpoints in connect-src verified working under the live policy. The grey ramp was measured after that look and rebuilt around a 5:1 floor. STILL UNVERIFIED: everything about width -- the 320-1440 responsive pass has not happened, because the browser connection available refuses to resize its window, so every breakpoint claim is a claim about the stylesheet rather than an observation. The design detector also ran degraded (HTML/CSS parser modules missing, regex fallback, no custom-property or computed-contrast evaluation), so its empty result is an undercount.",
       "measured": {
-        "silver-galerie-worst": "5.21:1",
-        "silver-vitrine-worst": "6.43:1",
-        "silver-vitrine-worst-before-fix": "1.91:1"
+        "ink-faint-galerie-on-plate": "5.89:1",
+        "ink-faint-vitrine-on-plate": "6.01:1",
+        "ink-faint-galerie-before-fix": "4.25:1",
+        "ink-faint-vitrine-before-fix": "4.03:1",
+        "ink-soft-vitrine-on-plate": "9.76:1",
+        "ink-vitrine-on-plate": "14.86:1"
       }
     }
   },
@@ -308,14 +297,6 @@
       "description": "Destruction only. The single place the oxide red is allowed on a control.",
       "html": "<button class=\"ds-btn-danger\">Delete</button>",
       "css": ".ds-btn-danger { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--signal, #9b2c1e); border-radius: 0; background: transparent; color: var(--signal, #9b2c1e); cursor: pointer; transition: background 0.24s cubic-bezier(0.16,1,0.3,1), color 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn-danger:hover { background: var(--signal, #9b2c1e); color: var(--ground, #f0eee8); } .ds-btn-danger:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
-    },
-    {
-      "name": "Silver Button",
-      "kind": "button",
-      "refersTo": "button-silver",
-      "description": "The hammered material as the face of a pressed object. The secondary action beside a filled primary; currently one instance, the QR dialog's download action. The one button that does not invert on hover — the plate just catches more light.",
-      "html": "<a class=\"ds-btn-silver\" href=\"#\" download>Download SVG</a>",
-      "css": ".ds-btn-silver { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; text-decoration: none; cursor: pointer; color: var(--silver-ink, #0d0d0c); background-color: var(--silver-mid, #bab7b0); background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E\"), radial-gradient(circle at 22% 18%, #ffffffb0, transparent 46%), repeating-radial-gradient(circle at 50% 50%, #ffffff12 0 3px, #00000012 3px 7px), linear-gradient(148deg, var(--silver-hi, #edebe6) 0%, var(--silver-mid, #bab7b0) 38%, var(--silver-lo, #87847d) 58%, var(--silver-mid, #bab7b0) 78%, var(--silver-hi, #edebe6) 100%); background-blend-mode: overlay, screen, overlay, normal; transition: filter 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn-silver:hover { filter: brightness(1.06); } .ds-btn-silver:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
     },
     {
       "name": "Field",
@@ -398,8 +379,8 @@
         "section": "colors"
       },
       {
-        "name": "The Lit Metal Rule",
-        "body": "Vitrine is not an inversion. Ink and ground swap around the silver; the silver itself does not follow them down, because in a night vitrine the metal is the light source rather than a surface taking light. Its ramp brightens in the dark rendition (#e8e5dd / #c2beb4 / #98948b against Galerie's #edebe6 / #bab7b0 / #87847d), and that is also what keeps its dark label legible: 6.43:1 at the worst stop, measured, against 5.21:1 in Galerie. A ramp that darkened with the ground reached 1.91:1 and could carry no label at all — which is the whole reason the material had nowhere to live. Never generate the dark rendition by inverting the light one.",
+        "name": "The Unmirrored Grey Rule",
+        "body": "Vitrine is not an inversion, and its greys are not Galerie's flipped. A dark ground eats low-contrast type in a way a light ground does not, so both dim steps sit lighter than symmetry would put them: 14.86 / 9.76 / 6.01 against the Vitrine plate, about a factor of 1.5 at each step, every value measured. The metal greys move the same way for a different reason -- in a night vitrine the metal is the light source, not a surface taking light. Never generate the dark rendition by inverting the light one, and never mirror a grey ramp across the two.",
         "section": "colors"
       },
       {
@@ -439,7 +420,7 @@
       },
       {
         "name": "The No-Shadow Rule",
-        "body": "Objects are separated by rules and tone. Never add a drop shadow, a glow, a blur, or a lifted card; there is no light source in Galerie and the only one in Vitrine is the silver itself.",
+        "body": "Objects are separated by rules and tone. Never add a drop shadow, a glow, a blur, or a lifted card. There is no light source in this system at all.",
         "section": "elevation"
       },
       {
@@ -458,13 +439,13 @@
         "section": "shapes"
       },
       {
-        "name": "The Pressed Metal Rule",
-        "body": "Wiener Werkstätte is metalwork, so the one place a hammered surface belongs is an object you press: a struck plate rather than a painted rectangle. Silver is the secondary-action material — never a panel, never a page ground, never a decorative fill, and never the primary action.",
+        "name": "The One-Instance Rule",
+        "body": "A material with a single instance is a claim, not a system: the next surface needing that role either honours it or the material goes. This system ran that test once and lost. The hammered silver had exactly one button -- the QR dialog's download -- and a dialog's secondary action is the quietest control on any surface, which is the wrong place for the loudest material in the system. It was retired rather than kept alive as CSS nothing reaches. Do not reintroduce a material for one element.",
         "section": "elevation"
       },
       {
-        "name": "The Held Material Rule",
-        "body": "The silver rule's position in the stylesheet is load-bearing, not housekeeping. It dresses a control whose own hover state fills with ink at (0,2,0), which a bare .silver class at (0,1,0) can never beat, so the material is declared after the controls section with .btn--silver:hover in its own selector list — re-asserted at equal specificity and later in source order. Any reorder that moves the material back above the controls silently strips it on hover and leaves a fixed dark label on the ground behind it. When a material dresses a stateful control, it is declared after that control's states.",
+        "name": "The Drawn Glyph Rule",
+        "body": "Every glyph is drawn from the lattice: axis-aligned rectangles on a 15x15 grid in currentColor. One per action -- two plates for copy, a shaft and a three-step head for repoint, three finder squares for QR, five cells on the diagonals for delete, solid beside pierced for the rendition toggle. The four-square atpr.to mark is not among them: it means the product, and it stops meaning that the moment it also means 'control'. Four identical buttons in a row are four buttons nobody can aim at, and a tooltip is not a substitute.",
         "section": "elevation"
       }
     ],
@@ -477,21 +458,22 @@
       "Do define every colour on bare :root first, then redefine only what changes per rendition.",
       "Do pin black-on-white inside the QR container in both renditions.",
       "Do use the struck cell — and only the struck cell — to say a record exists.",
-      "Do put the hammered silver only on something you press, and keep its label on the fixed silver ink.",
       "Do restore the touch floor under a coarse pointer (44px controls, 14px icon-button padding).",
-      "Do keep all CSS in static/app.css and all script same-origin: default-src 'self' with no unsafe-inline and no unsafe-eval is a hard constraint, and there is no bundler to generate a hash."
+      "Do keep all CSS in static/app.css and all script same-origin: default-src 'self' with no unsafe-inline and no unsafe-eval is a hard constraint, and there is no bundler to generate a hash.",
+      "Do match a button's height to the field beside it (50px, the control token), so the pair reads as one control."
     ],
     "donts": [
       "Don't spend the oxide red on anything but destruction and error. It is not an accent.",
       "Don't add a shadow, glow, blur, or lifted card. Depth is rules and tone.",
       "Don't round a corner — not on a control, a dialog, an avatar, or a focus ring.",
-      "Don't build the dark rendition by inverting the light one, and don't let the silver ramp darken with the ground — it is the light source, and darkening it takes its label to 1.91:1.",
-      "Don't spread the silver across panels, grounds, or decorative fills. It is a pressed object's material, and it is the secondary action, never the primary one.",
+      "Don't build the dark rendition by inverting the light one, and don't mirror a grey ramp across the two -- Vitrine's dim steps sit lighter than symmetry would put them, and the values are measured.",
+      "Don't put the metal grey on anything a person reads. It is furniture: a scrollbar thumb, a missing avatar.",
       "Don't introduce a second spacing scale, a second ease, or a second animation. One module, one curve (cubic-bezier(0.16, 1, 0.3, 1) at 240ms/620ms), one strike.",
       "Don't add an icon set or icon font. The four-square mark painted in currentColor is the only glyph, and the logo mark is monochrome by rule — it never takes the signal colour and is never recoloured, distorted, or given effects.",
       "Don't stack the section tab above a heading as a kicker or eyebrow. The tab is the section heading; it never introduces another one.",
       "Don't use a toast, an alert(), or borrowed modal chrome to report a state. States print as ruled lines in the system's own voice.",
-      "Don't inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one."
+      "Don't inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one.",
+      "Don't reuse the four-square atpr.to mark as a button glyph, and don't give two actions the same glyph."
     ],
     "notCanonized": "The wordmark ships on Cinzel although the binding wordmark type is Now Bold with Inter/Helvetica/system-bold fallbacks and no Now file exists in this repository — a flagged substitution, not a typographic decision, and Cinzel is not the wordmark's face."
   }

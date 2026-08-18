@@ -621,9 +621,12 @@ dialog::backdrop { background: #0d0d0cad; }
 
 .whoami { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .whoami-face { flex: none; object-fit: cover; }
+/* Whose repository this is. It was set at note size in the soft ink, which put
+   the one piece of identity on the page below the sign-out button beside it --
+   this is the only surface that knows who you are, and it should say so. */
 .whoami-handle {
-  font-size: 13px;
-  color: var(--ink-soft);
+  font-size: 15px;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -758,7 +761,7 @@ dialog::backdrop { background: #0d0d0cad; }
 }
 
 @media (max-width: 479px) {
-  .whoami-handle { max-width: 12ch; }
+  .whoami-handle { max-width: 14ch; }
 }
 
 /* ── link preview ───────────────────────────────────────────────────────── */

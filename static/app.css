@@ -41,6 +41,14 @@
   --sq: 5px;
   --rule: 1.5px;
 
+  /* The one measured value in the file, and the one thing that does not step
+     with the module: a text field is 16px type at 1.55 over 11px of padding
+     inside a rule, and none of those three may shrink -- below 16px iOS zooms
+     the viewport on focus. A button standing next to a field opts into this
+     height so the pair reads as one control, rather than the button sitting
+     10px short of the box beside it. */
+  --control: 50px;
+
   --s1: var(--cell);
   --s2: calc(var(--cell) * 2);
   --s3: calc(var(--cell) * 3);
@@ -304,7 +312,13 @@ p { margin: 0; max-width: 68ch; }
 /* The whole hover state: the plate catches a little more light. */
 .btn--silver:hover { filter: brightness(1.06); }
 
-.field { display: flex; align-items: stretch; border: var(--rule) solid var(--ink); background: var(--plate); }
+.field {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--control);
+  border: var(--rule) solid var(--ink);
+  background: var(--plate);
+}
 .field input {
   flex: 1;
   min-width: 0;
@@ -615,6 +629,10 @@ dialog::backdrop { background: #0d0d0cad; }
   align-items: end;
 }
 .make-field { min-width: 0; }
+/* The row aligns on its baseline (`align-items: end`), so this button has to
+   claim the field's height itself -- stretching it would take the label's
+   height too. */
+.make-go { min-height: var(--control); }
 .make-field .lbl { display: block; margin-bottom: 6px; }
 .lbl-soft { color: var(--ink-faint); letter-spacing: 0.14em; }
 .make-error { margin-top: var(--s1); }

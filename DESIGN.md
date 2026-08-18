@@ -313,13 +313,15 @@ Zero radius, everywhere, without exception — buttons, fields, dialogs, avatars
 
 **The four-square mark** (four 5×5 squares in a 15×15 box, painted in `currentColor`) is the product's own glyph. It marks *atpr.to* and nothing else: the cap inside a field, the affordance inside a filled button. It is deliberately not on any icon button, because a mark that also means "control" no longer means the product.
 
-**Action glyphs** are drawn on the same 15×15 grid, from axis-aligned rectangles in `currentColor`, one per action: two overlapping plates (copy), a shaft with a three-step head (repoint), three finder squares and two loose cells (QR), five cells on the two diagonals (delete), and a pair of solid cells beside a pair of pierced ones (the rendition toggle). No icon set, no icon font — every glyph in this system is drawn from the lattice the system is made of.
+**Action glyphs** are drawn on the same 15×15 grid, from axis-aligned rectangles in `currentColor`, one per action: two overlapping plates (copy), a shaft with a three-step head (repoint), three finder squares and two loose cells (QR), five cells on the two diagonals (delete), three in a row (overflow), and a door with an arrow leaving it (sign out). No icon set and no icon font: these are ours, and they are drawn from the lattice the system is made of. The rendition toggle's sun and moon are the exception — see the No-Radius Rule.
 
 **The divider** is never a bare line: a full rule with a solid square joint at its start, and an inverted black tab naming the section at its head.
 
 ### Named Rules
 
-**The No-Radius Rule.** Nothing in this world is rounded, including focus outlines and images. If a corner needs softening, the composition is wrong.
+**The No-Radius Rule.** No *object* in this world is rounded — not a control, a dialog, an avatar, an image or a focus outline. If a corner needs softening, the composition is wrong.
+
+The rendition toggle's sun and moon are the one exception, and it is worth stating why rather than quietly allowing it. Drawn from the lattice they were consistent and unusable: at 15px a stepped crescent does not read as a moon, it reads as a low-resolution picture of one, and a control that looks like a rendering fault is worse than one that borrows a convention. Sun and moon are borrowed signs, not objects in this world, so they are drawn as circles and arcs. The logo's own mark carries an arc, so this is not foreign to the identity. Every glyph that *is* ours — copy, repoint, QR, delete, overflow — stays square.
 
 **The Pierced-Gradient Rule.** The pierced frame is always four repeating gradients. Never re-implement it as a border-image, an SVG frame, or a fixed sprite — those stretch a square instead of dropping one.
 

@@ -129,6 +129,16 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* The `hidden` attribute is the only way anything in this app is shown and
+   hidden, and the browser's own `[hidden] { display: none }` is a *user-agent*
+   rule — every author rule that sets `display` beats it, whatever its
+   specificity. `.state { display: flex }` did exactly that, so the dashboard's
+   two error lines were painted at all times as empty rectangles ruled in the
+   signal colour, and the loading line never left. The `!important` is
+   load-bearing: without it the next component that sets `display` re-breaks
+   this silently, in a way that looks like a script bug rather than a CSS one. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--ground);

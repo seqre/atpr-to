@@ -12,26 +12,32 @@ Server-rendered Rust: Axum + Askama templates (`templates/`), assets baked into 
 from `static/`. No bundler, no `package.json`, no build step for assets — adding an asset means dropping a
 file into `static/` and rebuilding.
 
-**Resolved 2026-08-17:** hand-written CSS (no framework) plus **Alpine.js 3 vendored into `static/`**, serving
-the chosen visual world. The previous stack (Pico CSS v2 + Alpine.js 3, both CDN-loaded without SRI) was
-removed on the `rebrand` branch; `static/app.css` is empty and every template is bare. Pico is not coming
-back — a classless framework's defaults would fight the committed world at every control.
+**Shipped 2026-08-18:** hand-written CSS and **vanilla JavaScript**. No framework, no bundler, no build step.
+One module (`--cell`) generates the whole spacing scale in `static/app.css`; behaviour lives in four small
+same-origin scripts (`theme.js`, `handle.js`, `wall.js`, `dashboard.js`) and native `<dialog>`.
 
-**CSP relaxation is authorized** (user decision, 2026-08-17). The policy in `src/lib.rs` is currently
-`default-src 'self'` with no `'unsafe-inline'`, which blocks three things the design needs. Planned changes,
-to be applied during implementation:
+Alpine.js was the earlier leaning and was **dropped**. Standard Alpine evaluates directive expressions with
+`new Function`, which needs `script-src 'unsafe-eval'`; the prototype showed the whole interaction set fits
+in a few hundred lines of vanilla, and for a product whose entire argument is trust, not adding string
+evaluation is worth more than the authoring convenience. Pico is not coming back either — a classless
+framework's defaults would fight the committed world at every control.
 
-| Directive | Why |
-|---|---|
-| `script-src 'self' 'unsafe-eval'` | Standard Alpine 3 evaluates directive expressions with `new Function`. The alternative is Alpine's official CSP build, which forbids inline expressions and requires `Alpine.data()` components — worth weighing before adding `unsafe-eval` |
-| `connect-src` for `wss://jetstream1.us-east.bsky.network`, `wss://jetstream2.us-east.bsky.network` | The live network feed |
-| `connect-src` for `https://plc.directory`, `https://public.api.bsky.app` | DID resolution for feed entries, and handle autocomplete on the login field |
+**CSP as shipped** (`src/lib.rs`, asserted by `test_csp_permits_what_the_app_needs_and_nothing_looser`):
 
-`style-src 'self'` and `font-src 'self'` stay strict: all CSS lives in `static/app.css` and fonts are
-vendored same-origin. `img-src 'self' https: data:` already covers avatars.
+| Directive | State | Why |
+|---|---|---|
+| `script-src 'self'` | unchanged, strict | Vanilla JS; **no `unsafe-eval`**, and a test fails if one appears |
+| `style-src 'self'`, `font-src 'self'` | strict | All CSS is `static/app.css`; fonts are vendored same-origin |
+| `connect-src` | **relaxed** | `public.api.bsky.app` (handle autocomplete), `plc.directory` (DID→handle on the wall), and both `jetstream*.us-east.bsky.network` hosts (the live feed) |
+| `form-action 'self' https:` | **relaxed — bug fix** | Sign-in 303s to the user's own PDS, and Chromium enforces `form-action` against redirect targets, so `'self'` alone blocked the navigation entirely. Predates the rebrand. **Not yet confirmed in a real Chrome against a live PDS.** |
 
-No bundler exists and none is being added: fonts and JS are dropped into `static/` and rust-embed bakes them
-into the binary.
+The endpoints are hardcoded in both the CSP and the client JS, deliberately, and edited together. Deriving
+`connect-src` from `appview_url` would look configurable while the browser's actual endpoint stayed fixed in
+the script — `appview_url` is the *server-side* avatar fetch (`src/api/ui.rs`), not the same thing.
+
+No bundler exists and none is being added: fonts, scripts and icons are dropped into `static/` and rust-embed
+bakes them into the binary. `mime_guess` already resolves every type used, so no Rust change was needed for
+any of them.
 
 ## Users
 
@@ -113,10 +119,14 @@ Constraints:
   field a build failure, not a warning.
 - **Known defect, not yet fixed:** OAuth sessions live on the Lambda instance's `/tmp`, so logins fail
   intermittently under concurrency. The failure is user-visible and needs an honest error state.
-- No favicon, apple-touch-icon, or web manifest has ever existed. A catch-all `.fallback(not_found)` *is*
-  registered (`src/lib.rs:320`), so unmatched paths return `AppError::NotFound` as JSON — the contrary claim
-  in `templates/base.html`'s TODO comment is stale. What is genuinely missing: the icon assets themselves,
-  and an HTML 404 for browser navigation rather than a JSON body.
+- **Closed 2026-08-18:** browsers navigating now get an HTML error page and `/api` still gets JSON, decided by
+  `src/api/error_page.rs` — middleware, because `AppError::into_response` cannot see the request. It keys on
+  status, so axum's own rejections, the rate limiter's 429 and the timeout's 504 are covered too.
+- **Icons, partly.** `favicon.svg`, `site.webmanifest` and a `theme-color` pair ship.
+  **`apple-touch-icon.png` does not** — it needs a rasteriser and none was available (no PIL, cairosvg,
+  rsvg-convert or ImageMagick), and declaring a link to a file that does not exist is worse than declaring
+  none. For the same reason `og:image` still points at `logo.svg`, which most link unfurlers will not render.
+  Both are owed and both need a raster produced from the mark.
 
 Terminology: **short code**, **destination**, **handle**, **short link**. Prefer these over "slug", "target",
 "username". PDS/DID/repo vocabulary is accurate but is *not* the primary user's vocabulary — use it only where
@@ -171,7 +181,19 @@ product is free and unmonetized; do not invent a business around it.
 
 ## Accessibility & Inclusion
 
-No product-specific standard has been established by the user. Two facts constrain any future work: the base
-template declares `<meta name="color-scheme" content="light dark">` (both themes are expected), and the
-previous theme toggle only existed on the dashboard, so the landing, preview, and error pages could never
-change theme — a gap worth closing rather than reproducing.
+No product-specific standard has been established by the user.
+
+**Closed 2026-08-18:** the rendition toggle moved into the shared shell, so every surface can switch — the
+previous one lived only on the dashboard, leaving the landing, preview and error pages stuck. Only an
+explicit choice is stored, so anyone who never touches it keeps following their OS.
+
+Floors built into the token layer rather than bolted on: 44px controls under a coarse pointer, 16px inputs so
+iOS does not zoom on focus, letterspaced capitals never below 11px with tracking that eases in as size falls,
+a visible skip link, square focus rings from the palette, and `prefers-reduced-motion` reducing the strike to
+a state change.
+
+**Not yet verified.** No browser tooling was available in the session that built this, so nothing here has
+been seen rendered: contrast is by construction rather than measured, and the responsive behaviour at
+320–1440 is unconfirmed. The design detector ran **degraded** — its HTML/CSS parser modules are not installed,
+so it fell back to regex and evaluated neither custom properties nor computed contrast. Its empty result is
+an undercount, not a clean bill of health.

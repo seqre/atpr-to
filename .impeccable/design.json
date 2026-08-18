@@ -1,0 +1,494 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-18T00:00:00Z",
+  "title": "Design System: atpr.to",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Lacquer Black",
+        "canonical": "#0d0d0c",
+        "tonalRamp": [
+          "#0d0d0c",
+          "#1f1e1c",
+          "#33322e",
+          "#4a4843",
+          "#666359",
+          "#87847d",
+          "#bab7b0",
+          "#edebe6"
+        ]
+      },
+      "ground": {
+        "role": "primary",
+        "displayName": "Galerie Bone",
+        "canonical": "#f0eee8",
+        "tonalRamp": [
+          "#100f0e",
+          "#22201e",
+          "#3b3833",
+          "#57534b",
+          "#7c786f",
+          "#a8a49b",
+          "#d2cfc7",
+          "#f7f6f1"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Oxide Red",
+        "canonical": "#9b2c1e",
+        "tonalRamp": [
+          "#2c0c07",
+          "#48150d",
+          "#6a1f14",
+          "#9b2c1e",
+          "#bd4632",
+          "#d4674f",
+          "#e59a89",
+          "#f5d8d1"
+        ]
+      },
+      "signal-ground": {
+        "role": "secondary",
+        "displayName": "Oxide Wash",
+        "canonical": "#9b2c1e14",
+        "tonalRamp": [
+          "#9b2c1e14",
+          "#9b2c1e1f",
+          "#9b2c1e2e",
+          "#9b2c1e3d",
+          "#9b2c1e52",
+          "#9b2c1e70",
+          "#9b2c1e99",
+          "#9b2c1ecc"
+        ]
+      },
+      "silver-mid": {
+        "role": "tertiary",
+        "displayName": "Hammered Silver",
+        "canonical": "#bab7b0",
+        "tonalRamp": [
+          "#4d4a44",
+          "#63605a",
+          "#7a776f",
+          "#87847d",
+          "#98948b",
+          "#bab7b0",
+          "#c2beb4",
+          "#e8e5dd"
+        ],
+        "note": "Galerie ramp #edebe6 / #bab7b0 / #87847d; Vitrine ramp #e8e5dd / #c2beb4 / #98948b. The ramp stays lit in the dark rendition rather than darkening with the ground, because the metal is the light source there. Measured against --silver-ink: 5.21:1 worst stop in Galerie, 6.43:1 in Vitrine."
+      },
+      "plate": {
+        "role": "neutral",
+        "displayName": "Plate",
+        "canonical": "#f7f6f1",
+        "tonalRamp": [
+          "#191817",
+          "#2a2927",
+          "#413f3a",
+          "#5c594f",
+          "#827e74",
+          "#aeaaa1",
+          "#d8d5cd",
+          "#f7f6f1"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#4a4843",
+        "tonalRamp": [
+          "#141312",
+          "#26241f",
+          "#37352f",
+          "#4a4843",
+          "#635f58",
+          "#8b877e",
+          "#b6b2a9",
+          "#e3e0d8"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "#78756d",
+        "tonalRamp": [
+          "#1c1b18",
+          "#2f2d29",
+          "#46443e",
+          "#5f5c55",
+          "#78756d",
+          "#9c998f",
+          "#c2bfb6",
+          "#e8e5dd"
+        ]
+      },
+      "hair": {
+        "role": "neutral",
+        "displayName": "Hair",
+        "canonical": "#0d0d0c26",
+        "tonalRamp": [
+          "#0d0d0c0d",
+          "#0d0d0c1a",
+          "#0d0d0c26",
+          "#0d0d0c40",
+          "#0d0d0c66",
+          "#0d0d0c8c",
+          "#0d0d0cb3",
+          "#0d0d0cd9"
+        ]
+      },
+      "silver-ink": {
+        "role": "tertiary",
+        "displayName": "Silver Ink",
+        "canonical": "#0d0d0c",
+        "tonalRamp": [
+          "#0d0d0c",
+          "#1f1e1c",
+          "#33322e",
+          "#4a4843",
+          "#666359",
+          "#87847d",
+          "#bab7b0",
+          "#edebe6"
+        ],
+        "note": "The label colour on any silver surface, and the only token whose value is identical in both renditions. It can stay fixed because the ramp beneath it stays lit in both."
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page headline. On the landing it is the address itself, at poster scale."
+      },
+      "address": {
+        "displayName": "Address / Preview Link",
+        "purpose": "The display face rendering a literal URL: mixed case, tracking nearly closed."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Sub-headings within a surface."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Empty-state and dialog headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All prose and all input text. Paragraphs cap at 68ch."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "The one light-weight paragraph under a display headline."
+      },
+      "note": {
+        "displayName": "Note",
+        "purpose": "Hints, disclaimers, empty-state prose. Caps at 62ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field and fact labels, counts. The 11px floor of the display face."
+      },
+      "code": {
+        "displayName": "Short Code",
+        "purpose": "A user's chosen short code wherever it appears."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "The literal atproto record and inline lexicon mentions: machine text shown as machine text."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The only curve in the system. Exponential ease-out: fast departure, long settle."
+      },
+      {
+        "name": "quick",
+        "value": "0.24s",
+        "purpose": "State transitions on controls (button inversion, icon-button fill, field focus)."
+      },
+      {
+        "name": "settle",
+        "value": "0.62s",
+        "purpose": "Duration of the strike keyframe."
+      },
+      {
+        "name": "strike",
+        "value": "@keyframes strike { 0% { transform: scale(0.42); background: transparent; } 55% { transform: scale(1.06); } 100% { transform: scale(1); background: var(--ink); } }",
+        "purpose": "The one authored motion: a cell being struck as a record is written. Used at every scale; reduces to a state change under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "cell-9",
+        "value": "479px"
+      },
+      {
+        "name": "signin-stack",
+        "value": "599px"
+      },
+      {
+        "name": "cell-10",
+        "value": "767px"
+      },
+      {
+        "name": "two-col-collapse",
+        "value": "899px"
+      },
+      {
+        "name": "cell-11",
+        "value": "1023px"
+      },
+      {
+        "name": "shell-max",
+        "value": "1180px"
+      }
+    ],
+    "module": {
+      "token": "--cell",
+      "steps": [
+        {
+          "upTo": "none",
+          "value": "12px"
+        },
+        {
+          "upTo": "1023px",
+          "value": "11px"
+        },
+        {
+          "upTo": "767px",
+          "value": "10px"
+        },
+        {
+          "upTo": "479px",
+          "value": "9px"
+        }
+      ],
+      "note": "Stepped, never fluid. The lattice re-counts its squares as the viewport narrows; it never stretches one. The square drawing unit --sq drops 5px to 4px at 767px."
+    },
+    "verification": {
+      "rendered": false,
+      "note": "No browser tooling existed in the session that built this. Nothing here has been seen rendered and 320-1440 responsive behaviour is unconfirmed; contrast is by construction rather than measured, with one exception — the silver material's ramp against its label ink IS measured, at 5.21:1 worst stop in Galerie and 6.43:1 in Vitrine. The design detector ran degraded (HTML/CSS parser modules missing, regex fallback, no custom-property or computed-contrast evaluation), so its empty result is an undercount, not a clean bill of health.",
+      "measured": {
+        "silver-galerie-worst": "5.21:1",
+        "silver-vitrine-worst": "6.43:1",
+        "silver-vitrine-worst-before-fix": "1.91:1"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default control: a squared ink rule that inverts to solid ink on hover.",
+      "html": "<button class=\"ds-btn\">Sign out</button>",
+      "css": ".ds-btn { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; background: transparent; color: var(--ink, #0d0d0c); cursor: pointer; transition: background 0.24s cubic-bezier(0.16,1,0.3,1), color 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn:hover { background: var(--ink, #0d0d0c); color: var(--ground, #f0eee8); } .ds-btn:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
+    },
+    {
+      "name": "Filled Button",
+      "kind": "button",
+      "refersTo": "button-fill",
+      "description": "The primary action. Solid ink at rest; hover trades places with the ghost variant rather than darkening.",
+      "html": "<button class=\"ds-btn-fill\">Write it <svg width=\"15\" height=\"15\" viewBox=\"0 0 15 15\" aria-hidden=\"true\"><g fill=\"currentColor\"><rect x=\"1\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"1\" y=\"9\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"9\" width=\"5\" height=\"5\"/></g></svg></button>",
+      "css": ".ds-btn-fill { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; background: var(--ink, #0d0d0c); color: var(--ground, #f0eee8); cursor: pointer; transition: background 0.24s cubic-bezier(0.16,1,0.3,1), color 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn-fill svg { display: block; } .ds-btn-fill:hover { background: transparent; color: var(--ink, #0d0d0c); } .ds-btn-fill:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destruction only. The single place the oxide red is allowed on a control.",
+      "html": "<button class=\"ds-btn-danger\">Delete</button>",
+      "css": ".ds-btn-danger { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--signal, #9b2c1e); border-radius: 0; background: transparent; color: var(--signal, #9b2c1e); cursor: pointer; transition: background 0.24s cubic-bezier(0.16,1,0.3,1), color 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn-danger:hover { background: var(--signal, #9b2c1e); color: var(--ground, #f0eee8); } .ds-btn-danger:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
+    },
+    {
+      "name": "Silver Button",
+      "kind": "button",
+      "refersTo": "button-silver",
+      "description": "The hammered material as the face of a pressed object. The secondary action beside a filled primary; currently one instance, the QR dialog's download action. The one button that does not invert on hover — the plate just catches more light.",
+      "html": "<a class=\"ds-btn-silver\" href=\"#\" download>Download SVG</a>",
+      "css": ".ds-btn-silver { font-family: \"Cinzel\", Georgia, serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 11px 24px; min-height: 40px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; text-decoration: none; cursor: pointer; color: var(--silver-ink, #0d0d0c); background-color: var(--silver-mid, #bab7b0); background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E\"), radial-gradient(circle at 22% 18%, #ffffffb0, transparent 46%), repeating-radial-gradient(circle at 50% 50%, #ffffff12 0 3px, #00000012 3px 7px), linear-gradient(148deg, var(--silver-hi, #edebe6) 0%, var(--silver-mid, #bab7b0) 38%, var(--silver-lo, #87847d) 58%, var(--silver-mid, #bab7b0) 78%, var(--silver-hi, #edebe6) 100%); background-blend-mode: overlay, screen, overlay, normal; transition: filter 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-btn-silver:hover { filter: brightness(1.06); } .ds-btn-silver:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A ruled box on plate with a squared cap carrying the four-square mark. Focuses as one object.",
+      "html": "<div class=\"ds-field\"><input type=\"text\" placeholder=\"alice.bsky.social\"><span class=\"ds-field-cap\" aria-hidden=\"true\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 15 15\"><g fill=\"currentColor\"><rect x=\"1\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"1\" y=\"9\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"9\" width=\"5\" height=\"5\"/></g></svg></span></div>",
+      "css": ".ds-field { display: flex; align-items: stretch; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; background: var(--plate, #f7f6f1); color: var(--ink, #0d0d0c); } .ds-field input { flex: 1; min-width: 0; border: 0; background: transparent; color: inherit; font-family: \"Jost\", system-ui, sans-serif; font-size: 16px; padding: 11px 12px; outline: 0; } .ds-field input::placeholder { color: var(--ink-faint, #78756d); } .ds-field:focus-within { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 2px; } .ds-field-cap { display: flex; align-items: center; padding: 0 10px; border-left: 1.5px solid var(--ink, #0d0d0c); }"
+    },
+    {
+      "name": "Section Tab Row",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "The world's section heading: an inverted black tab, a square joint, and a rule running out to the edge.",
+      "html": "<div class=\"ds-tabrow\"><span class=\"ds-tab\">Your links</span><span class=\"ds-joint\"></span><span class=\"ds-line\"></span></div>",
+      "css": ".ds-tabrow { display: flex; align-items: center; gap: 12px; } .ds-tab { display: inline-block; background: var(--ink, #0d0d0c); color: var(--ground, #f0eee8); padding: 5px 12px 4px; font-family: \"Cinzel\", Georgia, serif; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 600; } .ds-joint { width: 7px; height: 7px; background: var(--ink, #0d0d0c); flex: none; } .ds-line { flex: 1; height: 1.5px; background: var(--ink, #0d0d0c); }"
+    },
+    {
+      "name": "Error State Line",
+      "kind": "custom",
+      "refersTo": "state-error",
+      "description": "States print themselves in the system's own voice: a ruled row, a Cinzel label, a plain sentence. No toasts.",
+      "html": "<p class=\"ds-state ds-state-err\"><span class=\"ds-state-lbl\">Taken</span> <span>That code already exists in your repository. Try another one.</span></p>",
+      "css": ".ds-state { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin: 0; padding: 10px 24px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; font-family: \"Jost\", system-ui, sans-serif; font-size: 16px; line-height: 1.55; } .ds-state-lbl { flex: none; font-family: \"Cinzel\", Georgia, serif; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 600; color: inherit; } .ds-state-err { border-color: var(--signal, #9b2c1e); color: var(--signal, #9b2c1e); background: var(--signal-ground, #9b2c1e14); }"
+    },
+    {
+      "name": "Struck Cell Lattice",
+      "kind": "custom",
+      "refersTo": "cell-on",
+      "description": "The signature object. An open square is a cell; a filled square is a record. The strike plays when one is written.",
+      "html": "<div class=\"ds-lattice\" aria-hidden=\"true\"><span class=\"ds-cell ds-on ds-strike\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell ds-on\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span><span class=\"ds-cell\"></span></div>",
+      "css": ".ds-lattice { display: grid; grid-template-columns: repeat(5, 24px); gap: 5px; width: max-content; } .ds-cell { aspect-ratio: 1; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; background: transparent; } .ds-cell.ds-on { background: var(--ink, #0d0d0c); } .ds-cell.ds-strike { animation: ds-strike 0.62s cubic-bezier(0.16,1,0.3,1) both; } @keyframes ds-strike { 0% { transform: scale(0.42); background: transparent; } 55% { transform: scale(1.06); } 100% { transform: scale(1); background: var(--ink, #0d0d0c); } } @media (prefers-reduced-motion: reduce) { .ds-cell.ds-strike { animation-duration: 0.01ms; } }"
+    },
+    {
+      "name": "Pierced Plate",
+      "kind": "card",
+      "refersTo": null,
+      "description": "The ceremonial container: a run of squares on all four edges, drawn as four repeating gradients so it re-counts its own squares as it narrows.",
+      "html": "<div class=\"ds-pierced\"><div class=\"ds-plate\"><h3 class=\"ds-plate-title\">Nothing written yet</h3><p class=\"ds-plate-note\">Your first link goes into your own repository. It stays yours, and it travels with your account.</p></div></div>",
+      "css": ".ds-pierced { --f: var(--ink, #0d0d0c); --sq: 5px; background-image: repeating-linear-gradient(to right, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)), repeating-linear-gradient(to right, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)), repeating-linear-gradient(to bottom, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)), repeating-linear-gradient(to bottom, var(--f) 0 var(--sq), transparent var(--sq) calc(var(--sq) * 2)); background-size: 100% var(--sq), 100% var(--sq), var(--sq) 100%, var(--sq) 100%; background-position: 0 0, 0 100%, 0 0, 100% 0; background-repeat: no-repeat; padding: 12px; } .ds-plate { background: var(--plate, #f7f6f1); color: var(--ink, #0d0d0c); padding: 48px 36px; text-align: center; } .ds-plate-title { margin: 0; font-family: \"Cinzel\", Georgia, serif; font-size: 14px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.35; } .ds-plate-note { margin: 12px auto 0; max-width: 62ch; font-family: \"Jost\", system-ui, sans-serif; font-size: 13px; line-height: 1.55; color: var(--ink-faint, #78756d); }"
+    },
+    {
+      "name": "Rack Row",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The dense list row: struck cell, Cinzel short code over a truncated destination, timestamp, actions. Identical rows so the rack reads in one sweep.",
+      "html": "<li class=\"ds-rackrow\"><span class=\"ds-rackrow-cell\"></span><span class=\"ds-rackrow-body\"><a class=\"ds-rackrow-code\" href=\"#\">RUST</a><a class=\"ds-rackrow-dest\" href=\"#\">https://doc.rust-lang.org/book/</a></span><span class=\"ds-rackrow-when\">2026-08-18T09:42:00Z</span><span class=\"ds-rackrow-acts\"><button class=\"ds-icobtn\" aria-label=\"QR code\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 15 15\" aria-hidden=\"true\"><g fill=\"currentColor\"><rect x=\"1\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"1\" width=\"5\" height=\"5\"/><rect x=\"1\" y=\"9\" width=\"5\" height=\"5\"/><rect x=\"9\" y=\"9\" width=\"5\" height=\"5\"/></g></svg></button></span></li>",
+      "css": ".ds-rackrow { list-style: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 12px 24px; align-items: center; padding: 12px 24px; border: 1.5px solid var(--ink, #0d0d0c); font-family: \"Jost\", system-ui, sans-serif; color: var(--ink, #0d0d0c); } .ds-rackrow:hover { background: color-mix(in srgb, var(--ink, #0d0d0c) 5%, transparent); } .ds-rackrow-cell { width: 14px; aspect-ratio: 1; background: var(--ink, #0d0d0c); flex: none; } .ds-rackrow-body { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; } .ds-rackrow-code { font-family: \"Cinzel\", Georgia, serif; font-size: 15px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-rackrow-code:hover { text-decoration: underline; } .ds-rackrow-dest { font-size: 13px; color: var(--ink-soft, #4a4843); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-rackrow-when { font-size: 12px; color: var(--ink-faint, #78756d); white-space: nowrap; font-variant-numeric: tabular-nums; } .ds-icobtn { border: 1.5px solid var(--hair, #0d0d0c26); border-radius: 0; background: transparent; color: var(--ink, #0d0d0c); cursor: pointer; padding: 6px; line-height: 0; transition: border-color 0.24s cubic-bezier(0.16,1,0.3,1), background 0.24s cubic-bezier(0.16,1,0.3,1), color 0.24s cubic-bezier(0.16,1,0.3,1); } .ds-icobtn:hover { border-color: var(--ink, #0d0d0c); background: var(--ink, #0d0d0c); color: var(--ground, #f0eee8); } .ds-icobtn:focus-visible { outline: 1.5px solid var(--ink, #0d0d0c); outline-offset: 3px; }"
+    },
+    {
+      "name": "QR Plate",
+      "kind": "card",
+      "refersTo": "qr-plate",
+      "description": "A QR code is a pierced square lattice, so it is the preview page's hero material. Pins black on white in both renditions because a light-on-dark code fails on a lot of scanners.",
+      "html": "<div class=\"ds-qr-plate\" role=\"img\" aria-label=\"QR code\"><svg viewBox=\"0 0 8 8\" aria-hidden=\"true\"><g fill=\"currentColor\"><rect x=\"0\" y=\"0\" width=\"3\" height=\"3\"/><rect x=\"5\" y=\"0\" width=\"3\" height=\"3\"/><rect x=\"0\" y=\"5\" width=\"3\" height=\"3\"/><rect x=\"4\" y=\"4\" width=\"1\" height=\"1\"/><rect x=\"6\" y=\"5\" width=\"1\" height=\"1\"/><rect x=\"5\" y=\"7\" width=\"1\" height=\"1\"/><rect x=\"7\" y=\"6\" width=\"1\" height=\"1\"/></g></svg></div>",
+      "css": ".ds-qr-plate { background: #fff; color: #000; padding: 24px; border: 1.5px solid var(--ink, #0d0d0c); border-radius: 0; flex: none; width: max-content; } .ds-qr-plate svg { display: block; width: 240px; height: auto; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Gridsmith",
+    "overview": "A Wiener Werkstätte pierced lattice, built as a real object rather than a page decoration. One module — a single cell — generates every measurement in the system; squares either fill solid or stay pierced open, rules are drawn in lacquer black at a hairline weight, and nothing is round, soft, or floated. The world's argument is structural: a short link here is a record its author owns, so the interface is made of parts that visibly count, join, and lock rather than parts that glow.\n\nThe register is bolder than a utility shortener usually risks. Cinzel capitals run letterspaced at poster scale on the landing address and the preview link — size is billing, and the link is the subject of its own page — while Jost carries every sentence, field, and dense row beneath it. Density is deliberately high in the working surfaces (the dashboard rack, the live wall) and deliberately open in the reading surfaces (the landing, the preview, the error page), and both are the same grid at different counts. Two renditions ship: Galerie, gallery white ruled in black, and Vitrine, the same objects in a case at night. Vitrine is not an inversion — ink and ground swap, but the silver stops being a surface and becomes the light source, so its ramp stays lit rather than darkening with the ground around it.\n\nConfirmed rejections, from the direction contract the build carries in its own markup: no centred paste-box on white, and no terminal green. There is no decorative accent anywhere; the one chromatic value in the palette is reserved for destruction and error, and spending it on anything else empties it.",
+    "keyCharacteristics": [
+      "One module (--cell) generates the entire spacing scale; there is no second scale",
+      "Zero corner radius everywhere, including focus rings and dialogs",
+      "Squares that fill or stay open are the system's only ornament",
+      "Two renditions, neither an inversion of the other",
+      "One chromatic value, semantic only",
+      "One authored motion, used at every scale",
+      "Hand-written CSS in a single file; no framework, no bundler, no build step"
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Oxide red means destruction or failure. It is never a brand accent, never a hover, never a highlight, never a link colour. A screen with nothing broken on it has no red on it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Complete Palette Rule",
+        "body": "Every colour is declared on bare :root first and only redefined under a rendition selector. A visitor on \"system\" with no stored choice must land on a complete palette, never a partial one.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lit Metal Rule",
+        "body": "Vitrine is not an inversion. Ink and ground swap around the silver; the silver itself does not follow them down, because in a night vitrine the metal is the light source rather than a surface taking light. Its ramp brightens in the dark rendition (#e8e5dd / #c2beb4 / #98948b against Galerie's #edebe6 / #bab7b0 / #87847d), and that is also what keeps its dark label legible: 6.43:1 at the worst stop, measured, against 5.21:1 in Galerie. A ramp that darkened with the ground reached 1.91:1 and could carry no label at all — which is the whole reason the material had nowhere to live. Never generate the dark rendition by inverting the light one.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pinned Ink Rule",
+        "body": "The QR container pins pure black on pure white in both renditions. The QR fragment paints in currentColor on a transparent ground precisely so its container decides — a light-on-dark code fails on a meaningful share of scanners, and consistency with the surrounding page is not worth a link that will not scan.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Roles Rule",
+        "body": "Cinzel sets display, labels, and short codes — anything that names. Jost sets body, UI, and dense data — anything that explains or lists. A destination URL, a handle, and a timestamp are Jost; a short code is Cinzel. There is no third assignment.",
+        "section": "typography"
+      },
+      {
+        "name": "The 11px Floor Rule",
+        "body": "Letterspaced capitals never go below 11px, and tracking eases in as size falls (0.24em at 11px, 0.16em at display size). Below the floor the tracking closes and the caps become noise.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Anything countable or comparable carries tabular numerals: counts, statuses, timestamps.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Module Rule",
+        "body": "Every space is a multiple of the cell. If a value cannot be expressed as var(--s1..s9), it is not a space — it is a drawing unit and must be justified as one.",
+        "section": "layout"
+      },
+      {
+        "name": "The Re-Count Rule",
+        "body": "Responsive change happens by counting differently, not by scaling. Step the module at a breakpoint; never make it fluid.",
+        "section": "layout"
+      },
+      {
+        "name": "The Contained Scroll Rule",
+        "body": "Wide content scrolls inside its own container; the page body never scrolls sideways. Long destinations truncate with an ellipsis and never wrap the layout.",
+        "section": "layout"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "Objects are separated by rules and tone. Never add a drop shadow, a glow, a blur, or a lifted card; there is no light source in Galerie and the only one in Vitrine is the silver itself.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Full Rule / Hair Rule",
+        "body": "A container's own edge is a full rule in ink. Divisions inside a container are hair. Mixing them flattens the hierarchy the system uses instead of elevation.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No-Radius Rule",
+        "body": "Nothing in this world is rounded, including focus outlines and images. If a corner needs softening, the composition is wrong.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Pierced-Gradient Rule",
+        "body": "The pierced frame is always four repeating gradients. Never re-implement it as a border-image, an SVG frame, or a fixed sprite — those stretch a square instead of dropping one.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Pressed Metal Rule",
+        "body": "Wiener Werkstätte is metalwork, so the one place a hammered surface belongs is an object you press: a struck plate rather than a painted rectangle. Silver is the secondary-action material — never a panel, never a page ground, never a decorative fill, and never the primary action.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Held Material Rule",
+        "body": "The silver rule's position in the stylesheet is load-bearing, not housekeeping. It dresses a control whose own hover state fills with ink at (0,2,0), which a bare .silver class at (0,1,0) can never beat, so the material is declared after the controls section with .btn--silver:hover in its own selector list — re-asserted at equal specificity and later in source order. Any reorder that moves the material back above the controls silently strips it on hover and leaves a fixed dark label on the ground behind it. When a material dresses a stateful control, it is declared after that control's states.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do derive every space from the module (12/24/36/48/72/108px at desktop), and step the module at a breakpoint rather than making it fluid.",
+      "Do draw the pierced frame as four repeating gradients so it re-counts its squares.",
+      "Do keep the two type roles absolute: Cinzel names things, Jost explains them.",
+      "Do hold letterspaced capitals at 11px or larger, easing tracking in as size falls.",
+      "Do separate containers with a full ink rule and their internal rows with hair.",
+      "Do define every colour on bare :root first, then redefine only what changes per rendition.",
+      "Do pin black-on-white inside the QR container in both renditions.",
+      "Do use the struck cell — and only the struck cell — to say a record exists.",
+      "Do put the hammered silver only on something you press, and keep its label on the fixed silver ink.",
+      "Do restore the touch floor under a coarse pointer (44px controls, 14px icon-button padding).",
+      "Do keep all CSS in static/app.css and all script same-origin: default-src 'self' with no unsafe-inline and no unsafe-eval is a hard constraint, and there is no bundler to generate a hash."
+    ],
+    "donts": [
+      "Don't spend the oxide red on anything but destruction and error. It is not an accent.",
+      "Don't add a shadow, glow, blur, or lifted card. Depth is rules and tone.",
+      "Don't round a corner — not on a control, a dialog, an avatar, or a focus ring.",
+      "Don't build the dark rendition by inverting the light one, and don't let the silver ramp darken with the ground — it is the light source, and darkening it takes its label to 1.91:1.",
+      "Don't spread the silver across panels, grounds, or decorative fills. It is a pressed object's material, and it is the secondary action, never the primary one.",
+      "Don't introduce a second spacing scale, a second ease, or a second animation. One module, one curve (cubic-bezier(0.16, 1, 0.3, 1) at 240ms/620ms), one strike.",
+      "Don't add an icon set or icon font. The four-square mark painted in currentColor is the only glyph, and the logo mark is monochrome by rule — it never takes the signal colour and is never recoloured, distorted, or given effects.",
+      "Don't stack the section tab above a heading as a kicker or eyebrow. The tab is the section heading; it never introduces another one.",
+      "Don't use a toast, an alert(), or borrowed modal chrome to report a state. States print as ruled lines in the system's own voice.",
+      "Don't inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one."
+    ],
+    "notCanonized": "The wordmark ships on Cinzel although the binding wordmark type is Now Bold with Inter/Helvetica/system-bold fallbacks and no Now file exists in this repository — a flagged substitution, not a typographic decision, and Cinzel is not the wordmark's face."
+  }
+}

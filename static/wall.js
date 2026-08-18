@@ -78,8 +78,46 @@
       });
   }
 
-  function add(did, code) {
-    var key = did + "/" + code;
+  /* What each operation is called, and how its cell behaves.
+   *
+   * A create fills a cell and strikes it, which is the motion the dashboard
+   * uses when you write your own. An update strikes an already-filled cell,
+   * because the record was there before and still is. A delete leaves the cell
+   * pierced open -- the world's own duality doing the work, with no second
+   * colour and no icon.
+   *
+   * Oxide red is *not* used for a delete. It means destruction the visitor is
+   * doing or has suffered; a stranger removing their own link is neither, and
+   * spending the one chromatic value on other people's routine housekeeping
+   * would empty it. */
+  var OPERATIONS = {
+    create: { verb: "wrote a link", cell: "cellsq on strike" },
+    update: { verb: "repointed one", cell: "cellsq on strike" },
+    delete: { verb: "deleted one", cell: "cellsq" },
+  };
+
+  /* Who, and what they did. Deliberately not *what the link is*.
+   *
+   * The short code and the destination are both written by a stranger and are
+   * shown to everyone who loads the front page. That is an open invitation:
+   * a code reading `paypal-verify`, a destination on a domain that only has to
+   * look plausible for the length of a glance. Escaping them is not the
+   * problem -- `textContent` handles that -- the problem is that publishing an
+   * unreviewed stranger's chosen words on our homepage lends them this site's
+   * credibility, and no amount of escaping fixes that.
+   *
+   * A handle is not the same risk: it is a domain somebody had to register or
+   * a DID they had to control, and it is the fact this panel is actually
+   * demonstrating -- that real accounts across the network are writing these
+   * records. The verb is ours.
+   *
+   * `code` still identifies the event for de-duplication. It is never rendered. */
+  function add(did, code, operation) {
+    var op = OPERATIONS[operation];
+    if (!op) return;
+
+    // A link repointed twice is two events; the same event arriving twice is not.
+    var key = did + "/" + code + "/" + operation;
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -87,8 +125,7 @@
     li.className = "wall-item";
 
     var cell = document.createElement("span");
-    // The strike: the same motion the dashboard uses when you write your own.
-    cell.className = "cellsq on strike";
+    cell.className = op.cell;
     li.appendChild(cell);
 
     var text = document.createElement("span");
@@ -99,10 +136,10 @@
     who.textContent = "…";
     text.appendChild(who);
 
-    var codeEl = document.createElement("span");
-    codeEl.className = "wall-code";
-    codeEl.textContent = code;
-    text.appendChild(codeEl);
+    var verb = document.createElement("span");
+    verb.className = "wall-verb lbl";
+    verb.textContent = op.verb;
+    text.appendChild(verb);
 
     li.appendChild(text);
     list.insertBefore(li, list.firstChild);
@@ -155,9 +192,8 @@
       var c = msg && msg.commit;
       if (!c || !msg.did) return;
       if (c.collection !== COLLECTION) return;
-      if (c.operation !== "create" && c.operation !== "update") return;
       if (!c.rkey) return;
-      add(msg.did, c.rkey);
+      add(msg.did, c.rkey, c.operation);
     });
 
     // Either can fire, and both can fire in sequence for one failure.

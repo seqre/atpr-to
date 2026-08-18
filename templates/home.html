@@ -46,7 +46,7 @@
         <button class="btn btn--fill" type="submit">Sign in</button>
       </div>
       <p class="note" id="handle-hint">
-        Any AT Protocol account works — Bluesky or your own server. You will
+        Any Atmosphere account works — Bluesky, or your own server. You will
         approve the sign-in on the server that holds your account.
       </p>
     </form>
@@ -54,7 +54,10 @@
 
   <aside class="wall" aria-labelledby="wall-title">
     <div class="tabrow">
-      <span class="tab" id="wall-title">Being written now</span>
+      {# "Being written now" was accurate while the panel only showed creates.
+         It also carries repoints and deletions now, so the label had to widen
+         or start contradicting the rows underneath it. #}
+      <span class="tab" id="wall-title">Happening right now</span>
       <span class="joint"></span>
       <span class="line"></span>
     </div>
@@ -85,9 +88,9 @@
   <div class="record-grid">
     <div class="stack-s">
       <p>
-        Your Bluesky account already comes with storage of your own — the same
-        place your posts are kept. Making a short link puts one small entry in
-        there: the code you chose, and where it should go.
+        Your Atmosphere account already comes with storage of your own — the
+        same place your posts are kept. Making a short link puts one small
+        entry in there: the code you chose, and where it should go.
       </p>
       <p>
         That entry is yours. You can point it somewhere else or delete it

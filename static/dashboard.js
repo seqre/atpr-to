@@ -14,6 +14,12 @@
 
   var PAGE = 50;
 
+  /* Sort controls appear past this many links, and not before: with a handful
+     of links the newest-first order *is* the answer, and a control for
+     reordering four rows is furniture that has to be read before it can be
+     ignored. */
+  var SORT_FROM = 10;
+
   var rack = document.getElementById("rack");
   if (!rack) return;
 
@@ -22,6 +28,8 @@
   var codeInput = document.getElementById("code");
   var makeError = document.getElementById("make-error");
   var filter = document.getElementById("filter");
+  var sort = document.getElementById("sort");
+  var sortWrap = document.getElementById("rack-sort");
   var loading = document.getElementById("rack-loading");
   var rackError = document.getElementById("rack-error");
   var empty = document.getElementById("rack-empty");
@@ -325,6 +333,33 @@
     return b;
   }
 
+  /* Ordering happens over what has been loaded, which is every link for
+     everyone with fewer than a page of them. Past that, "Code A–Z" means A–Z
+     within the pages fetched so far, not across the whole repository -- the PDS
+     paginates in rkey order and re-sorting server-side is not on offer. Load
+     more, and it re-sorts over the larger set.
+   *
+     `updated_at` may be absent or unparseable, so a missing date sorts last
+     rather than being read as the epoch, which would put it first under
+     "Oldest". */
+  function ordered(list) {
+    var mode = sort ? sort.value : "new";
+    if (mode === "new" || mode === "old") {
+      var dir = mode === "new" ? -1 : 1;
+      return list.slice().sort(function (a, b) {
+        var ta = Date.parse(a.updated_at || "");
+        var tb = Date.parse(b.updated_at || "");
+        if (isNaN(ta) && isNaN(tb)) return 0;
+        if (isNaN(ta)) return 1;
+        if (isNaN(tb)) return -1;
+        return (ta - tb) * dir;
+      });
+    }
+    return list.slice().sort(function (a, b) {
+      return a.code.localeCompare(b.code);
+    });
+  }
+
   function draw() {
     // The rack is about to be rebuilt, so any open menu's element is on its way
     // out; leaving `openMenu` pointing at it would leak a detached node and
@@ -337,6 +372,9 @@
           return (l.code + " " + l.url).toLowerCase().indexOf(q) !== -1;
         })
       : links;
+
+    hits = ordered(hits);
+    show(sortWrap, links.length > SORT_FROM);
 
     rack.innerHTML = "";
     hits.forEach(function (l) {
@@ -588,6 +626,7 @@
   });
 
   filter.addEventListener("input", draw);
+  if (sort) sort.addEventListener("change", draw);
   moreBtn.addEventListener("click", function () {
     moreBtn.disabled = true;
     load(true).finally(function () {

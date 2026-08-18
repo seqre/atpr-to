@@ -93,7 +93,18 @@
     <span class="rack-count num lbl" id="rack-count"></span>
   </div>
 
+  {# Sort appears only once a rack is long enough to need it -- see SORT_FROM
+     in dashboard.js. Below that the newest-first order is the answer, and a
+     control that reorders four things is furniture. #}
   <div class="rack-tools">
+    <div class="field rack-sort" id="rack-sort" hidden>
+      <label class="visually-hidden" for="sort">Order</label>
+      <select id="sort">
+        <option value="new">Newest first</option>
+        <option value="old">Oldest first</option>
+        <option value="code">Code A–Z</option>
+      </select>
+    </div>
     <div class="field rack-filter">
       <label class="visually-hidden" for="filter">Filter your links</label>
       <input type="text" id="filter" placeholder="Filter" autocomplete="off">

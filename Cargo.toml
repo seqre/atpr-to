@@ -42,7 +42,10 @@ serde_json = "1.0"
 # 0.9 rather than 0.10 so this shares a copy with jacquard-common.
 rand = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-time = "0.3"
+# `parsing`/`formatting`/`macros` are for the preview page's date, which arrives
+# as an ISO-8601 string from a record and is shown to a stranger. Cookie expiry
+# (axum-extra) needs none of them, which is why they were not on before.
+time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread", "sync"] }
 thiserror = "2"
 tower = "0.5"

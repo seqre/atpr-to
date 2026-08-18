@@ -13,6 +13,12 @@ colors:
   signal: "#9b2c1e"
   signal-ground: "#9b2c1e14"
 typography:
+  wordmark:
+    fontFamily: "Now, Cinzel, Georgia, 'Times New Roman', serif"
+    fontSize: "21px"
+    fontWeight: 700
+    lineHeight: 1.55
+    letterSpacing: "0.03em"
   display:
     fontFamily: "Cinzel, Georgia, 'Times New Roman', serif"
     fontSize: "clamp(28px, 5.2vw, 56px)"
@@ -57,10 +63,10 @@ typography:
     letterSpacing: "0.24em"
   control:
     fontFamily: "Cinzel, Georgia, 'Times New Roman', serif"
-    fontSize: "12px"
-    fontWeight: 600
+    fontSize: "13px"
+    fontWeight: 700
     lineHeight: 1.35
-    letterSpacing: "0.2em"
+    letterSpacing: "0.16em"
   meta:
     fontFamily: "Jost, system-ui, -apple-system, 'Segoe UI', sans-serif"
     fontSize: "12px"
@@ -185,9 +191,11 @@ The register is bolder than a utility shortener usually risks. Cinzel capitals r
 
 Confirmed rejections, from the direction contract the build carries in its own markup: no centred paste-box on white, and no terminal green. There is no decorative accent anywhere; the one chromatic value in the palette is reserved for destruction and error, and spending it on anything else empties it.
 
-**Partly verified, and the record says which parts.** Every surface has now been seen running in Chrome at 1536px in both renditions, signed in against a real PDS: the landing page, the dashboard with a real link in the rack, the QR dialog, the link preview, and the error page. The four small greys were *measured* after that look, not judged — the faint step had been failing AA in both renditions at 4.03:1 and 4.25:1, and the whole grey ramp was rebuilt around a 5:1 floor (see Colors). Contrast for the ink-on-ground pairs is still by construction rather than measured, but those are near-black on off-white and their swap, at 16:1.
+**Verified, and the record says how.** Every surface has been seen running in Chrome against a real PDS — landing, dashboard with real links in the rack, QR dialog, link preview, error pages — and the widths have now been *measured* rather than asserted. A headless Chrome loaded all four surfaces at 320 / 375 / 390 / 768 / 1024 / 1440 in both renditions: no page scrolls sideways, nothing escapes its container, no letterspaced capital falls below the 11px floor, and the smallest visible control is 29px square. That pass earned its keep by finding two defects — the dashboard masthead laid out 344px wide inside a 320px viewport, taking the rendition toggle off-screen, and the sign-out button was being squeezed to 18px through the form wrapping it.
 
-**Still unverified:** everything about width. The 320–1440 responsive pass has not happened — the browser connection available for this work refuses to resize its window — so every breakpoint claim in the Layout section below is a claim about the stylesheet, not an observation. The design detector also ran degraded (its HTML/CSS parser modules were missing and it fell back to regex, evaluating neither custom properties nor computed contrast), so its empty result is an undercount, not a clean bill of health.
+The greys are measured, not judged: the faint step had been failing AA in both renditions at 4.03:1 and 4.25:1, and the whole ramp was rebuilt around a 5:1 floor (see Colors). Interaction was exercised live: sign-in through a real authorization server, create, copy, repoint, QR, filter, sort, the overflow menu, and the rendition toggle restoring before first paint. Zero CSP violations, and all four cross-origin endpoints in `connect-src` confirmed working under the live policy.
+
+**What is still not verified:** no real device, no touch input, and no browser other than Chrome. The `(pointer: coarse)` rules that raise controls to 44px are therefore unexercised — the measurements above are all from a fine pointer. The design detector now runs with its parsers present rather than degraded, and reports nothing across the stylesheet, the templates, the scripts, and a 390px URL scan.
 
 **Key Characteristics:**
 - One module (`--cell`) generates the entire spacing scale; there is no second scale
@@ -230,6 +238,7 @@ A warm achromatic world — bone-white ground, lacquer-black ink, a metal ramp b
 
 ## Typography
 
+**Wordmark Font:** Now Bold — vendored latin subset, weight 700. It sets the wordmark and nothing else; exactly one rule names it, and Cinzel stands behind it in that one stack. Unlike the other two it is not an open licence (see `static/fonts/README.md`).
 **Display Font:** Cinzel (with Georgia, Times New Roman, serif) — vendored latin subset, weight axis 400–700
 **Body Font:** Jost (with system-ui, -apple-system, Segoe UI, sans-serif) — vendored latin subset, weight axis 300–700
 **Data Font:** the platform monospace stack (ui-monospace, SFMono-Regular, Menlo, Consolas)
@@ -245,9 +254,11 @@ A warm achromatic world — bone-white ground, lacquer-black ink, a metal ramp b
 - **Lede** (300, `clamp(16px, 1.6vw, 18px)`): The one paragraph under a display headline. Light weight, soft ink.
 - **Note** (400, 13px, faint ink, 62ch): Hints, disclaimers, empty-state prose.
 - **Label** (600, 11px, 0.24em, uppercase, display face): Field labels, fact labels, counts. The floor of the display face.
-- **Control / Meta** (12px): Two jobs at one size. Button labels take it in the display face at 0.2em uppercase — one step above the label floor, because a control has to be read at a glance and pressed correctly the first time. Secondary metadata takes it in the body face, unspaced and in faint ink: a suggestion's display name, a row's timestamp. Nothing that a visitor must read to understand the page ever sits here.
+- **Control** (700, 13px, 0.16em, uppercase, display face): Button labels. Two steps above the label floor and at the top of Cinzel's weight axis, because a control has to be read at a glance and pressed correctly the first time. It sat at 12px/600/0.2em and was hard to read: letterspacing that opens a label up also thins it out, so the size and weight have to pay for the tracking.
+- **Meta** (12px, body face, unspaced, faint ink): Secondary metadata — a suggestion's display name, a row's timestamp. Nothing a visitor must read to understand the page sits here.
 - **Short Code** (600, 15px, 0.1em–0.12em, uppercase, display face): A user's chosen code, wherever it appears — rack row, wall row, preview fact.
-- **Data** (400, 13px, 1.85, monospace): The literal atproto record on the landing page, and inline `to.atpr.link` mentions. The only place a third face is allowed, because it is showing machine text as machine text.
+- **Data** (400, 13px, 1.85, monospace): The literal atproto record on the landing page, and inline `to.atpr.link` mentions. The one place a face outside the system is allowed, because it is showing machine text as machine text.
+- **Wordmark** (700, 21px, 0.03em, Now Bold, lowercase): The lockup, and only the lockup. It takes far less tracking than the display face because it is a geometric sans and not inscriptional capitals — the air Cinzel needed at this size closes up here.
 
 ### Named Rules
 

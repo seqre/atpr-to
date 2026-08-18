@@ -144,6 +144,10 @@
       }
     },
     "typographyMeta": {
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "Now Bold at 21px, 0.03em, lowercase. The lockup and only the lockup -- one rule names this face. It takes far less tracking than the display face because it is a geometric sans rather than inscriptional capitals: the air Cinzel needed at this size closes up here. Not an open licence, unlike the other two vendored faces."
+      },
       "display": {
         "displayName": "Display",
         "purpose": "Page headline. On the landing it is the address itself, at poster scale."
@@ -177,8 +181,8 @@
         "purpose": "Field and fact labels, counts. The 11px floor of the display face."
       },
       "control": {
-        "displayName": "Control / Meta",
-        "purpose": "One size, two jobs. Button labels in the display face at 0.2em uppercase, one step above the label floor because a control must read at a glance. Secondary metadata in the body face, unspaced and faint: a suggestion's display name, a row's timestamp. Nothing load-bearing sits here."
+        "displayName": "Control",
+        "purpose": "Button labels, 13px at weight 700 and 0.16em in the display face. Two steps above the label floor and at the top of Cinzel's axis, because a control has to be read at a glance and pressed correctly the first time. It sat at 12px/600/0.2em and was hard to read: letterspacing that opens a label up also thins it out, so size and weight have to pay for the tracking. Secondary metadata now sits in its own `meta` step rather than sharing this one."
       },
       "code": {
         "displayName": "Short Code",
@@ -262,14 +266,16 @@
     },
     "verification": {
       "rendered": true,
-      "note": "Seen running in Chrome at 1536px in both renditions, signed in against a real PDS: landing, dashboard with a real link in the rack, QR dialog, link preview, error page. Zero CSP violations, and all four cross-origin endpoints in connect-src verified working under the live policy. The grey ramp was measured after that look and rebuilt around a 5:1 floor. STILL UNVERIFIED: everything about width -- the 320-1440 responsive pass has not happened, because the browser connection available refuses to resize its window, so every breakpoint claim is a claim about the stylesheet rather than an observation. The design detector also ran degraded (HTML/CSS parser modules missing, regex fallback, no custom-property or computed-contrast evaluation), so its empty result is an undercount.",
+      "note": "Seen running in Chrome, and now measured across widths. A headless Chrome driven by puppeteer loaded all four surfaces at 320 / 375 / 390 / 768 / 1024 / 1440 in both renditions: no page scrolls sideways, nothing escapes its container, no letterspaced capital falls below the 11px floor, and the smallest visible control is 29px square. That pass found and fixed two real defects -- the dashboard masthead laid out 344px wide in a 320px viewport, and the sign-out button was squeezed to 18px through its wrapping form. Interaction was verified in the live browser against a real PDS: sign-in, create, copy, repoint, QR, filter, sort, the overflow menu, and the rendition toggle's pre-paint restore. Zero CSP violations; all four cross-origin endpoints work under the live policy. The grey ramp is measured, not judged. The design detector now runs with its parsers present rather than degraded, and reports nothing on the stylesheet, the templates, the scripts, or a 390px URL scan.",
       "measured": {
         "ink-faint-galerie-on-plate": "5.89:1",
         "ink-faint-vitrine-on-plate": "6.01:1",
         "ink-faint-galerie-before-fix": "4.25:1",
         "ink-faint-vitrine-before-fix": "4.03:1",
         "ink-soft-vitrine-on-plate": "9.76:1",
-        "ink-vitrine-on-plate": "14.86:1"
+        "ink-vitrine-on-plate": "14.86:1",
+        "widths-checked": "320 / 375 / 390 / 768 / 1024 / 1440, both renditions, four surfaces",
+        "smallest-visible-control": "29px square (fine pointer; 44px floor applies under coarse)"
       }
     }
   },

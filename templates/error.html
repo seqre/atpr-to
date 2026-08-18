@@ -3,23 +3,39 @@
 {% block og_title %}{{ status }} — atpr.to{% endblock %}
 {% block og_description %}{{ heading }}{% endblock %}
 {% block content %}
-{# TODO(rebrand): unstyled, like every other template on this branch.
+{# Rendered by the html_errors middleware (src/api/error_page.rs), not by a
+   handler: it swaps the body of any 4xx or 5xx when the caller is a browser
+   navigating. So this page has no session, no state and no nav context, and
+   is very often the first thing a stranger sees of this site.
 
-   Rendered by the `html_errors` middleware (src/api/error_page.rs), not by a
-   handler -- it swaps the body of any 4xx/5xx when the caller is a browser
-   navigating. So this page has no state, no session and no nav context: it is
-   reached by someone who may never have seen the site before.
+   All four fields must stay referenced or rustc reports them dead.
+   `detail` is the machine message from the JSON body -- server-authored, and
+   absent for a 405, 429 or 504.
 
-   All four fields must stay referenced or rustc reports them dead and
-   `clippy -D warnings` fails the build. `detail` is the machine message from
-   the JSON body and is absent for a 405, 429 or 504.
+   Careful: tests/resolve_integration.rs asserts a 404 body never contains the
+   literal string "javascript:", and this template is in that path. Do not add
+   an href idiom that spells it. #}
 
-   Careful: `tests/resolve_integration.rs` asserts a 404 body never contains
-   the literal string "javascript:", and this template is in that path. Do not
-   add an href idiom that spells it. #}
-<h1>{{ heading }}</h1>
-<p>{{ message }}</p>
-{% if let Some(d) = detail %}<p>{{ d }}</p>{% endif %}
-<p>{{ status }}</p>
-<p><a href="/">atpr.to</a></p>
+<article class="errpage">
+  {# The status as a struck cell: the lattice's own way of saying a thing
+     landed, used here for a thing that did not. #}
+  <div class="errpage-mark" aria-hidden="true">
+    <span class="cellsq on"></span>
+    <span class="cellsq"></span>
+    <span class="cellsq"></span>
+    <span class="cellsq"></span>
+  </div>
+
+  <p class="errpage-status num lbl">Error {{ status }}</p>
+  <h1>{{ heading }}</h1>
+  <p class="lede errpage-message">{{ message }}</p>
+
+  {% if let Some(d) = detail %}
+  <p class="state errpage-detail"><span class="lbl">Detail</span> <span>{{ d }}</span></p>
+  {% endif %}
+
+  <div class="wrap errpage-actions">
+    <a class="btn btn--fill" href="/">Go to atpr.to</a>
+  </div>
+</article>
 {% endblock %}

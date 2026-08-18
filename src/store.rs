@@ -246,11 +246,12 @@ impl LinkStore for PdsLinkStore {
     }
 
     async fn list(&self, page: PageRequest) -> Result<LinkPage, StoreError> {
+        let limit = page.limit.clamp(1, MAX_PAGE_SIZE);
         let mut request = ListRecords::new()
             .repo(self.repo())
             .collection(Self::collection())
             .build();
-        request.limit = Some(i64::from(page.limit.clamp(1, MAX_PAGE_SIZE)));
+        request.limit = Some(i64::from(limit));
         request.cursor = page.cursor.map(SmolStr::new);
 
         let response = self
@@ -291,10 +292,23 @@ impl LinkStore for PdsLinkStore {
             })
             .collect();
 
-        Ok(LinkPage {
-            links,
-            cursor: output.cursor.map(|c| c.to_string()),
-        })
+        // A short page is the last page. The PDS returns a cursor either way --
+        // `listRecords` hands one back whenever it returned any records at all,
+        // including on the final page -- and a caller cannot tell the difference,
+        // so the dashboard offered "Load more" on every list it ever drew.
+        // `InMemoryLinkStore::list` already suppresses it; this is the PDS side
+        // of the same contract.
+        //
+        // Counted on `output.records`, not on `links`: the `filter_map` above
+        // drops records with an unusable rkey or destination, and a page that
+        // arrived full is still a full page even if we could not use all of it.
+        let cursor = if output.records.len() < usize::from(limit) {
+            None
+        } else {
+            output.cursor.map(|c| c.to_string())
+        };
+
+        Ok(LinkPage { links, cursor })
     }
 
     async fn delete(&self, code: &ShortCode) -> Result<(), StoreError> {

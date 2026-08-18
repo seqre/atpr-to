@@ -578,25 +578,25 @@ dialog::backdrop { background: #0d0d0cad; }
   padding: 9px var(--s1);
   border: var(--rule) solid var(--hair);
 }
+/* The cell carries the operation: filled for a record that exists, pierced for
+   one that has just stopped existing. The world's own duality, doing the work
+   that a colour or an icon would otherwise have to. */
+/* The cell carries the operation: filled for a record that now exists, pierced
+   for one that has just stopped existing. The world's own duality, doing work
+   that a second colour or an icon would otherwise have to. */
 .wall-item .cellsq { width: 14px; flex: none; }
 .wall-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+/* Two lines and no third: who, and what they did. Neither the short code nor
+   the destination appears here — both are a stranger's own words, and putting
+   them on the front page lends them this site's credibility. */
 .wall-who {
-  font-size: 13px;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wall-code {
-  font-family: var(--display);
   font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.wall-verb { color: var(--ink-faint); }
 
 .record-grid {
   display: grid;

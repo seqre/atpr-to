@@ -49,7 +49,10 @@
         {% if let Some(u) = updated_at %}
         <div class="preview-fact">
           <span class="lbl">Last changed</span>
-          <time class="preview-when num" datetime="{{ u }}">{{ u }}</time>
+          {# The machine form stays in `datetime` -- that is what it is for, and
+             what tests/resolve_integration.rs asserts. The text is for the
+             person reading it. #}
+          <time class="preview-when num" datetime="{{ u.raw }}">{{ u.human }}</time>
         </div>
         {% endif %}
       </div>

@@ -873,7 +873,11 @@ async fn test_info_page_happy_path() {
     );
     assert!(
         html.contains("2024-01-15T10:00:00Z"),
-        "the last-modified date must appear"
+        "the machine-readable date must survive, in `datetime`"
+    );
+    assert!(
+        html.contains("15 January 2024"),
+        "and the visible date must be one a person would read: {html}"
     );
     assert!(
         html.contains("alice.test") && html.contains("abc123"),

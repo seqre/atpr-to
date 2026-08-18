@@ -6,12 +6,10 @@ colors:
   plate: "#f7f6f1"
   ink: "#0d0d0c"
   ink-soft: "#4a4843"
-  ink-faint: "#78756d"
+  ink-faint: "#625f58"
   hair: "#0d0d0c26"
-  silver-hi: "#edebe6"
   silver-mid: "#bab7b0"
   silver-lo: "#87847d"
-  silver-ink: "#0d0d0c"
   signal: "#9b2c1e"
   signal-ground: "#9b2c1e14"
 typography:
@@ -92,6 +90,7 @@ rounded:
 spacing:
   sq: "5px"
   rule: "1.5px"
+  control: "50px"
   s1: "12px"
   s2: "24px"
   s3: "36px"
@@ -129,13 +128,6 @@ components:
   button-danger-hover:
     backgroundColor: "{colors.signal}"
     textColor: "{colors.ground}"
-  button-silver:
-    backgroundColor: "{colors.silver-mid}"
-    textColor: "{colors.silver-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "11px 24px"
-    height: "40px"
   button-icon:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -189,11 +181,13 @@ components:
 
 A Wiener Werkstätte pierced lattice, built as a real object rather than a page decoration. One module — a single cell — generates every measurement in the system; squares either fill solid or stay pierced open, rules are drawn in lacquer black at a hairline weight, and nothing is round, soft, or floated. The world's argument is structural: a short link here is a record its author owns, so the interface is made of parts that visibly count, join, and lock rather than parts that glow.
 
-The register is bolder than a utility shortener usually risks. Cinzel capitals run letterspaced at poster scale on the landing address and the preview link — size is billing, and the link is the subject of its own page — while Jost carries every sentence, field, and dense row beneath it. Density is deliberately high in the working surfaces (the dashboard rack, the live wall) and deliberately open in the reading surfaces (the landing, the preview, the error page), and both are the same grid at different counts. Two renditions ship: **Galerie**, gallery white ruled in black, and **Vitrine**, the same objects in a case at night. Vitrine is not an inversion — ink and ground swap, but the silver stops being a surface and becomes the light source, so its ramp stays lit rather than darkening with the ground around it.
+The register is bolder than a utility shortener usually risks. Cinzel capitals run letterspaced at poster scale on the landing address and the preview link — size is billing, and the link is the subject of its own page — while Jost carries every sentence, field, and dense row beneath it. Density is deliberately high in the working surfaces (the dashboard rack, the live wall) and deliberately open in the reading surfaces (the landing, the preview, the error page), and both are the same grid at different counts. Two renditions ship: **Galerie**, gallery white ruled in black, and **Vitrine**, the same objects in a case at night. Vitrine is not an inversion and not a mirror — ink and ground swap, but the grey ramp between them is measured separately for each, because a dark ground swallows a dim grey that a light ground carries.
 
 Confirmed rejections, from the direction contract the build carries in its own markup: no centred paste-box on white, and no terminal green. There is no decorative accent anywhere; the one chromatic value in the palette is reserved for destruction and error, and spending it on anything else empties it.
 
-**Not verified.** No browser tooling existed in the session that built this, so nothing in this record has been seen rendered. Contrast is by construction (a near-black ink on a warm off-white ground, and their swap), not measured — with one exception: the silver material's ramp against its label ink *is* measured, at 5.21:1 worst-stop in Galerie and 6.43:1 worst-stop in Vitrine. Responsive behaviour from 320–1440 is unconfirmed. The design detector ran degraded — its HTML/CSS parser modules were missing and it fell back to regex, evaluating neither custom properties nor computed contrast — so its empty result is an undercount, not a clean bill of health.
+**Partly verified, and the record says which parts.** Every surface has now been seen running in Chrome at 1536px in both renditions, signed in against a real PDS: the landing page, the dashboard with a real link in the rack, the QR dialog, the link preview, and the error page. The four small greys were *measured* after that look, not judged — the faint step had been failing AA in both renditions at 4.03:1 and 4.25:1, and the whole grey ramp was rebuilt around a 5:1 floor (see Colors). Contrast for the ink-on-ground pairs is still by construction rather than measured, but those are near-black on off-white and their swap, at 16:1.
+
+**Still unverified:** everything about width. The 320–1440 responsive pass has not happened — the browser connection available for this work refuses to resize its window — so every breakpoint claim in the Layout section below is a claim about the stylesheet, not an observation. The design detector also ran degraded (its HTML/CSS parser modules were missing and it fell back to regex, evaluating neither custom properties nor computed contrast), so its empty result is an undercount, not a clean bill of health.
 
 **Key Characteristics:**
 - One module (`--cell`) generates the entire spacing scale; there is no second scale
@@ -216,13 +210,12 @@ A warm achromatic world — bone-white ground, lacquer-black ink, a metal ramp b
 - **Oxide Red** (`{colors.signal}`): Destructive actions and error states only — the danger button, its icon-button sibling, the error state line, and the wash behind it (`{colors.signal-ground}`). It appears on no other surface.
 
 ### Tertiary
-- **Hammered Silver** (`{colors.silver-mid}`, with `{colors.silver-hi}` and `{colors.silver-lo}` as its ramp): The system's metal, and its one secondary-action material. Its ramp is directional (highlight → mid → shadow → mid → highlight), which is why it must never be flattened to a single grey. In Vitrine the ramp brightens (`#e8e5dd / #c2beb4 / #98948b`) instead of darkening with the ground. It also carries the scrollbar thumb and the blank-avatar fill.
-- **Silver Ink** (`{colors.silver-ink}`): The label colour on any silver surface. It is the *only* value that does not change between renditions, and it can stay fixed precisely because the ramp beneath it stays lit in both.
+- **Metal Grey** (`{colors.silver-mid}`, with `{colors.silver-lo}` as its shadow): What remains of the silver. It dresses furniture and only furniture — the scrollbar thumb and the fill behind an avatar that did not load. In Vitrine it brightens (`#c2beb4 / #98948b`) rather than darkening with the ground. It is not a surface for content and never a control: the hammered material it came from was retired when the one button wearing it gave it up.
 
 ### Neutral
 - **Plate** (`{colors.plate}`): The inset surface — input grounds, the suggestion list, the record sheet on the landing page. One step off the ground, never a card with a shadow.
-- **Soft Ink** (`{colors.ink-soft}`): Secondary prose — ledes, destinations in a row, timestamps at reading size, the record body.
-- **Faint Ink** (`{colors.ink-faint}`): Tertiary metadata — placeholders, counts, address separators, "when" columns. The quietest legible register.
+- **Soft Ink** (`{colors.ink-soft}`): Secondary prose — ledes, destinations in a row, timestamps at reading size, the record body. `#4a4843` in Galerie, `#c4c0b6` in Vitrine.
+- **Faint Ink** (`{colors.ink-faint}`): Tertiary metadata — placeholders, counts, address separators, "when" columns. The quietest legible register, and *legible* is the operative word: it carries 11–13px text, so it is held to normal-text AA rather than the large-text exemption. `#625f58` in Galerie (5.89:1 on plate), `#9a968d` in Vitrine (6.01:1). Both replaced values that measured about 4:1 and failed.
 - **Hair** (`{colors.hair}`): The internal divider, ink at ~15% alpha. Rows inside a ruled container are separated by hair; the container itself is separated by a full rule.
 
 ### Named Rules
@@ -231,7 +224,7 @@ A warm achromatic world — bone-white ground, lacquer-black ink, a metal ramp b
 
 **The Complete Palette Rule.** Every colour is declared on bare `:root` first and only *redefined* under a rendition selector. A visitor on "system" with no stored choice must land on a complete palette, never a partial one.
 
-**The Lit Metal Rule.** Vitrine is not an inversion. Ink and ground swap around the silver; the silver itself does not follow them down, because in a night vitrine the metal is the light source rather than a surface taking light. Its ramp brightens in the dark rendition (`#e8e5dd / #c2beb4 / #98948b` against Galerie's `#edebe6 / #bab7b0 / #87847d`), and that is also what keeps its dark label legible: 6.43:1 at the worst stop, measured, against 5.21:1 in Galerie. A ramp that darkened with the ground reached 1.91:1 and could carry no label at all — which is the whole reason the material had nowhere to live. Never generate the dark rendition by inverting the light one.
+**The Unmirrored Grey Rule.** Vitrine is not an inversion, and its greys are not the Galerie greys flipped. A dark ground eats low-contrast type in a way a light ground does not, so both dim steps sit lighter than symmetry would put them: the Vitrine ramp measures 14.86 / 9.76 / 6.01 against its plate, roughly a factor of 1.5 at each step, and every value in it was measured rather than picked. The metal greys move the same way and for a different reason — in a night vitrine the metal is the light source rather than a surface taking light, so it brightens instead of following the ground down. Never generate the dark rendition by inverting the light one, and never mirror a grey ramp across the two.
 
 **The Pinned Ink Rule.** The QR container pins pure black on pure white in *both* renditions. The QR fragment paints in `currentColor` on a transparent ground precisely so its container decides — a light-on-dark code fails on a meaningful share of scanners, and consistency with the surrounding page is not worth a link that will not scan.
 
@@ -291,17 +284,13 @@ Section rhythm is asymmetric on purpose: 108px above a section, 24px below its h
 
 **There are no shadows in this system.** Not one `box-shadow` ships. Depth is entirely material and tonal: a full rule (1.5px lacquer black) separates an object from the page, a hair rule (ink at ~15%) separates rows inside an object, and the plate tone lifts an inset surface one step off the ground. A modal is a ruled rectangle on a near-opaque black backdrop (`#0d0d0cad`) — it reads as forward because everything behind it is extinguished, not because it floats.
 
-The single depth cue that is not a line is the hammered-silver material: a directional ramp, a specular bloom, planished dimpling, and a fine noise tooth, blended overlay/screen/overlay/normal. It is a *material*, not a gradient effect — when silver is used, it is because the object is metal.
-
-**The material's placement.** Wiener Werkstätte is metalwork, so the one place a hammered surface belongs is an object you press: a struck plate rather than a painted rectangle. Silver is therefore the secondary-action material — never a panel, never a page ground, never a decorative fill. It ships on exactly one element today (the QR dialog's download action), and a material with one instance is a claim: the next surface that needs a secondary action should either honour it or the material should be retired.
+There is now no exception. A hammered-silver material — directional ramp, specular bloom, planished dimpling, noise tooth — used to dress one button, the QR dialog's download action. It was retired: a dialog's secondary action is the quietest control on any surface, and the loudest material in the system was sitting on it. What survives is the metal grey on the scrollbar thumb and the blank-avatar fill, where it is furniture rather than a surface anyone reads.
 
 ### Named Rules
 
-### Named Rules
+**The One-Instance Rule.** A material with a single instance is a claim, not a system: the next surface needing that role either honours it or the material goes. This system has now run that test once and lost — the hammered silver had exactly one button, the button did not want it, and the material was retired rather than kept alive as thirty lines of CSS nothing reaches. Do not reintroduce a material for one element.
 
-**The Held Material Rule.** The silver rule's position in the stylesheet is load-bearing, not housekeeping. It dresses a control whose own hover state fills with ink at (0,2,0), which a bare `.silver` class at (0,1,0) can never beat, so the material is declared *after* the controls section with `.btn--silver:hover` in its own selector list — re-asserted at equal specificity and later in source order. Any reorder that moves the material back above the controls silently strips it on hover and leaves a fixed dark label on the ground behind it. When a material dresses a stateful control, it is declared after that control's states.
-
-**The No-Shadow Rule.** Objects are separated by rules and tone. Never add a drop shadow, a glow, a blur, or a lifted card; there is no light source in Galerie and the only one in Vitrine is the silver itself.
+**The No-Shadow Rule.** Objects are separated by rules and tone. Never add a drop shadow, a glow, a blur, or a lifted card. There is no light source in this system at all.
 
 **The Full Rule / Hair Rule.** A container's own edge is a full rule in ink. Divisions *inside* a container are hair. Mixing them flattens the hierarchy the system uses instead of elevation.
 
@@ -311,7 +300,9 @@ Zero radius, everywhere, without exception — buttons, fields, dialogs, avatars
 
 **The pierced frame** is the signature device: a run of solid squares along all four edges of a container, drawn as *four repeating linear gradients* rather than a border-image — specifically so it re-counts its own squares as the container narrows, with no per-breakpoint work. It inherits its colour from `--f` and pads its contents by one cell.
 
-**The four-square mark** (four 5×5 squares in a 15×15 box, painted in `currentColor`) is the system's only glyph. It is the icon on every icon button, the cap inside a field, and the affordance inside a filled button. There is no icon set and no icon font.
+**The four-square mark** (four 5×5 squares in a 15×15 box, painted in `currentColor`) is the product's own glyph. It marks *atpr.to* and nothing else: the cap inside a field, the affordance inside a filled button. It is deliberately not on any icon button, because a mark that also means "control" no longer means the product.
+
+**Action glyphs** are drawn on the same 15×15 grid, from axis-aligned rectangles in `currentColor`, one per action: two overlapping plates (copy), a shaft with a three-step head (repoint), three finder squares and two loose cells (QR), five cells on the two diagonals (delete), and a pair of solid cells beside a pair of pierced ones (the rendition toggle). No icon set, no icon font — every glyph in this system is drawn from the lattice the system is made of.
 
 **The divider** is never a bare line: a full rule with a solid square joint at its start, and an inverted black tab naming the section at its head.
 
@@ -324,14 +315,14 @@ Zero radius, everywhere, without exception — buttons, fields, dialogs, avatars
 ## Components
 
 ### Buttons
-- **Shape:** Perfectly square (0 radius), 1.5px ink rule, 40px minimum height, 11px × 24px padding, 12px letterspaced Cinzel caps (0.2em).
+- **Shape:** Perfectly square (0 radius), 1.5px ink rule, 40px minimum height, 11px × 24px padding, 12px letterspaced Cinzel caps (0.2em). Never underlined — three of these controls are anchors, and the link default has no business on a button.
+- **Beside a field:** a button standing next to an input takes `{spacing.control}` (50px) instead of the 40px floor, so the pair reads as one control. That height is measured from the field — 16px type at 1.55 over 11px of padding inside a rule — and is the one value in the system that does not step with the module, because none of its three parts may shrink.
 - **Default (ghost):** Transparent ground, ink rule, ink text. Hover inverts to a solid ink ground with reverse-out text (240ms on the system ease).
 - **Filled:** Solid ink ground, reverse-out text. Hover inverts the *other* way, back to transparent — the two variants trade places rather than darkening.
-- **Silver:** The hammered material as the face of the button, with an ink rule and the fixed silver ink label. The secondary action beside a filled primary — currently one instance, the QR dialog's "Download SVG". It is the one button that does not invert on hover: the plate simply catches a little more light (`filter: brightness(1.06)`), because a struck metal object does not become a painted rectangle when you point at it.
 - **Danger:** Oxide rule and text; hover fills oxide with reverse-out text. Used only for delete.
 - **Disabled:** 34% opacity, `not-allowed` cursor, hover suppressed.
 - **Coarse pointer:** minimum height rises to 44px.
-- **Icon button:** 15px four-square mark, hair rule at rest, filling to solid ink on hover; padding rises 6px → 14px under a coarse pointer.
+- **Icon button:** a 15px action glyph — never the atpr.to mark — with a hair rule at rest, filling to solid ink on hover; padding rises 6px → 14px under a coarse pointer. Four of them sit in a dashboard row, so they must be four different glyphs: a tooltip is not a substitute for being able to tell two controls apart without stopping.
 
 ### Cards / Containers
 - **Corner Style:** Square, always.
@@ -348,7 +339,7 @@ Zero radius, everywhere, without exception — buttons, fields, dialogs, avatars
 
 ### Navigation
 - **Masthead:** The lockup (34px mark + wordmark) at one end, identity and controls at the other, closed by a full ink rule beneath. No nav links; the surface set is small enough that the lockup is the only navigation.
-- **Rendition toggle:** An icon button carrying the four-square mark, labelled with what it will *do*, not what is currently true.
+- **Rendition toggle:** An icon button carrying the solid/pierced pair — the world's own duality standing for the two renditions — labelled with what it will *do*, not what is currently true.
 - **Skip link:** Visually hidden until focused, then a solid ink block with reverse-out text. A skip link that never appears does not work.
 
 ### State Lines
@@ -373,7 +364,6 @@ A QR code is a pierced square lattice in black and white — the same object thi
 - **Do** define every colour on bare `:root` first, then redefine only what changes per rendition.
 - **Do** pin black-on-white inside the QR container in both renditions.
 - **Do** use the struck cell — and only the struck cell — to say a record exists.
-- **Do** put the hammered silver only on something you press, and keep its label on the fixed silver ink.
 - **Do** restore the touch floor under a coarse pointer (44px controls, 14px icon-button padding).
 - **Do** keep all CSS in `static/app.css` and all script same-origin: `default-src 'self'` with no `unsafe-inline` and no `unsafe-eval` is a hard constraint, and there is no bundler to generate a hash.
 
@@ -381,10 +371,11 @@ A QR code is a pierced square lattice in black and white — the same object thi
 - **Don't** spend the oxide red on anything but destruction and error. It is not an accent.
 - **Don't** add a shadow, glow, blur, or lifted card. Depth is rules and tone.
 - **Don't** round a corner — not on a control, a dialog, an avatar, or a focus ring.
-- **Don't** build the dark rendition by inverting the light one, and don't let the silver ramp darken with the ground — it is the light source, and darkening it takes its label to 1.91:1.
-- **Don't** spread the silver across panels, grounds, or decorative fills. It is a pressed object's material, and it is the secondary action, never the primary one.
+- **Don't** build the dark rendition by inverting the light one, and don't mirror a grey ramp across the two — Vitrine's dim steps sit lighter than symmetry would put them, and the values are measured.
+- **Don't** put the metal grey on anything a person reads. It is furniture: a scrollbar thumb, a missing avatar.
 - **Don't** introduce a second spacing scale, a second ease, or a second animation. One module, one curve (`cubic-bezier(0.16, 1, 0.3, 1)` at 240ms/620ms), one strike.
-- **Don't** add an icon set or icon font. The four-square mark painted in `currentColor` is the only glyph, and the logo mark is monochrome by rule — it never takes the signal colour and is never recoloured, distorted, or given effects.
+- **Don't** add an icon set or icon font. Glyphs are drawn here, from axis-aligned rectangles on a 15×15 grid in `currentColor`: two plates for copy, a stepped arrow for repoint, three finder squares for QR, five cells on the diagonals for delete, and a solid-versus-pierced pair for the rendition toggle. The logo mark is monochrome by rule — it never takes the signal colour and is never recoloured, distorted, or given effects.
+- **Don't** reuse the four-square atpr.to mark as a button glyph. It means the product, and it stops meaning that the moment it also means "control" — it belongs on the field caps and nowhere a person clicks.
 - **Don't** stack the section tab above a heading as a kicker or eyebrow. The tab *is* the section heading; it never introduces another one.
 - **Don't** use a toast, an `alert()`, or borrowed modal chrome to report a state. States print as ruled lines in the system's own voice.
 - **Don't** inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one.

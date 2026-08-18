@@ -441,7 +441,25 @@ dialog::backdrop { background: #0d0d0cad; }
   text-transform: none;
 }
 
-.masthead-end { display: flex; align-items: center; gap: var(--s1); }
+/* `min-width: 0` is what lets this shrink at all. Without it the row is sized
+   by its content and simply runs off a 320px viewport, taking the rendition
+   toggle with it — measured at 344px against a 320px window. The controls hold
+   their size and the handle is what gives, which is the right order: a name
+   that ellipsises is still readable, a button that is off-screen is gone. */
+.masthead-end {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-width: 0;
+}
+/* `.signout` is in this list because the flex item here is the *form*, not the
+   button inside it: holding the button rigid while its wrapper shrinks just
+   squeezes the button through it. Measured at 18px wide against the toggle's
+   29 at a 320px viewport. */
+.masthead-end .btn,
+.masthead-end .icobtn,
+.signout,
+.whoami-face { flex: none; }
 
 .footer {
   margin-top: var(--s9);
@@ -622,7 +640,7 @@ dialog::backdrop { background: #0d0d0cad; }
 
 /* ── dashboard ──────────────────────────────────────────────────────────── */
 
-.whoami { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.whoami { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
 .whoami-face { flex: none; object-fit: cover; }
 /* Whose repository this is. It was set at note size in the soft ink, which put
    the one piece of identity on the page below the sign-out button beside it --

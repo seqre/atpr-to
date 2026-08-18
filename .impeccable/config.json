@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "templates/dashboard.html"
+        ],
+        "createdAt": "2026-08-18T06:18:09.728Z",
+        "reason": "Askama template: the avatar <img> is wrapped in {% if avatar != \"\" %} so it never renders with an empty src. The detector cannot evaluate template conditionals. The tag must stay an <img src> because tests/authed_api.rs asserts the URL appears in the body."
+      }
+    ]
+  }
+}

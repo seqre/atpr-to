@@ -1,45 +1,156 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — atpr.to{% endblock %}
-{% block content %}
-{# TODO(rebrand): authenticated dashboard. All markup and client JS removed.
+{% block title %}Your links — atpr.to{% endblock %}
 
-   `handle` and `avatar` come from `DashboardTemplate` (src/ui.rs). `avatar` is
-   an empty string when the Bluesky profile lookup returns nothing. Both fields
-   must stay referenced here or rustc reports them dead and clippy -D warnings
-   fails the build.
+{# The signed-in nav: who you are, and the way out. `avatar` is an empty
+   string when the profile lookup returns nothing, and both fields must stay
+   referenced here or rustc reports them dead and `-D warnings` fails.
 
-   Backend contracts the rebuilt UI talks to. Every error body is now
-   `{"error": "..."}` with a JSON content type, on every route -- the old
-   text/plain and alert()-worthy responses are gone, so error handling can be
-   one shared helper:
-     GET    /api/links          -> {"links":[{"code","url","updated_at"}],
-                                    "cursor": string|null}
-                                   auth-gated; ?limit= and ?cursor= paginate
-     POST   /api/shorten        -> {url, code?} => {short_url}; rate limited.
-                                   409 if the code is taken -- it no longer
-                                   silently overwrites, so surface the conflict
-     DELETE /api/shorten/{code} -> 204
-     POST   /api/logout         -> form POST, 303 to / and clears the cookie
-     GET    /@{handle}/{code}/qr -> standalone image/svg+xml
-
-   CSP is `default-src 'self'` with no 'unsafe-inline' (see src/lib.rs). Inline
-   <script> and inline style attributes will be blocked -- whatever stack the
-   rebrand picks has to be same-origin and external, or the policy needs
-   revisiting deliberately.
-
-   Removed feature set, all rebuildable on the above:
-   - link table with sort by code/destination/last-modified and a text filter
-   - create form (URL + optional custom code) with inline error display
-   - inline edit of a destination (re-POSTs /api/shorten with the same code)
-   - delete with a confirmation <dialog>
-   - copy-to-clipboard with transient "Copied" state
-   - QR <dialog> with SVG blob download
-   - local/UTC timestamp toggle
-   - top nav with brand lockup, avatar, handle, and the theme toggle
-   Note the old error handling used alert() — replace it. #}
-<p>{{ handle }}</p>
-{% if avatar != "" %}<img src="{{ avatar }}" alt="">{% endif %}
-<form method="post" action="/api/logout">
-  <button type="submit">Sign out</button>
+   The avatar has to remain an `<img src>`: tests/authed_api.rs asserts the URL
+   appears in the body, and a CSS background would be blocked by `style-src`
+   anyway. #}
+{% block nav_end %}
+<span class="whoami">
+  {% if avatar != "" %}<img class="whoami-face" src="{{ avatar }}" alt="" width="28" height="28">{% endif %}
+  <span class="whoami-handle">@{{ handle }}</span>
+</span>
+<form method="post" action="/api/logout" class="signout">
+  <button type="submit" class="btn">Sign out</button>
 </form>
+{% endblock %}
+
+{% block content %}
+{# The authenticated dashboard. Operate: expression may never obscure the
+   task, the state, or a familiar affordance.
+
+   Every backend contract this talks to:
+     GET    /api/links           -> {"links":[{code,url,updated_at}], "cursor"}
+     POST   /api/shorten         -> {url, code?} => {short_url}; 409 if taken
+     PUT    /api/shorten/{code}  -> {url} => 204; repoints, keeps the code
+     DELETE /api/shorten/{code}  -> 204
+     POST   /api/logout          -> form POST, 303 to /
+
+   Every error body on every route is {"error": "..."} with a JSON content
+   type, so one shared handler covers all of them. `updated_at` arrives as a
+   raw ISO-8601 string, and may be "".
+
+   All of it is rate limited. A real person can hit that, so it has words. #}
+
+<section class="make">
+  <div class="tabrow">
+    <span class="tab">Write a link</span>
+    <span class="joint"></span>
+    <span class="line"></span>
+  </div>
+
+  <form class="make-form" id="make" autocomplete="off">
+    <div class="make-grid">
+      <div class="make-field">
+        <label class="lbl" for="url">Where should it go?</label>
+        <div class="field">
+          <input type="url" id="url" name="url" required inputmode="url"
+                 placeholder="https://example.com/a/very/long/address"
+                 autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+      </div>
+      <div class="make-field make-field--code">
+        <label class="lbl" for="code">Code <span class="lbl-soft">optional</span></label>
+        <div class="field">
+          <input type="text" id="code" name="code" pattern="[A-Za-z0-9_\-]{1,64}"
+                 placeholder="chosen for you"
+                 autocapitalize="none" autocorrect="off" spellcheck="false">
+        </div>
+      </div>
+      <button class="btn btn--fill make-go" type="submit">Write it</button>
+    </div>
+    <p class="state state--err make-error" id="make-error" hidden></p>
+  </form>
+</section>
+
+<section class="section rack-section">
+  <div class="tabrow">
+    <span class="tab">Your links</span>
+    <span class="joint"></span>
+    <span class="line"></span>
+    <span class="rack-count num lbl" id="rack-count"></span>
+  </div>
+
+  <div class="rack-tools">
+    <div class="field rack-filter">
+      <label class="visually-hidden" for="filter">Filter your links</label>
+      <input type="text" id="filter" placeholder="Filter" autocomplete="off">
+      <span class="cap" aria-hidden="true">
+        <svg class="mark" viewBox="0 0 15 15" focusable="false">
+          <g fill="currentColor">
+            <rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>
+            <rect x="1" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>
+          </g>
+        </svg>
+      </span>
+    </div>
+  </div>
+
+  {# Populated by static/dashboard.js from /api/links. The three states below
+     are mutually exclusive and the script owns which one shows. #}
+  <p class="state rack-state" id="rack-loading">Reading your repository…</p>
+
+  <p class="state state--err rack-state" id="rack-error" hidden></p>
+
+  <div class="rack-empty" id="rack-empty" hidden>
+    <div class="pierced">
+      <div class="plate rack-empty-plate">
+        <div class="lattice rack-empty-lattice" aria-hidden="true">
+          <div class="cellsq on"></div><div class="cellsq"></div><div class="cellsq"></div>
+          <div class="cellsq"></div><div class="cellsq"></div><div class="cellsq"></div>
+          <div class="cellsq"></div><div class="cellsq"></div><div class="cellsq"></div>
+          <div class="cellsq"></div>
+        </div>
+        <h3>Nothing written yet</h3>
+        <p class="note">
+          Your first link goes into your own repository. It stays yours, it
+          travels with your account, and you can point it somewhere else or
+          delete it whenever you like.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <ol class="rack" id="rack"></ol>
+
+  <p class="rack-nomatch note" id="rack-nomatch" hidden></p>
+
+  <div class="rack-more" id="rack-more" hidden>
+    <button class="btn" type="button" id="more">Load more</button>
+  </div>
+</section>
+
+{# Delete confirmation. Native <dialog>, so focus trapping, escape-to-close and
+   background inerting come from the platform. The code is named in the
+   question -- "are you sure?" asks the visitor to remember what they clicked. #}
+<dialog id="confirm">
+  <form method="dialog" class="modal stack">
+    <h3 id="confirm-title">Delete this link?</h3>
+    <p class="note" id="confirm-body"></p>
+    <div class="wrap confirm-actions">
+      <button class="btn" value="cancel">Keep it</button>
+      <button class="btn btn--danger" value="delete" id="confirm-go">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+{# The QR of a link, at a size worth scanning. Ink and ground are pinned in
+   both renditions: a light-on-dark code fails on a lot of scanners. #}
+<dialog id="qr">
+  <div class="modal stack">
+    <h3 id="qr-title">QR code</h3>
+    <div class="qr-frame" id="qr-frame"></div>
+    <div class="wrap confirm-actions">
+      <a class="btn" id="qr-download" download>Download SVG</a>
+      <button class="btn btn--fill" type="button" id="qr-close">Done</button>
+    </div>
+  </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/dashboard.js" defer></script>
 {% endblock %}

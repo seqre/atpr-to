@@ -72,26 +72,43 @@
   </aside>
 </section>
 
+{# Written for someone who has never heard the word "repository". The record
+   stays -- it is the proof, and proof is why this section exists -- but it is
+   now labelled as the developer's view of the thing, rather than being the
+   explanation itself. Nobody who needs this section reads JSON. #}
 <section class="section record-section">
   <div class="tabrow">
-    <span class="tab">What actually gets written</span>
+    <span class="tab">Where your links actually live</span>
     <span class="joint"></span>
     <span class="line"></span>
   </div>
   <div class="record-grid">
-    <p>
-      Creating a link writes one record to your repository, at
-      <span class="code-inline">to.atpr.link</span>. Any AT Protocol client can
-      read it, you can delete it without asking us, and if you move your account
-      to another server it moves with you. This is the whole mechanism.
-    </p>
+    <div class="stack-s">
+      <p>
+        Your Bluesky account already comes with storage of your own — the same
+        place your posts are kept. Making a short link puts one small entry in
+        there: the code you chose, and where it should go.
+      </p>
+      <p>
+        That entry is yours. You can point it somewhere else or delete it
+        whenever you like, without asking us. If you move your account to
+        another server, your links move with it. And if this site disappeared
+        tomorrow, the entries would still be sitting in your account.
+      </p>
+    </div>
     {# A real record, in its own register -- the sheet bound into the middle of
        the book at a different paper weight. Values are illustrative. #}
-    <div class="record ruled plate scroll-x">
-      <pre class="record-body"><span class="record-key">"$type"</span>: <span class="record-val">"to.atpr.link"</span>,
+    <div class="stack-s">
+      <div class="record ruled plate scroll-x">
+        <pre class="record-body"><span class="record-key">"$type"</span>: <span class="record-val">"to.atpr.link"</span>,
 <span class="record-key">"code"</span>: <span class="record-val">"rust"</span>,
 <span class="record-key">"target"</span>: <span class="record-val">"https://doc.rust-lang.org/book/"</span>,
 <span class="record-key">"createdAt"</span>: <span class="record-val">"2026-08-18T09:42:00Z"</span></pre>
+      </div>
+      <p class="note">
+        One entry, as a developer would see it. There is nothing else to it —
+        no account here, no database of yours on our side.
+      </p>
     </div>
   </div>
 </section>

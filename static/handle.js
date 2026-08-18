@@ -163,4 +163,50 @@
     // After the mousedown handler has had its chance.
     setTimeout(close, 120);
   });
+
+  /* ── the placeholder, cycling ─────────────────────────────────────────── */
+
+  /* This page's whole claim is that *any* AT Protocol account works, not just
+     a Bluesky one — and it made that claim only in the small print under the
+     field, where a single `alice.bsky.social` placeholder was quietly saying
+     the opposite. Rotating it through several shapes of handle puts the claim
+     in the one place everyone looks.
+   *
+   * Handles are illustrative, not real accounts, and the last is deliberately
+   * a bare domain: a handle does not have to live under anyone else's. */
+  var EXAMPLES = [
+    "alice.bsky.social",
+    "you.pds.rip",
+    "name.example.com",
+    "yourdomain.dev",
+  ];
+  var PERIOD_MS = 2600;
+
+  var rotation = null;
+
+  function stopRotating() {
+    clearInterval(rotation);
+    rotation = null;
+  }
+
+  function startRotating() {
+    // Anyone who has touched the field is composing something; a placeholder
+    // moving underneath the cursor is noise at exactly the wrong moment.
+    if (input.value) return;
+
+    var i = 0;
+    rotation = setInterval(function () {
+      i = (i + 1) % EXAMPLES.length;
+      input.placeholder = EXAMPLES[i];
+    }, PERIOD_MS);
+  }
+
+  // A placeholder that changes on its own is motion, and motion is a
+  // preference. With it reduced, one example is picked and stays.
+  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    startRotating();
+    // Permanent: the field has been engaged with, and the teaching is done.
+    input.addEventListener("focus", stopRotating, { once: true });
+    input.addEventListener("input", stopRotating, { once: true });
+  }
 })();

@@ -92,25 +92,57 @@ pub enum SessionStore {
     Memory,
     /// Sessions are persisted to a file.
     File(PathBuf),
+    /// Sessions live in a DynamoDB table, shared by every instance.
+    ///
+    /// The only variant that works on Lambda: the other two are per execution
+    /// environment, so an authorization request written while starting a login
+    /// is missing when the callback lands on a different instance.
+    Dynamo(String),
 }
+
+/// Prefix that selects the DynamoDB store, followed by the table name.
+const DYNAMO_SCHEME: &str = "dynamodb://";
 
 impl SessionStore {
     /// The backing file path, if this is a file-backed store.
     pub fn path(&self) -> Option<&std::path::Path> {
         match self {
-            Self::Memory => None,
             Self::File(p) => Some(p),
+            _ => None,
+        }
+    }
+
+    /// The table name, if this is a DynamoDB-backed store.
+    pub fn table(&self) -> Option<&str> {
+        match self {
+            Self::Dynamo(t) => Some(t),
+            _ => None,
         }
     }
 }
 
 impl<'de> Deserialize<'de> for SessionStore {
+    /// One key, three shapes.
+    ///
+    /// The wire format stays a single `session_file` string because
+    /// `template.yaml` and every existing `Config.toml` and `ATPR__SESSION_FILE`
+    /// already set it: `""` is memory, `dynamodb://name` is the table `name`,
+    /// and anything else is a path. A second key would have made two ways to
+    /// say where sessions live, and a rule about which one wins.
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let raw = String::deserialize(d)?;
-        Ok(if raw.is_empty() {
-            Self::Memory
-        } else {
-            Self::File(PathBuf::from(raw))
+        Ok(match raw.strip_prefix(DYNAMO_SCHEME) {
+            Some(table) if !table.is_empty() => Self::Dynamo(table.to_string()),
+            // `dynamodb://` with nothing after it names no table. Falling
+            // through to `File("dynamodb://")` would create that file and look
+            // like it had worked.
+            Some(_) => {
+                return Err(serde::de::Error::custom(
+                    "session_file: `dynamodb://` needs a table name after it",
+                ))
+            }
+            None if raw.is_empty() => Self::Memory,
+            None => Self::File(PathBuf::from(raw)),
         })
     }
 }
@@ -341,6 +373,40 @@ mod tests {
         assert_eq!(
             cfg.session_store,
             SessionStore::File(PathBuf::from("/tmp/s.json"))
+        );
+    }
+
+    #[test]
+    fn test_session_store_dynamodb_url_is_a_table() {
+        let cfg: Config = toml::from_str(r#"session_file = "dynamodb://atpr-to-sessions""#).unwrap();
+        assert_eq!(
+            cfg.session_store,
+            SessionStore::Dynamo("atpr-to-sessions".to_string())
+        );
+        assert_eq!(cfg.session_store.table(), Some("atpr-to-sessions"));
+        assert_eq!(cfg.session_store.path(), None);
+    }
+
+    /// A scheme with no table names nothing. Left to fall through it would
+    /// become `File("dynamodb://")`, create that file, and look like it worked
+    /// right up until a second Lambda instance answered a request.
+    #[test]
+    fn test_session_store_dynamodb_without_a_table_is_rejected() {
+        let err = toml::from_str::<Config>(r#"session_file = "dynamodb://""#)
+            .expect_err("a scheme with no table must not load");
+        assert!(
+            err.to_string().contains("table name"),
+            "the error should say what is missing: {err}"
+        );
+    }
+
+    /// A path is still a path, including one that merely mentions the word.
+    #[test]
+    fn test_a_path_is_not_mistaken_for_a_table() {
+        let cfg: Config = toml::from_str(r#"session_file = "/var/dynamodb/sessions.json""#).unwrap();
+        assert_eq!(
+            cfg.session_store,
+            SessionStore::File(PathBuf::from("/var/dynamodb/sessions.json"))
         );
     }
 

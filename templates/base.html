@@ -53,11 +53,13 @@
       {% block nav_end %}{% endblock %}
       <button type="button" id="rendition" class="icobtn" aria-pressed="false"
               aria-label="Switch to the dark rendition">
-        <svg class="mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false">
-          <g fill="currentColor">
-            <rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>
-            <rect x="1" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>
-          </g>
+        {# Solid on one side, pierced on the other: the rendition switch says
+           what it does in the world's own duality, and stops being a third
+           copy of the atpr.to mark sitting next to two other buttons. #}
+        <svg class="mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false" fill="currentColor">
+          <rect x="1" y="1" width="5" height="5"/><rect x="1" y="9" width="5" height="5"/>
+          <rect x="9.75" y="1.75" width="3.5" height="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="9.75" y="9.75" width="3.5" height="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
         </svg>
       </button>
     </div>

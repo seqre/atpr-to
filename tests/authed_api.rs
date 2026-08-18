@@ -420,6 +420,135 @@ async fn test_delete_missing_is_404() {
     assert_eq!(json["error"], "not found");
 }
 
+/// The point of the route: a link can be repointed without losing its code.
+#[tokio::test]
+async fn test_update_repoints_an_existing_link() {
+    let h = Harness::new().await;
+    h.store.insert("docs", "https://old.example/page");
+
+    let (status, _) = h
+        .send(h.authed(
+            "PUT",
+            "/api/shorten/docs",
+            Some(serde_json::json!({ "url": "https://new.example/page" })),
+        ))
+        .await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        h.store.get("docs").as_deref(),
+        Some("https://new.example/page")
+    );
+}
+
+/// `POST` refuses to overwrite and `PUT` agrees to — that difference is the
+/// whole reason this route exists, so it is worth pinning rather than leaving
+/// as an implication of two separate tests.
+#[tokio::test]
+async fn test_post_still_refuses_to_overwrite_what_put_replaces() {
+    let h = Harness::new().await;
+    h.store.insert("docs", "https://original.example/");
+
+    let (post_status, _) = h
+        .send(h.authed(
+            "POST",
+            "/api/shorten",
+            Some(serde_json::json!({ "url": "https://sneaky.example/", "code": "docs" })),
+        ))
+        .await;
+    assert_eq!(post_status, StatusCode::CONFLICT);
+    assert_eq!(
+        h.store.get("docs").as_deref(),
+        Some("https://original.example/"),
+        "a refused POST must leave the original alone"
+    );
+
+    let (put_status, _) = h
+        .send(h.authed(
+            "PUT",
+            "/api/shorten/docs",
+            Some(serde_json::json!({ "url": "https://deliberate.example/" })),
+        ))
+        .await;
+    assert_eq!(put_status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        h.store.get("docs").as_deref(),
+        Some("https://deliberate.example/")
+    );
+}
+
+/// Read-before-write would cost a round trip and still race, so a code with no
+/// record is created rather than rejected.
+#[tokio::test]
+async fn test_update_creates_a_missing_code() {
+    let h = Harness::new().await;
+
+    let (status, _) = h
+        .send(h.authed(
+            "PUT",
+            "/api/shorten/fresh",
+            Some(serde_json::json!({ "url": "https://example.com/" })),
+        ))
+        .await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(
+        h.store.get("fresh").as_deref(),
+        Some("https://example.com/")
+    );
+}
+
+/// The read path validates schemes too, but a dangerous destination should
+/// never reach the record in the first place.
+#[tokio::test]
+async fn test_update_rejects_a_dangerous_scheme() {
+    let h = Harness::new().await;
+    h.store.insert("docs", "https://safe.example/");
+
+    let (status, json) = h
+        .send(h.authed(
+            "PUT",
+            "/api/shorten/docs",
+            Some(serde_json::json!({ "url": "javascript:alert(1)" })),
+        ))
+        .await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(json["error"].as_str().unwrap().contains("http"));
+    assert_eq!(
+        h.store.get("docs").as_deref(),
+        Some("https://safe.example/"),
+        "a rejected update must not disturb the record"
+    );
+}
+
+#[tokio::test]
+async fn test_update_requires_auth() {
+    let h = Harness::new().await;
+    h.store.insert("docs", "https://safe.example/");
+
+    let response = h
+        .router()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/api/shorten/docs")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "url": "https://evil.example/" }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        h.store.get("docs").as_deref(),
+        Some("https://safe.example/")
+    );
+}
+
 #[tokio::test]
 async fn test_delete_rejects_invalid_code() {
     let h = Harness::new().await;

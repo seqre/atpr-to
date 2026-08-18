@@ -97,6 +97,45 @@ pub trait LinkResolver: Send + Sync {
     ) -> impl Future<Output = Result<ShortLink, ResolveError>> + Send;
 }
 
+/// Classify a failed `getRecord` response.
+///
+/// XRPC does not report a missing record in the status line. Both a PDS and the
+/// relay answer `400` with `{"error":"RecordNotFound"}` in the body, so a check
+/// on `status() == 404` alone never fired and every dead link came back as an
+/// upstream fault — a stranger following a deleted link was told the network
+/// was not answering, and the resolver chain paid for a fallback that could
+/// only reach the same 400.
+///
+/// This reads the error *name*, which is part of the protocol, not the human
+/// `message` beside it. That distinction is the whole reason the `ResolveError`
+/// variants exist: a name is a contract, a message is prose that can change.
+pub(crate) async fn getrecord_failure(source: &str, resp: reqwest::Response) -> ResolveError {
+    let status = resp.status();
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return ResolveError::RecordNotFound;
+    }
+
+    let name = resp
+        .json::<serde_json::Value>()
+        .await
+        .ok()
+        .and_then(|body| {
+            body.get("error")
+                .and_then(|e| e.as_str())
+                .map(str::to_owned)
+        });
+
+    match name.as_deref() {
+        Some("RecordNotFound") => ResolveError::RecordNotFound,
+        // The name is an enum from the lexicon, so it is safe to log. It never
+        // reaches the client: `AppError::Upstream` renders a fixed sentence.
+        Some(other) => ResolveError::Upstream(anyhow::anyhow!(
+            "{source} getRecord returned {status} ({other})"
+        )),
+        None => ResolveError::Upstream(anyhow::anyhow!("{source} getRecord returned {status}")),
+    }
+}
+
 /// Pull a [`ShortLink`] out of a `com.atproto.repo.getRecord` response body.
 ///
 /// Two byte-identical copies of this lived in `resolve.rs`, one per strategy.

@@ -344,9 +344,99 @@ async fn test_resolve_record_not_found() {
         .await
         .unwrap();
 
-    // TODO(rebrand): body was asserted to be an HTML error page; error responses
-    // are plain text until `templates/error.html` comes back (see src/error.rs).
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+/// The shape a missing record actually arrives in.
+///
+/// XRPC does not use the status line for this: a real PDS and the relay both
+/// answer `getRecord` for a missing rkey with **400** and
+/// `{"error":"RecordNotFound"}` — measured against `pds.rip` and
+/// `slingshot.microcosm.blue`, not assumed. The resolvers only checked for 404,
+/// so every dead link was classified as an upstream fault and served as a 502
+/// telling the visitor the network was not answering.
+///
+/// The mock returns the exact body both of them return.
+#[tokio::test]
+async fn test_xrpc_400_record_not_found_is_a_404_not_a_502() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
+            "error": "RecordNotFound",
+            "message": "Could not locate record: at://did:plc:testdid123/to.atpr.link/doesnotexist"
+        })))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/doesnotexist")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::NOT_FOUND,
+        "a named RecordNotFound is authoritative, whatever status carries it"
+    );
+}
+
+/// A 400 that is *not* a missing record must still be an upstream fault, or the
+/// fix above would turn every relay malfunction into a confident "no such link".
+#[tokio::test]
+async fn test_other_xrpc_400s_are_still_upstream_failures() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/xrpc/com.atproto.repo.getRecord"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(serde_json::json!({
+            "error": "InvalidRequest",
+            "message": "something else entirely"
+        })))
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let app = router_with_state(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/@alice.test/doesnotexist")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
 }
 
 /// Regression test for the `contains("404")` misclassification.

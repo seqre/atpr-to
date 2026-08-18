@@ -67,14 +67,8 @@ impl LinkResolver for Slingshot {
                 urlencoding::encode(code.as_str()),
             );
             let resp = self.http.get(&record_url).send().await?;
-            if resp.status() == reqwest::StatusCode::NOT_FOUND {
-                return Err(ResolveError::RecordNotFound);
-            }
             if !resp.status().is_success() {
-                return Err(ResolveError::Upstream(anyhow::anyhow!(
-                    "Slingshot getRecord returned {}",
-                    resp.status()
-                )));
+                return Err(super::getrecord_failure("Slingshot", resp).await);
             }
 
             link_from_get_record(&resp.json().await?, "Slingshot")

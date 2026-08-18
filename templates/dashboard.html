@@ -106,8 +106,11 @@
       </select>
     </div>
     <div class="field rack-filter">
-      <label class="visually-hidden" for="filter">Filter your links</label>
-      <input type="text" id="filter" placeholder="Filter" autocomplete="off">
+      {# The filter has always matched the destination as well as the code, and
+         nothing said so: "Filter" gives a visitor no reason to try an address
+         in it. The affordance is the fix, not the behaviour. #}
+      <label class="visually-hidden" for="filter">Filter by code or address</label>
+      <input type="text" id="filter" placeholder="Filter by code or address" autocomplete="off">
       <span class="cap" aria-hidden="true">
         <svg class="mark" viewBox="0 0 15 15" focusable="false">
           <g fill="currentColor">
@@ -120,7 +123,13 @@
   </div>
 
   {# Populated by static/dashboard.js from /api/links. The three states below
-     are mutually exclusive and the script owns which one shows. #}
+     are mutually exclusive and the script owns which one shows.
+
+     `data-did` narrows the script's Jetstream subscription to this repo, so a
+     link written in another tab, on a phone, or by any other atproto client
+     shows up here without a reload. It is the account's own public identifier
+     -- it is in every short link this person has ever shared -- so putting it
+     in the markup discloses nothing. #}
   <p class="state rack-state" id="rack-loading">Reading your repository…</p>
 
   <p class="state state--err rack-state" id="rack-error" hidden></p>
@@ -144,7 +153,7 @@
     </div>
   </div>
 
-  <ol class="rack" id="rack"></ol>
+  <ol class="rack" id="rack" data-did="{{ did }}"></ol>
 
   <p class="rack-nomatch note" id="rack-nomatch" hidden></p>
 
@@ -182,5 +191,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/jetstream.js" defer></script>
 <script src="/static/dashboard.js" defer></script>
 {% endblock %}

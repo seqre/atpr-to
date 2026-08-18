@@ -59,6 +59,12 @@
      10px short of the box beside it. */
   --control: 50px;
 
+  /* The height a field's label occupies above it: one line of the 11px label
+     step, plus the 6px that separates it from its field. Named because two
+     rules have to agree about it — the label's own margin, and anything that
+     has to line up with a field that *has* a label while having none itself. */
+  --label-block: calc(11px * 1.55 + 6px);
+
   --s1: var(--cell);
   --s2: calc(var(--cell) * 2);
   --s3: calc(var(--cell) * 3);
@@ -678,7 +684,9 @@ dialog::backdrop { background: #0d0d0cad; }
 .make-error { margin-top: var(--s1); }
 
 .rack-tools { display: flex; flex-wrap: wrap; gap: var(--s1); margin-bottom: var(--s2); }
-.rack-filter { max-width: 340px; flex: 1; }
+/* Wide enough that "Filter by code or address" is not cut off, which is the
+   whole point of the longer placeholder. */
+.rack-filter { max-width: 400px; flex: 1; min-width: 0; }
 
 /* A native select, dressed rather than replaced: the platform's own menu is
    better on a phone than anything drawn here, and it is one less popup to own.
@@ -820,7 +828,16 @@ dialog::backdrop { background: #0d0d0cad; }
 
 @media (max-width: 767px) {
   .make-grid { grid-template-columns: minmax(0, 1fr); }
-  .make-grid .make-go { width: 100%; }
+  .make-grid .make-go {
+    width: 100%;
+    /* In one column the two fields are separated by the row gap *plus* the
+       second field's label — 32px — while the button had only the row gap
+       under the field above it, 9px. It read as attached to the code field
+       rather than as the third thing in the stack. Borrowing the label's own
+       height is what makes the two gaps equal, and it stays equal if the
+       label step ever changes. */
+    margin-top: var(--label-block);
+  }
 
   /* The link and the way to act on it stay on one line; only the timestamp
      drops. Four icon buttons need about 150px that a phone does not have to

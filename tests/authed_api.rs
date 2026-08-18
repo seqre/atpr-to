@@ -921,11 +921,27 @@ async fn test_dashboard_renders_for_an_authenticated_user() {
     // The DID was resolved to a handle rather than rendered raw, and the
     // avatar came back from the AppView.
     assert!(body.contains("alice.test"), "body: {body}");
-    assert!(
-        !body.contains(DID),
-        "the raw DID must not leak into the page"
-    );
     assert!(body.contains("https://cdn.test/avatar.jpg"), "body: {body}");
+
+    // The DID is now in the markup, in `data-did`, so the page can narrow its
+    // Jetstream subscription to this repo. This assertion used to be "the DID
+    // appears nowhere", which was a proxy for what it actually protects: that
+    // the *visible* identity is the handle and not a raw identifier. That is
+    // asserted directly now, on the element which carries the name.
+    //
+    // The DID itself is not a secret — it is the subject of every short link
+    // this account has published, and one request from the handle — and this
+    // page is served only to the account it belongs to.
+    let whoami_start = body.find("whoami").expect("the identity block renders");
+    let whoami = &body[whoami_start..whoami_start + 400.min(body.len() - whoami_start)];
+    assert!(
+        !whoami.contains(DID),
+        "the visible identity must be the handle, not the DID: {whoami}"
+    );
+    assert!(
+        body.contains(&format!(r#"data-did="{DID}""#)),
+        "the DID must reach the script that subscribes for this repo: {body}"
+    );
 }
 
 /// `ui.rs` names this as the top regression risk left by the frontend removal.

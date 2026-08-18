@@ -119,5 +119,8 @@
 
 {% block scripts %}
 <script src="/static/handle.js" defer></script>
+{# Both are `defer`, so they run in order and the socket helper is defined
+   before the wall asks for it. #}
+<script src="/static/jetstream.js" defer></script>
 <script src="/static/wall.js" defer></script>
 {% endblock %}

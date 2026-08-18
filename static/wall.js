@@ -24,9 +24,6 @@
   var MAX_ITEMS = 6;
   var BACKOFF_MIN_MS = 1000;
   var BACKOFF_MAX_MS = 30000;
-  /* Long enough that a genuinely slow evening does not look like a fault, and
-     short enough that a dead socket does not sit there looking alive. */
-  var QUIET_AFTER_MS = 90000;
 
   var list = document.getElementById("wall");
   var quiet = document.getElementById("wall-quiet");
@@ -35,7 +32,6 @@
   var socket = null;
   var host = 0;
   var backoff = BACKOFF_MIN_MS;
-  var quietTimer = null;
   var handles = new Map();
   var seen = new Set();
   /* Bumped whenever a socket is abandoned. Handlers compare against it rather
@@ -44,16 +40,14 @@
   var generation = 0;
   var paused = false;
 
-  function showQuiet(show) {
-    quiet.hidden = !show;
-  }
-
-  function markBusy() {
-    showQuiet(false);
-    clearTimeout(quietTimer);
-    quietTimer = setTimeout(function () {
-      if (!list.children.length) showQuiet(true);
-    }, QUIET_AFTER_MS);
+  /* The empty state is a function of the list being empty, and of nothing
+     else. It used to be cleared when the socket opened, which meant the
+     explanation of what this panel is for vanished the moment the connection
+     succeeded and left a blank rectangle behind it -- on a low-traffic product
+     that is the state most visitors see, and connecting is not news to
+     anybody. It goes when a record lands, and not before. */
+  function settle() {
+    quiet.hidden = list.children.length > 0;
   }
 
   /* DID -> handle. Failures resolve to null rather than rejecting: an entry
@@ -116,7 +110,7 @@
     while (list.children.length > MAX_ITEMS) {
       list.removeChild(list.lastChild);
     }
-    markBusy();
+    settle();
 
     handleFor(did).then(function (handle) {
       who.textContent = handle ? "@" + handle : did.slice(0, 20) + "…";
@@ -148,7 +142,6 @@
     socket.addEventListener("open", function () {
       if (!live()) return;
       backoff = BACKOFF_MIN_MS;
-      markBusy();
     });
 
     socket.addEventListener("message", function (event) {
@@ -192,7 +185,7 @@
 
   function retry() {
     drop();
-    if (!list.children.length) showQuiet(true);
+    settle();
     if (paused) return;
 
     // Alternate hosts, so one unhealthy instance is not retried forever.
@@ -215,7 +208,6 @@
     if (document.hidden) {
       paused = true;
       drop();
-      clearTimeout(quietTimer);
     } else if (paused) {
       paused = false;
       backoff = BACKOFF_MIN_MS;

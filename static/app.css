@@ -11,12 +11,13 @@
  *
  * Two renditions. Galerie is gallery white ruled in lacquer black. Vitrine is
  * the same objects in a case at night — not an inversion: ink and ground swap
- * *around* the silver, which does not follow them down, because in a night
+ * *around* the metal greys, which do not follow them down, because in a night
  * vitrine the metal is the light source rather than a surface taking light.
- * Its ramp stays lit in both, which is also what keeps its fixed dark label
- * legible on it. Every colour is defined on bare :root first and only
- * *redefined* under the theme selectors, so the un-stamped state (a viewer on
- * "system") is always a complete palette.
+ * The greys are also not a mirrored ramp: a dark ground eats low-contrast type
+ * in a way a light ground does not, so Vitrine's soft and faint inks sit
+ * lighter than symmetry would put them, and both are measured. Every colour is
+ * defined on bare :root first and only *redefined* under the theme selectors,
+ * so the un-stamped state (a viewer on "system") is always a complete palette.
  */
 
 @font-face {
@@ -69,10 +70,15 @@
   --ink-faint: #625f58;
   --hair: #0d0d0c26;
 
-  --silver-hi: #edebe6;
+  /* What is left of the silver. The hammered material is gone -- it dressed one
+     button and that button did not want it -- but the metal greys remain as the
+     system's neutral, on the two surfaces that are genuinely furniture rather
+     than content: the scrollbar thumb, and the fill behind an avatar that did
+     not load. They stay lit in the dark rendition for the same reason the
+     material did, which is the one part of the Lit Metal Rule that still has
+     something to hold up. */
   --silver-mid: #bab7b0;
   --silver-lo: #87847d;
-  --silver-ink: #0d0d0c;
 
   /* The only chromatic value in the system, and it is semantic: destructive
      actions and errors. Never decoration, or it stops meaning anything. */
@@ -105,15 +111,10 @@
     --ink-soft: #c4c0b6;
     --ink-faint: #9a968d;
     --hair: #edebe42e;
-    /* Stays lit. In the vitrine the metal is the light source, not a surface
-       taking light, so the ramp brightens rather than darkening with the
-       ground — which is also what keeps dark ink legible on it (6.4:1 at the
-       darkest stop; the earlier darkening ramp reached 1.9:1 and could not
-       carry a label at all). */
-    --silver-hi: #e8e5dd;
+    /* Stays lit: in the vitrine the metal is the light source, not a surface
+       taking light, so it brightens rather than darkening with the ground. */
     --silver-mid: #c2beb4;
     --silver-lo: #98948b;
-    --silver-ink: #0d0d0c;
     --signal: #d4674f;
     --signal-ground: #d4674f1f;
   }
@@ -126,10 +127,8 @@
   --ink-soft: #c4c0b6;
   --ink-faint: #9a968d;
   --hair: #edebe42e;
-  --silver-hi: #e8e5dd;
   --silver-mid: #c2beb4;
   --silver-lo: #98948b;
-  --silver-ink: #0d0d0c;
   --signal: #d4674f;
   --signal-ground: #d4674f1f;
 }
@@ -291,38 +290,6 @@ p { margin: 0; max-width: 68ch; }
 .btn--danger:hover { background: var(--signal); color: var(--ground); }
 .btn[disabled], .btn[aria-disabled="true"] { opacity: 0.34; cursor: not-allowed; }
 .btn[disabled]:hover { background: transparent; color: var(--ink); }
-
-/* ── hammered silver ────────────────────────────────────────────────────── */
-
-/* A material, not a grey fill: a directional ramp, a specular bloom, the
-   dimpling of planished metal, and a fine tooth over the top.
- *
- * The material's home. Wiener Werkstätte is metalwork, so the one place a
- * hammered surface belongs is an object you press — a struck plate rather than
- * a painted rectangle. Silver is the secondary-action material: never a panel,
- * never a page ground, never a decorative fill.
- *
- * `.btn--silver:hover` is in this selector list, and both its position and its
- * presence are load-bearing. `.btn:hover` fills with ink at (0,2,0), which
- * beats the `.silver` class at (0,1,0), so hovering a silver button stripped
- * the material and left the fixed dark label on the surface behind it —
- * `#0d0d0c` on `#100f0e` in the vitrine, which is nothing at all. Re-asserting
- * the material at equal specificity *after* `.btn:hover` is what holds it. */
-.silver,
-.btn--silver:hover {
-  background-color: var(--silver-mid);
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"),
-    radial-gradient(circle at 22% 18%, #ffffffb0, transparent 46%),
-    repeating-radial-gradient(circle at 50% 50%, #ffffff12 0 3px, #00000012 3px 7px),
-    linear-gradient(148deg, var(--silver-hi) 0%, var(--silver-mid) 38%, var(--silver-lo) 58%, var(--silver-mid) 78%, var(--silver-hi) 100%);
-  background-blend-mode: overlay, screen, overlay, normal;
-  color: var(--silver-ink);
-}
-
-.btn--silver { border-color: var(--ink); }
-/* The whole hover state: the plate catches a little more light. */
-.btn--silver:hover { filter: brightness(1.06); }
 
 .field {
   display: flex;

@@ -14,24 +14,6 @@
       },
       {
         "rule": "design-system-color",
-        "value": "#ffffffb0",
-        "createdAt": "2026-08-18T06:36:38.883Z",
-        "reason": "Specular bloom inside the .silver material, not a palette colour. DESIGN.md records the material as ramp + bloom + planished dimpling + noise tooth; these alpha layers ARE the bloom and dimples."
-      },
-      {
-        "rule": "design-system-color",
-        "value": "#ffffff12",
-        "createdAt": "2026-08-18T06:36:38.933Z",
-        "reason": "Planishing dimple highlight inside the .silver material. See DESIGN.md's material description; not a palette entry."
-      },
-      {
-        "rule": "design-system-color",
-        "value": "#00000012",
-        "createdAt": "2026-08-18T06:36:38.992Z",
-        "reason": "Planishing dimple shadow inside the .silver material. See DESIGN.md's material description; not a palette entry."
-      },
-      {
-        "rule": "design-system-color",
         "value": "#fff",
         "createdAt": "2026-08-18T06:36:47.450Z",
         "reason": "The QR's pinned ground (.qr-plate/.qr-frame). DESIGN.md's Pinned Ink Rule requires the code stay black-on-white in BOTH renditions because a light-on-dark QR fails on many scanners. Being outside the palette is the whole point; palette tokens here would break scanning."

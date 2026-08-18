@@ -436,7 +436,7 @@
       },
       {
         "name": "The No-Radius Rule",
-        "body": "Nothing in this world is rounded, including focus outlines and images. If a corner needs softening, the composition is wrong.",
+        "body": "Nothing in this world is rounded, including focus outlines and images. If a corner needs softening, the composition is wrong. One exception, stated rather than quietly allowed: the rendition toggle's sun and moon are circles and arcs. Drawn from the lattice they were consistent and unusable -- at 15px a stepped crescent reads as a low-resolution picture of a moon, and a control that looks like a rendering fault is worse than one that borrows a convention. Sun and moon are borrowed signs, not objects in this world, and the logo's own mark already carries an arc. Every glyph that is ours stays square.",
         "section": "shapes"
       },
       {
@@ -451,7 +451,7 @@
       },
       {
         "name": "The Drawn Glyph Rule",
-        "body": "Every glyph is drawn from the lattice: axis-aligned rectangles on a 15x15 grid in currentColor. One per action -- two plates for copy, a shaft and a three-step head for repoint, three finder squares for QR, five cells on the diagonals for delete, solid beside pierced for the rendition toggle. The four-square atpr.to mark is not among them: it means the product, and it stops meaning that the moment it also means 'control'. Four identical buttons in a row are four buttons nobody can aim at, and a tooltip is not a substitute.",
+        "body": "Every glyph is drawn from the lattice: axis-aligned rectangles on a 15x15 grid in currentColor. One per action -- two plates for copy, a shaft and a three-step head for repoint, three finder squares for QR, five cells on the diagonals for delete, three in a row for overflow, a door with an arrow leaving it for sign out. The four-square atpr.to mark is not among them: it means the product, and it stops meaning that the moment it also means 'control'. Four identical buttons in a row are four buttons nobody can aim at, and a tooltip is not a substitute.",
         "section": "elevation"
       }
     ],

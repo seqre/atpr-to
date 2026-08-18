@@ -625,6 +625,59 @@
     qrDlg.close();
   });
 
+  /* ── the same repo, seen from somewhere else ──────────────────────────── */
+
+  /* A repo is not owned by this page. The same account can be writing links
+     from a phone, a second tab, or any other atproto client, and until now
+     this list was a snapshot from whenever it last loaded -- delete a link
+     elsewhere and this page would happily offer to delete it again.
+   *
+     Subscribing to this one DID rather than the whole firehose is what makes
+     it cheap: the filtering happens at the server, so the tab is not woken for
+     every record written anywhere on the network.
+   *
+     The record is applied directly rather than triggering a refetch. It is
+     this account's own record, it arrives complete, and a refetch would throw
+     away any pages already loaded. */
+  function applyRemote(rkey, operation, record) {
+    var at = links.findIndex(function (l) {
+      return l.code === rkey;
+    });
+
+    if (operation === "delete") {
+      if (at === -1) return;
+      links.splice(at, 1);
+    } else {
+      if (!record || typeof record.url !== "string") return;
+      var entry = {
+        code: rkey,
+        url: record.url,
+        updated_at: typeof record.updatedAt === "string" ? record.updatedAt : "",
+      };
+      // An echo of our own write lands here too: same code, same URL, already
+      // in the list. Replacing it in place is idempotent, so it costs a redraw
+      // and changes nothing the eye can see.
+      if (at === -1) links.unshift(entry);
+      else links[at] = entry;
+    }
+
+    // An open menu or an open edit form belongs to a row that is about to be
+    // rebuilt. `draw` closes the menu itself; an edit in progress is the one
+    // thing worth protecting, because it holds something the visitor typed.
+    if (rack.querySelector(".rackrow-edit")) return;
+    draw();
+  }
+
+  if (window.atprJetstream && rack.dataset.did) {
+    window.atprJetstream.subscribe({
+      collection: window.atprJetstream.COLLECTION,
+      did: rack.dataset.did,
+      onCommit: function (did, rkey, operation, record) {
+        applyRemote(rkey, operation, record);
+      },
+    });
+  }
+
   filter.addEventListener("input", draw);
   if (sort) sort.addEventListener("change", draw);
   moreBtn.addEventListener("click", function () {

@@ -166,19 +166,20 @@
 
   /* ── the placeholder, cycling ─────────────────────────────────────────── */
 
-  /* This page's whole claim is that *any* AT Protocol account works, not just
-     a Bluesky one — and it made that claim only in the small print under the
+  /* This page's whole claim is that *any* Atmosphere account works, not just a
+     Bluesky one — and it made that claim only in the small print under the
      field, where a single `alice.bsky.social` placeholder was quietly saying
-     the opposite. Rotating it through several shapes of handle puts the claim
-     in the one place everyone looks.
+     the opposite. Rotating it through real servers puts the claim in the one
+     place everybody looks.
    *
-   * Handles are illustrative, not real accounts, and the last is deliberately
-   * a bare domain: a handle does not have to live under anyone else's. */
+   * One name across four hosts, so the thing that changes is the only thing
+   * that matters here: where the account lives. `alice` is the same
+   * placeholder person throughout, which keeps the eye on the domain. */
   var EXAMPLES = [
     "alice.bsky.social",
-    "you.pds.rip",
-    "name.example.com",
-    "yourdomain.dev",
+    "alice.eurosky.social",
+    "alice.blacksky.com",
+    "alice.blacksky.community",
   ];
   var PERIOD_MS = 2600;
 

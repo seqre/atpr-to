@@ -36,6 +36,13 @@ struct DashboardTemplate {
     handle: String,
     /// Avatar URL, empty string if not available.
     avatar: String,
+    /// The signed-in repo's DID.
+    ///
+    /// Rendered into a `data-` attribute so `dashboard.js` can narrow its
+    /// Jetstream subscription to this one repo. Resolving the handle back to a
+    /// DID in the browser would be a second network round trip for something
+    /// the server already has in hand.
+    did: String,
 }
 
 /// Serve the home page with the login form.
@@ -90,11 +97,12 @@ pub async fn dashboard<A: Authenticator>(
         state.identity.handle_for(&did_str),
         fetch_bsky_avatar(&state.http, &state.config.appview_url, &did_str),
     );
-    let handle = handle.unwrap_or(did_str);
+    let handle = handle.unwrap_or_else(|| did_str.clone());
 
     let html = DashboardTemplate {
         handle,
         avatar: avatar.unwrap_or_default(),
+        did: did_str,
     }
     .render()
     .map_err(AppError::internal)?;

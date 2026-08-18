@@ -57,6 +57,18 @@ typography:
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: "0.24em"
+  control:
+    fontFamily: "Cinzel, Georgia, 'Times New Roman', serif"
+    fontSize: "12px"
+    fontWeight: 600
+    lineHeight: 1.35
+    letterSpacing: "0.2em"
+  meta:
+    fontFamily: "Jost, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.3
+    letterSpacing: "normal"
   code:
     fontFamily: "Cinzel, Georgia, 'Times New Roman', serif"
     fontSize: "15px"
@@ -240,6 +252,7 @@ A warm achromatic world — bone-white ground, lacquer-black ink, a metal ramp b
 - **Lede** (300, `clamp(16px, 1.6vw, 18px)`): The one paragraph under a display headline. Light weight, soft ink.
 - **Note** (400, 13px, faint ink, 62ch): Hints, disclaimers, empty-state prose.
 - **Label** (600, 11px, 0.24em, uppercase, display face): Field labels, fact labels, counts. The floor of the display face.
+- **Control / Meta** (12px): Two jobs at one size. Button labels take it in the display face at 0.2em uppercase — one step above the label floor, because a control has to be read at a glance and pressed correctly the first time. Secondary metadata takes it in the body face, unspaced and in faint ink: a suggestion's display name, a row's timestamp. Nothing that a visitor must read to understand the page ever sits here.
 - **Short Code** (600, 15px, 0.1em–0.12em, uppercase, display face): A user's chosen code, wherever it appears — rack row, wall row, preview fact.
 - **Data** (400, 13px, 1.85, monospace): The literal atproto record on the landing page, and inline `to.atpr.link` mentions. The only place a third face is allowed, because it is showing machine text as machine text.
 

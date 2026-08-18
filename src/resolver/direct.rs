@@ -3,7 +3,7 @@
 //! Slower than the relay, but it works when the relay does not, and it is the
 //! only path that does not depend on a third party.
 
-use jacquard::identity::resolver::IdentityResolver;
+use jacquard::identity::resolver::{IdentityError, IdentityErrorKind, IdentityResolver};
 use jacquard_common::types::string::Handle;
 use tracing::Instrument;
 
@@ -21,6 +21,31 @@ impl Direct {
     /// Build a direct resolver.
     pub fn new(http: reqwest::Client, identity: Resolver) -> Self {
         Self { http, identity }
+    }
+}
+
+/// Classify a failure to turn a handle into a DID.
+///
+/// Every identity failure used to be an upstream fault, so a visitor who
+/// mistyped a handle — or followed a link to an account that no longer exists —
+/// was told the network was not answering, and got a 502 for a request that was
+/// never going to succeed.
+///
+/// `HandleResolutionExhausted` is jacquard's verdict after DNS, the well-known
+/// document and the PDS fallback have all been tried. Its own help text calls
+/// it ambiguous: the handle may not exist, *or* every method may be
+/// unreachable. Treated here as "no such account", because a typo is the
+/// overwhelmingly common cause and a simultaneous failure of all three methods
+/// means this service is not resolving anything for anyone. Every other kind
+/// stays an upstream fault.
+///
+/// Matched on the typed kind, never on the message — the same rule the rest of
+/// this module follows, and the reason `ResolveError` exists at all.
+fn classify_handle_failure(e: IdentityError) -> ResolveError {
+    if matches!(e.kind(), IdentityErrorKind::HandleResolutionExhausted) {
+        ResolveError::HandleNotFound
+    } else {
+        ResolveError::Upstream(e.into())
     }
 }
 
@@ -51,7 +76,7 @@ impl LinkResolver for Direct {
             let did = async { self.identity.resolve_handle(handle).await }
                 .instrument(tracing::info_span!("resolve_handle"))
                 .await
-                .map_err(|e| ResolveError::Upstream(e.into()))?;
+                .map_err(classify_handle_failure)?;
 
             let doc_response = async { self.identity.resolve_did_doc(&did).await }
                 .instrument(tracing::info_span!("resolve_did_doc"))

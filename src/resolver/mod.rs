@@ -75,7 +75,8 @@ impl From<reqwest::Error> for ResolveError {
 impl From<ResolveError> for AppError {
     fn from(e: ResolveError) -> Self {
         match e {
-            ResolveError::HandleNotFound | ResolveError::RecordNotFound => AppError::NotFound,
+            ResolveError::HandleNotFound => AppError::HandleNotFound,
+            ResolveError::RecordNotFound => AppError::NotFound,
             // 404 rather than 502: the record is permanently unusable, so
             // "try again later" would be a lie, and paging on it would be noise.
             ResolveError::UnusableRecord(reason) => {
@@ -215,6 +216,63 @@ impl LinkResolver for Chained {
 mod tests {
     use super::*;
     use axum::http::StatusCode;
+
+    /// Build a `reqwest::Response` from parts, so the classifier can be tested
+    /// without a socket.
+    fn response(status: u16, body: serde_json::Value) -> reqwest::Response {
+        reqwest::Response::from(
+            axum::http::Response::builder()
+                .status(status)
+                .body(body.to_string())
+                .unwrap(),
+        )
+    }
+
+    /// The end-to-end tests can only observe this through a fallback that also
+    /// fails, so the classification itself is pinned here where it is the only
+    /// thing under test.
+    #[tokio::test]
+    async fn test_getrecord_failure_classification() {
+        assert!(matches!(
+            getrecord_failure(
+                "PDS",
+                response(400, serde_json::json!({"error":"RecordNotFound"}))
+            )
+            .await,
+            ResolveError::RecordNotFound
+        ));
+        assert!(matches!(
+            getrecord_failure(
+                "PDS",
+                response(400, serde_json::json!({"error":"InvalidRequest"}))
+            )
+            .await,
+            ResolveError::Upstream(_)
+        ));
+        assert!(matches!(
+            getrecord_failure("PDS", response(500, serde_json::json!({}))).await,
+            ResolveError::Upstream(_)
+        ));
+        // Some implementations do use the status line; both must work.
+        assert!(matches!(
+            getrecord_failure("PDS", response(404, serde_json::json!({}))).await,
+            ResolveError::RecordNotFound
+        ));
+    }
+
+    /// The upstream's own words are for the log, not the client.
+    #[tokio::test]
+    async fn test_getrecord_failure_does_not_carry_upstream_prose() {
+        let e = getrecord_failure(
+            "PDS",
+            response(
+                400,
+                serde_json::json!({"error":"InvalidRequest","message":"PDS on fire at 10.0.0.7"}),
+            ),
+        )
+        .await;
+        assert!(!e.to_string().contains("10.0.0.7"), "{e}");
+    }
 
     #[test]
     fn test_not_found_classification() {

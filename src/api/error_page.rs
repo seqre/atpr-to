@@ -86,6 +86,25 @@ fn under_api(path: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('/'))
 }
 
+/// Server-authored copy, keyed on status and — for the one case where a status
+/// is not specific enough — on our own error constant.
+///
+/// A 404 covers two different facts: the link is gone, or the account never
+/// existed. Only the second is worth a different sentence, because only the
+/// second is usually a typo the visitor can fix. The match is against
+/// [`crate::error::HANDLE_NOT_FOUND`], a value this crate owns; upstream text
+/// never reaches here, and never decides copy.
+fn copy_for_detail(status: StatusCode, detail: Option<&str>) -> (&'static str, &'static str) {
+    if status == StatusCode::NOT_FOUND && detail == Some(crate::error::HANDLE_NOT_FOUND) {
+        return (
+            "No such account",
+            "Nothing on the AT Protocol network answers to that handle. \
+             Check it for a typo — the account may also have been deleted or renamed.",
+        );
+    }
+    copy_for(status)
+}
+
 /// Server-authored copy per status.
 ///
 /// Exhaustive by construction: the fallthrough arms mean a status nobody
@@ -174,7 +193,7 @@ async fn render(status: StatusCode, response: Response) -> Response {
         .ok()
         .map(|b| b.error);
 
-    let (heading, message) = copy_for(status);
+    let (heading, message) = copy_for_detail(status, detail.as_deref());
     let page = ErrorPage {
         status: status.as_u16(),
         heading,
@@ -311,6 +330,37 @@ mod tests {
         assert!(
             html.contains("alert(1)"),
             "the message should still be readable"
+        );
+    }
+
+    /// The one place a status is not specific enough to choose the words.
+    #[test]
+    fn test_a_missing_handle_gets_its_own_404_copy() {
+        let (generic, _) = copy_for_detail(StatusCode::NOT_FOUND, None);
+        let (handle, _) =
+            copy_for_detail(StatusCode::NOT_FOUND, Some(crate::error::HANDLE_NOT_FOUND));
+
+        assert_ne!(
+            generic, handle,
+            "a mistyped handle and a deleted link are different facts"
+        );
+        assert_eq!(generic, copy_for(StatusCode::NOT_FOUND).0);
+    }
+
+    /// Detail is attacker-adjacent in the sense that any 404 body could carry
+    /// it; only our own constant may steer the copy.
+    #[test]
+    fn test_other_details_do_not_steer_the_copy() {
+        assert_eq!(
+            copy_for_detail(StatusCode::NOT_FOUND, Some("handle not found ")),
+            copy_for(StatusCode::NOT_FOUND)
+        );
+        assert_eq!(
+            copy_for_detail(
+                StatusCode::BAD_GATEWAY,
+                Some(crate::error::HANDLE_NOT_FOUND)
+            ),
+            copy_for(StatusCode::BAD_GATEWAY)
         );
     }
 }

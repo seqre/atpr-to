@@ -16,6 +16,12 @@
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 
+/// The body message for [`AppError::HandleNotFound`].
+///
+/// Shared so the HTML error page can recognise its own 404 without matching on
+/// a string literal spelled out twice.
+pub const HANDLE_NOT_FOUND: &str = "handle not found";
+
 /// Everything a handler can fail with.
 ///
 /// `BadRequest` takes `&'static str` deliberately: it makes interpolating an
@@ -28,6 +34,17 @@ pub enum AppError {
     /// The requested resource does not exist.
     #[error("not found")]
     NotFound,
+
+    /// The handle in the address does not resolve to an account.
+    ///
+    /// A 404 like [`Self::NotFound`], but a different sentence: "this person
+    /// has no account here" and "this person deleted that link" are different
+    /// facts, and a visitor who mistyped a handle can act on the first one.
+    /// The message is a constant rather than a literal because
+    /// `api::error_page` matches on it to choose the page's heading — keying
+    /// off our own value, never off prose that could drift.
+    #[error("{HANDLE_NOT_FOUND}")]
+    HandleNotFound,
 
     /// The request was malformed. The message is server-authored and safe to
     /// return verbatim.
@@ -55,7 +72,7 @@ impl AppError {
     /// The status code this error maps to.
     pub fn status(&self) -> StatusCode {
         match self {
-            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::NotFound | Self::HandleNotFound => StatusCode::NOT_FOUND,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Conflict => StatusCode::CONFLICT,

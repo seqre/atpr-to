@@ -1,7 +1,43 @@
 [advisories]
 # Fail on any unmaintained or vulnerable crate in the graph.
 yanked = "deny"
-ignore = []
+
+# Every entry here is an advisory that *cannot currently be fixed by a version
+# bump*, with the reason it is tolerated and the condition that should retire it.
+# Nothing is listed to make the gate quiet: three other advisories were live at
+# the same time as these and were fixed by `cargo update` instead.
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = """
+Marvin attack — timing sidechannel in `rsa`. No upstream patch exists; the
+advisory itself says work is still underway. It reaches us through
+jose-jwk <- jacquard-oauth, as a type definition rather than a code path.
+
+Not reachable as described: the sidechannel is on RSA *private-key* operations,
+and this app performs none. jacquard-oauth signs DPoP proofs and client
+assertions with ES256 over P-256 (`FALLBACK_ALG = "ES256"`), which is what AT
+Protocol OAuth requires; an RSA key could only ever appear here as a public key
+parsed out of an authorization server's JWKS.
+
+Retire when `rsa` ships a constant-time implementation, or when jacquard drops
+jose-jwk.""" },
+
+    { id = "RUSTSEC-2026-0119", reason = """
+CPU exhaustion via O(n^2) name compression in hickory-resolver 0.24.4, on the
+DNS half of handle resolution. Fixed only in hickory 0.25, and the version is
+pinned by jacquard-identity 0.12.1 — no bump available to us alone.
+
+Exposure is bounded by `Handle` parsing, which validates and length-limits the
+name before it is ever encoded into a query.
+
+Retire on the next jacquard bump; check whether it has moved to hickory 0.25.""" },
+
+    { id = "RUSTSEC-2023-0089", reason = """
+atomic-polyfill is unmaintained. Not a vulnerability — no advisory of a defect,
+only of an absent maintainer. Arrives via heapless 0.7 <- postcard <-
+jacquard-common, and needs heapless 0.8 upstream.
+
+Retire when jacquard-common's postcard dependency moves to heapless 0.8.""" },
+]
 
 [licenses]
 allow = [
@@ -10,6 +46,10 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "BSL-1.0",
+    # webpki-roots: Mozilla's CA certificate set. A data licence on a list of
+    # root certificates, not a code licence — permissive, and there is no
+    # alternative source for the same data.
+    "CDLA-Permissive-2.0",
     "CC0-1.0",
     "ISC",
     "MIT",

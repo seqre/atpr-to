@@ -81,6 +81,7 @@ Dependency rule: `api` → `domain`/`store`/`resolver`; `domain` depends on noth
   address so nothing can silently start depending on the real one
 - On Lambda, rate limiting is per-instance; the global limit is API Gateway throttling in `template.yaml`
 
-**Known issue:** OAuth sessions live on the instance's `/tmp` and are per execution environment, so logins
-fail intermittently under concurrency. The `session/` seam exists so a shared backend can be added without
-touching handlers.
+**Sessions:** OAuth sessions live in DynamoDB (`session/dynamo.rs`), shared across execution environments.
+`session_file` picks the backend — `""` memory, `dynamodb://{table}`, anything else a path — and the
+`AuthStore` enum dispatches. This replaced per-instance `/tmp` storage, which made logins fail
+intermittently under concurrency; the `session/` seam existed for exactly this and no handler changed.

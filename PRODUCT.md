@@ -117,8 +117,9 @@ Constraints:
   `toLocaleString()` any more.
 - Template fields must stay referenced in the markup — `missing_docs` and `clippy -D warnings` make an unused
   field a build failure, not a warning.
-- **Known defect, not yet fixed:** OAuth sessions live on the Lambda instance's `/tmp`, so logins fail
-  intermittently under concurrency. The failure is user-visible and needs an honest error state.
+- **Closed 2026-08-18:** OAuth sessions live in a DynamoDB table shared by every execution environment, so
+  logins no longer fail intermittently under concurrency. `session_file = "dynamodb://{table}"` selects it;
+  the table, its TTL and a policy scoped to three actions on that one table are in `template.yaml`.
 - **Closed 2026-08-18:** browsers navigating now get an HTML error page and `/api` still gets JSON, decided by
   `src/api/error_page.rs` — middleware, because `AppError::into_response` cannot see the request. It keys on
   status, so axum's own rejections, the rate limiter's 429 and the timeout's 504 are covered too.

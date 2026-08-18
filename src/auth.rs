@@ -21,7 +21,7 @@ use serde::Deserialize;
 
 use crate::config::{BaseUrl, SessionStore};
 use crate::error::AppError;
-use crate::session::{AuthStore, FileStore};
+use crate::session::{AuthStore, DynamoStore, FileStore};
 use crate::store::{LinkStore, PdsLinkStore};
 use crate::AppState;
 
@@ -293,9 +293,10 @@ pub async fn build_oauth_client(
         config: client_metadata_for(base_url),
     };
 
-    let store = match session_store.path() {
-        None => AuthStore::Memory(MemoryAuthStore::new()),
-        Some(path) => AuthStore::File(FileStore::open(path).await?),
+    let store = match session_store {
+        SessionStore::Memory => AuthStore::Memory(MemoryAuthStore::new()),
+        SessionStore::File(path) => AuthStore::File(FileStore::open(path).await?),
+        SessionStore::Dynamo(table) => AuthStore::Dynamo(DynamoStore::connect(table).await),
     };
     Ok(OAuthClient::new(store, client_data, http))
 }

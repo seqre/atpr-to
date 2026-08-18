@@ -378,7 +378,8 @@ mod tests {
 
     #[test]
     fn test_session_store_dynamodb_url_is_a_table() {
-        let cfg: Config = toml::from_str(r#"session_file = "dynamodb://atpr-to-sessions""#).unwrap();
+        let cfg: Config =
+            toml::from_str(r#"session_file = "dynamodb://atpr-to-sessions""#).unwrap();
         assert_eq!(
             cfg.session_store,
             SessionStore::Dynamo("atpr-to-sessions".to_string())
@@ -403,7 +404,8 @@ mod tests {
     /// A path is still a path, including one that merely mentions the word.
     #[test]
     fn test_a_path_is_not_mistaken_for_a_table() {
-        let cfg: Config = toml::from_str(r#"session_file = "/var/dynamodb/sessions.json""#).unwrap();
+        let cfg: Config =
+            toml::from_str(r#"session_file = "/var/dynamodb/sessions.json""#).unwrap();
         assert_eq!(
             cfg.session_store,
             SessionStore::File(PathBuf::from("/var/dynamodb/sessions.json"))

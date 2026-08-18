@@ -659,8 +659,26 @@ dialog::backdrop { background: #0d0d0cad; }
 .lbl-soft { color: var(--ink-faint); letter-spacing: 0.14em; }
 .make-error { margin-top: var(--s1); }
 
-.rack-tools { display: flex; gap: var(--s1); margin-bottom: var(--s2); }
+.rack-tools { display: flex; flex-wrap: wrap; gap: var(--s1); margin-bottom: var(--s2); }
 .rack-filter { max-width: 340px; flex: 1; }
+
+/* A native select, dressed rather than replaced: the platform's own menu is
+   better on a phone than anything drawn here, and it is one less popup to own.
+   Only the box around it belongs to us. */
+.rack-sort { flex: none; }
+.rack-sort select {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0 var(--s1);
+  cursor: pointer;
+  outline: 0;
+}
 .rack-count { margin-left: auto; color: var(--ink-faint); }
 .rack-state { margin-bottom: var(--s2); }
 .rack-empty-plate { padding: var(--s4) var(--s3); text-align: center; }

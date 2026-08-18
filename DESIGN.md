@@ -380,4 +380,4 @@ A QR code is a pierced square lattice in black and white — the same object thi
 - **Don't** use a toast, an `alert()`, or borrowed modal chrome to report a state. States print as ruled lines in the system's own voice.
 - **Don't** inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one.
 
-<!-- Not canonized. One thing the build carries that is a defect, not a rule, and that future surfaces must not inherit: the wordmark ships on Cinzel, but the binding wordmark type is Now Bold with Inter/Helvetica/system-bold fallbacks, and no Now file exists in this repository. This is a flagged substitution, not a typographic decision, and Cinzel is not the wordmark's face. -->
+<!-- Not canonized. Nothing outstanding here: the wordmark's flagged substitution was resolved when Now Bold was supplied, and it is now the only face `.lockup-word` names. -->

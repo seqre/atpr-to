@@ -139,11 +139,11 @@ it earns its place.
   authoritative: monochrome only (pure `#000` or `#FFF` inside its box), ink-on-light or paper-on-dark,
   never recolored to an accent, never distorted, never given effects, clear space ≥ the width of the "a"
   counter on all sides, never on a busy or photographic field.
-- **Wordmark type:** Now Bold preferred; Inter Bold, then Helvetica Bold, then system sans-serif bold as
-  fallbacks — a fallback must be flagged in handoff notes. This governs the wordmark lockup only.
-  **Flagged, per that rule:** no font files exist anywhere in this repository (`static/` holds only
-  `app.css` and `logo.svg`), so Now Bold is **not currently available** and the wordmark will ship on a
-  fallback until the file is supplied. This is a substitution, not a choice.
+- **Wordmark type:** Now Bold, and it now ships — `static/fonts/now-bold-latin.woff2`, loaded by the
+  single `.lockup-word` rule. This governs the wordmark lockup only; Cinzel remains the display face for
+  everything else and sits behind Now as its fallback. The flagged-substitution note that stood here until
+  the file was supplied is resolved. Note it is not an open licence like the other two vendored faces —
+  see `static/fonts/README.md`.
 - **Open, not binding:** the same skill describes a site palette (tinted warm neutrals, one restrained
   accent) and headline type, attributing them to a `DESIGN.md` that **does not exist in this repository**. The
   user has confirmed that prose is a leftover pointer, not a commitment. That prose is now superseded: the

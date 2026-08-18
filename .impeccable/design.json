@@ -475,6 +475,6 @@
       "Don't inline a style attribute or a script tag; the CSP forbids it and there is no build step to hash one.",
       "Don't reuse the four-square atpr.to mark as a button glyph, and don't give two actions the same glyph."
     ],
-    "notCanonized": "The wordmark ships on Cinzel although the binding wordmark type is Now Bold with Inter/Helvetica/system-bold fallbacks and no Now file exists in this repository — a flagged substitution, not a typographic decision, and Cinzel is not the wordmark's face."
+    "notCanonized": "Nothing outstanding: the wordmark's flagged Cinzel substitution ended when Now Bold was supplied. It is loaded by the single .lockup-word rule and is not a third UI face."
   }
 }

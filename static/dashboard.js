@@ -167,14 +167,104 @@
 
     var acts = document.createElement("div");
     acts.className = "rackrow-acts";
-    acts.appendChild(iconBtn("Copy", "copy", link));
-    acts.appendChild(iconBtn("Repoint", "edit", link));
-    acts.appendChild(iconBtn("QR code", "qr", link));
-    acts.appendChild(iconBtn("Delete", "delete", link, true));
+    ACTIONS.forEach(function (a) {
+      acts.appendChild(iconBtn(a.label, a.action, link, a.danger));
+    });
     li.appendChild(acts);
+
+    // The same four actions, once over. Which of the two is visible is a CSS
+    // decision, not a JS one -- see `.rackrow-acts` and `.rowmenu`.
+    li.appendChild(overflow(link));
 
     return li;
   }
+
+  /* ── the four actions, and the two shapes they take ───────────────────── */
+
+  var ACTIONS = [
+    { label: "Copy", menu: "Copy link", action: "copy" },
+    { label: "Repoint", menu: "Repoint…", action: "edit" },
+    { label: "QR code", menu: "QR code", action: "qr" },
+    { label: "Delete", menu: "Delete…", action: "delete", danger: true },
+  ];
+
+  /* Four icon buttons in a row need about 150px, which a phone does not have
+     to spare beside a code and a destination. Below the breakpoint they become
+     one control that opens a list.
+   *
+     Both are built for every row and one is hidden, rather than being built on
+     a media query at render time: a viewport that crosses the breakpoint --
+     a rotation, a desktop window being dragged -- would otherwise leave the
+     rack holding controls for a width it no longer has. */
+  function overflow(link) {
+    var wrap = document.createElement("div");
+    wrap.className = "rowmenu";
+
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "icobtn rowmenu-toggle";
+    toggle.setAttribute("aria-haspopup", "true");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Actions for " + link.code);
+    toggle.title = "Actions";
+    toggle.innerHTML = MARKS.more;
+    wrap.appendChild(toggle);
+
+    var list = document.createElement("ul");
+    list.className = "rowmenu-list";
+    list.hidden = true;
+    ACTIONS.forEach(function (a) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "rowmenu-item" + (a.danger ? " rowmenu-item--danger" : "");
+      // The same `data-action` the icon buttons carry, so the one delegated
+      // handler below serves both and no action logic exists twice.
+      b.dataset.action = a.action;
+      b.textContent = a.menu;
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+    wrap.appendChild(list);
+
+    return wrap;
+  }
+
+  /* ── the open menu, of which there is at most one ─────────────────────── */
+
+  var openMenu = null;
+
+  function closeMenu(refocus) {
+    if (!openMenu) return;
+    var toggle = openMenu.querySelector(".rowmenu-toggle");
+    openMenu.querySelector(".rowmenu-list").hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    if (refocus) toggle.focus();
+    openMenu = null;
+  }
+
+  function toggleMenu(wrap) {
+    var wasOpen = openMenu === wrap;
+    closeMenu(false);
+    if (wasOpen) return;
+
+    wrap.querySelector(".rowmenu-list").hidden = false;
+    wrap.querySelector(".rowmenu-toggle").setAttribute("aria-expanded", "true");
+    openMenu = wrap;
+    var first = wrap.querySelector(".rowmenu-item");
+    if (first) first.focus();
+  }
+
+  document.addEventListener("click", function (e) {
+    // Anywhere that is not inside the open menu closes it. The row's own
+    // handler runs first and closes it on an action, so this is only for
+    // clicks that are not actions at all.
+    if (openMenu && !openMenu.contains(e.target)) closeMenu(false);
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeMenu(true);
+  });
 
   /* One mark per action. Four buttons carrying the same four-square glyph are
      four identical buttons: the tooltip is not a substitute for being able to
@@ -217,6 +307,11 @@
         '<rect x="5.75" y="5.75" width="3.5" height="3.5"/>' +
         '<rect x="1" y="10.5" width="3.5" height="3.5"/><rect x="10.5" y="10.5" width="3.5" height="3.5"/>'
     ),
+    // Three in a row: the overflow convention, already square.
+    more: svg(
+      '<rect x="1" y="6" width="3" height="3"/><rect x="6" y="6" width="3" height="3"/>' +
+        '<rect x="11" y="6" width="3" height="3"/>'
+    ),
   };
 
   function iconBtn(label, action, link, danger) {
@@ -231,6 +326,11 @@
   }
 
   function draw() {
+    // The rack is about to be rebuilt, so any open menu's element is on its way
+    // out; leaving `openMenu` pointing at it would leak a detached node and
+    // leave the next Escape with nothing to close.
+    closeMenu(false);
+
     var q = (filter.value || "").trim().toLowerCase();
     var hits = q
       ? links.filter(function (l) {
@@ -350,8 +450,16 @@
   /* ── row actions ──────────────────────────────────────────────────────── */
 
   rack.addEventListener("click", function (e) {
+    var toggle = e.target.closest(".rowmenu-toggle");
+    if (toggle) {
+      toggleMenu(toggle.closest(".rowmenu"));
+      return;
+    }
+
     var btn = e.target.closest("[data-action]");
     if (!btn) return;
+    // Whichever shape was clicked, the menu has served its purpose.
+    closeMenu(false);
     var rowEl = btn.closest(".rackrow");
     var code = rowEl.dataset.code;
     var link = links.find(function (l) {

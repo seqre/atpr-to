@@ -13,8 +13,27 @@
   {% if avatar != "" %}<img class="whoami-face" src="{{ avatar }}" alt="" width="28" height="28">{% endif %}
   <span class="whoami-handle">@{{ handle }}</span>
 </span>
+{# Two labels for one control. Below 600px the masthead has to carry the
+   lockup, the handle, this, and the rendition toggle, and a 13px letterspaced
+   "SIGN OUT" was wider than everything else put together -- and visibly larger
+   than the icon button beside it. The word is hidden by CSS at that width and
+   the glyph takes over; `.visually-hidden` keeps the label for anyone not
+   looking at it. #}
 <form method="post" action="/api/logout" class="signout">
-  <button type="submit" class="btn">Sign out</button>
+  <button type="submit" class="btn signout-btn">
+    <span class="signout-word">Sign out</span>
+    <span class="visually-hidden">Sign out</span>
+    {# A door with an arrow leaving it, in rectangles. #}
+    <svg class="mark signout-mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false" fill="currentColor">
+      <rect x="1" y="1" width="2" height="13"/>
+      <rect x="3" y="1" width="4" height="2"/>
+      <rect x="3" y="12" width="4" height="2"/>
+      <rect x="7" y="6.5" width="5" height="2"/>
+      <rect x="10" y="4.5" width="2" height="2"/>
+      <rect x="12" y="6.5" width="2" height="2"/>
+      <rect x="10" y="8.5" width="2" height="2"/>
+    </svg>
+  </button>
 </form>
 {% endblock %}
 

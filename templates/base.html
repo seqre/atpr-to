@@ -9,10 +9,18 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="{% block og_title %}atpr.to — AT Protocol URL Shortener{% endblock %}">
 <meta property="og:description" content="{% block og_description %}AT Protocol URL shortener — links stored in your own PDS.{% endblock %}">
-<meta property="og:image" content="https://atpr.to/static/logo.svg">
+{# A PNG, because most link unfurlers do not render SVG and a shared link with
+   no preview image looks broken. 1200x630 is the shape they expect. #}
+<meta property="og:image" content="https://atpr.to/static/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f0eee8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#100f0e" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+{# iOS ignores the SVG and composites a transparent PNG onto black, so this one
+   carries the Galerie ground rather than transparency. #}
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="manifest" href="/static/site.webmanifest">
 <link rel="stylesheet" href="/static/app.css">
 {# Blocking on purpose: the rendition attribute has to land before first
@@ -26,9 +34,11 @@
   THESIS: Ownership as a material fact, not a claim in a card. Refuses the
   centred paste-box on white, and refuses the terminal green just as hard.
   OWN-WORLD: Wiener Werkstätte pierced lattice. Galerie white ruled in lacquer
-  black, hammered silver as a real material, square cells that fill solid or
-  stay pierced open, Cinzel caps letterspaced over Jost, one oxide red used
-  only for destruction and error. Every space a multiple of one cell.
+  black, square cells that fill solid or stay pierced open, Cinzel caps
+  letterspaced over Jost with Now Bold on the wordmark, one oxide red used only
+  for destruction and error. Every space a multiple of one cell. The hammered
+  silver this line used to name was retired: it dressed one button, the button
+  did not want it, and a material with one instance is a claim.
   STORY: A stranger learns this link is a record its author owns and can
   outlive us; a signed-in visitor writes one and sees the cell struck.
   FIRST VIEWPORT: The lattice owns the frame at real scale — no hero box. The

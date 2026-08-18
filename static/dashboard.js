@@ -176,10 +176,48 @@
     return li;
   }
 
-  var MARK =
-    '<svg class="mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false"><g fill="currentColor">' +
-    '<rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>' +
-    '<rect x="1" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></g></svg>';
+  /* One mark per action. Four buttons carrying the same four-square glyph are
+     four identical buttons: the tooltip is not a substitute for being able to
+     tell them apart, and the mouse has to stop moving to read one.
+   *
+   * Drawn in the world's own vocabulary -- axis-aligned rectangles on the
+   * 15x15 grid, in currentColor, no curves. The plain four-square mark is not
+   * in this set on purpose: it means *atpr.to*, and it keeps that meaning only
+   * as long as it is not also the word for "button". */
+  function svg(body) {
+    return (
+      '<svg class="mark" viewBox="0 0 15 15" aria-hidden="true" focusable="false" fill="currentColor">' +
+      body +
+      "</svg>"
+    );
+  }
+
+  var MARKS = {
+    // One plate lying over another.
+    copy: svg(
+      '<rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+        '<rect x="6" y="6" width="8" height="8"/>'
+    ),
+    // An arrow built out of cells: a shaft, then a head stepped down in three.
+    edit: svg(
+      '<rect x="1" y="6" width="7" height="3"/>' +
+        '<rect x="8" y="3" width="2" height="9"/>' +
+        '<rect x="10" y="4.5" width="2" height="6"/>' +
+        '<rect x="12" y="6" width="2" height="3"/>'
+    ),
+    // Three finder squares and two loose cells -- the glyph is the thing it opens.
+    qr: svg(
+      '<rect x="1" y="1" width="5" height="5"/><rect x="9" y="1" width="5" height="5"/>' +
+        '<rect x="1" y="9" width="5" height="5"/>' +
+        '<rect x="9" y="9" width="2" height="2"/><rect x="12" y="12" width="2" height="2"/>'
+    ),
+    // Five cells on the two diagonals.
+    delete: svg(
+      '<rect x="1" y="1" width="3.5" height="3.5"/><rect x="10.5" y="1" width="3.5" height="3.5"/>' +
+        '<rect x="5.75" y="5.75" width="3.5" height="3.5"/>' +
+        '<rect x="1" y="10.5" width="3.5" height="3.5"/><rect x="10.5" y="10.5" width="3.5" height="3.5"/>'
+    ),
+  };
 
   function iconBtn(label, action, link, danger) {
     var b = document.createElement("button");
@@ -188,7 +226,7 @@
     b.title = label;
     b.setAttribute("aria-label", label + " " + link.code);
     b.dataset.action = action;
-    b.innerHTML = MARK;
+    b.innerHTML = MARKS[action];
     return b;
   }
 

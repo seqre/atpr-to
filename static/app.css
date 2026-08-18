@@ -281,6 +281,12 @@ p { margin: 0; max-width: 68ch; }
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+  /* Three controls in this system are anchors -- the QR download, the
+     preview's Follow, the error page's way out -- and they were coming through
+     underlined, because a rule that dresses a button had nothing to say about
+     the link default underneath it. A control is a control whichever element
+     it is built from. */
+  text-decoration: none;
   transition: background var(--quick) var(--ease), color var(--quick) var(--ease);
 }
 .btn:hover { background: var(--ink); color: var(--ground); }

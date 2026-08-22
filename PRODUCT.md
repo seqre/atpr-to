@@ -156,7 +156,7 @@ it earns its place.
 ## Evidence on Hand
 
 - `static/logo.svg` — the official mark, in ink and paper variants.
-- A complete, tested, deployed backend: all routes above work; `README.md` and `CLAUDE.md` accurately describe
+- A complete, tested, deployed backend: all routes above work; `README.md` accurately describes
   them; test suite is hermetic with an 80% line coverage gate.
 - `templates/*.html` and `static/app.css` carry detailed handoff comments listing exactly what was removed and
   every backend contract the rebuilt UI must honor. Read them before building.

@@ -8,8 +8,8 @@ use jacquard_common::types::string::Handle;
 use tracing::Instrument;
 
 use super::{link_from_get_record, LinkResolver, ResolveError};
-use crate::auth::Resolver;
 use crate::domain::{ShortCode, ShortLink};
+use crate::identity::Resolver;
 
 /// Resolve against the user's own PDS.
 pub struct Direct {

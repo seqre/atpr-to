@@ -214,6 +214,13 @@ pub struct Config {
     pub http_timeout_ms: NonZeroU64,
     /// Budget for establishing an outbound connection, in milliseconds.
     pub http_connect_timeout_ms: NonZeroU64,
+    /// Socket address the standalone redirect server binds, e.g.
+    /// `127.0.0.1:8080`.
+    ///
+    /// Loopback by default: the server speaks plain HTTP and is meant to sit
+    /// behind a reverse proxy that terminates TLS. Only `atpr-redirect` reads
+    /// this; the Lambda function's address is decided by the runtime.
+    pub bind_addr: String,
     /// Where OAuth sessions are persisted.
     #[serde(rename = "session_file")]
     pub session_store: SessionStore,
@@ -231,6 +238,7 @@ impl Default for Config {
             request_timeout_ms: NonZeroU64::new(25_000).expect("25000 is nonzero"),
             http_timeout_ms: NonZeroU64::new(5_000).expect("5000 is nonzero"),
             http_connect_timeout_ms: NonZeroU64::new(2_000).expect("2000 is nonzero"),
+            bind_addr: "127.0.0.1:8080".to_string(),
             session_store: SessionStore::Memory,
         }
     }

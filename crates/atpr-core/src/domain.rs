@@ -322,7 +322,7 @@ mod tests {
     /// directory.
     #[test]
     fn test_max_target_len_matches_lexicon() {
-        const LEXICON: &str = include_str!("../lexicons/to/atpr/link.json");
+        const LEXICON: &str = include_str!("../../../lexicons/to/atpr/link.json");
         let doc: serde_json::Value = serde_json::from_str(LEXICON).expect("lexicon is valid JSON");
 
         let max_length = doc["defs"]["main"]["record"]["properties"]["url"]["maxLength"]

@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use atpr_to::auth::FakeAuthenticator;
-use atpr_to::store::InMemoryLinkStore;
-use atpr_to::{router_with_state, AppState};
+use atpr_server::auth::FakeAuthenticator;
+use atpr_server::store::InMemoryLinkStore;
+use atpr_server::{router_with_state, AppState};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
@@ -55,15 +55,15 @@ impl Harness {
 
     async fn with_auth(auth: FakeAuthenticator) -> Self {
         let mock = mock_slingshot().await;
-        let config = atpr_to::config::Config {
+        let config = atpr_server::config::Config {
             slingshot_url: mock.uri(),
             appview_url: mock.uri(),
-            ..atpr_to::config::Config::default()
+            ..atpr_server::config::Config::default()
         };
         let cookie = auth.cookie_header();
         let store = Arc::clone(&auth.store);
-        let http = atpr_to::http_client(&config);
-        let state = atpr_to::build_state_with(config, auth, http);
+        let http = atpr_core::identity::http_client(&config);
+        let state = atpr_server::build_state_with(config, auth, http);
         Self {
             state,
             cookie,
@@ -257,16 +257,16 @@ async fn test_shorten_errors_rather_than_minting_a_did_url() {
         .mount(&mock)
         .await;
 
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
         // Keep the DID-document fallback from doing real DNS.
         http_timeout_ms: std::num::NonZeroU64::new(200).unwrap(),
-        ..atpr_to::config::Config::default()
+        ..atpr_server::config::Config::default()
     };
     let auth = FakeAuthenticator::new(DID);
     let cookie = auth.cookie_header();
-    let http = atpr_to::http_client(&config);
-    let state = atpr_to::build_state_with(config, auth, http);
+    let http = atpr_core::identity::http_client(&config);
+    let state = atpr_server::build_state_with(config, auth, http);
 
     let response = router_with_state(state)
         .oneshot(
@@ -308,13 +308,13 @@ async fn test_hung_upstream_is_bounded_by_the_client_timeout() {
         .mount(&mock)
         .await;
 
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
         http_timeout_ms: std::num::NonZeroU64::new(200).unwrap(),
-        ..atpr_to::config::Config::default()
+        ..atpr_server::config::Config::default()
     };
-    let http = atpr_to::http_client(&config);
-    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
+    let http = atpr_core::identity::http_client(&config);
+    let state = atpr_server::build_state_with(config, FakeAuthenticator::new(DID), http);
 
     let started = std::time::Instant::now();
     let response = router_with_state(state)
@@ -797,13 +797,13 @@ async fn test_logout_clearing_cookie_mirrors_attributes() {
 #[tokio::test]
 async fn test_production_session_cookie_uses_the_host_prefix() {
     let mock = mock_slingshot().await;
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
         // The default base_url is https://atpr.to, i.e. not loopback.
-        ..atpr_to::config::Config::default()
+        ..atpr_server::config::Config::default()
     };
-    let http = atpr_to::http_client(&config);
-    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
+    let http = atpr_core::identity::http_client(&config);
+    let state = atpr_server::build_state_with(config, FakeAuthenticator::new(DID), http);
 
     let response = router_with_state(state)
         .oneshot(
@@ -831,13 +831,13 @@ async fn test_production_session_cookie_uses_the_host_prefix() {
 #[tokio::test]
 async fn test_loopback_session_cookie_uses_the_plain_name() {
     let mock = mock_slingshot().await;
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
-        base_url: atpr_to::config::BaseUrl::parse("http://127.0.0.1:9000").unwrap(),
-        ..atpr_to::config::Config::default()
+        base_url: atpr_server::config::BaseUrl::parse("http://127.0.0.1:9000").unwrap(),
+        ..atpr_server::config::Config::default()
     };
-    let http = atpr_to::http_client(&config);
-    let state = atpr_to::build_state_with(config, FakeAuthenticator::new(DID), http);
+    let http = atpr_core::identity::http_client(&config);
+    let state = atpr_server::build_state_with(config, FakeAuthenticator::new(DID), http);
 
     let response = router_with_state(state)
         .oneshot(

@@ -1,0 +1,20 @@
+[package]
+name = "atpr-redirect"
+version.workspace = true
+edition.workspace = true
+description = "Standalone self-hostable redirect server for atpr.to short links"
+
+[[bin]]
+name = "atpr-redirect"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+atpr-core = { path = "../atpr-core" }
+anyhow = "1"
+axum = { version = "0.8.9", features = ["macros"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

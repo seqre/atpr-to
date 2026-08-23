@@ -7,16 +7,15 @@ use axum::http::{header, HeaderValue};
 use axum::response::{IntoResponse, Response};
 
 use crate::api::shortlink::qr_svg;
-use crate::auth::Authenticator;
 use crate::error::AppError;
-use crate::AppState;
+use atpr_core::redirect::ResolveState;
 
 /// Generate a QR code for a short URL, returned as SVG.
 ///
 /// Does not resolve the link: this encodes the short URL itself, so it is
 /// correct even for a code that does not exist yet.
-pub async fn qr_code<A: Authenticator>(
-    State(state): State<Arc<AppState<A>>>,
+pub async fn qr_code(
+    State(state): State<Arc<ResolveState>>,
     Path((handle, code)): Path<(String, String)>,
 ) -> Result<Response, AppError> {
     let url = state.config.base_url.short_url(&handle, &code);

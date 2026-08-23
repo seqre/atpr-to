@@ -50,6 +50,9 @@
             "clippy"
             "rust-src"
             "rust-analyzer"
+            # `just coverage` shells out to llvm-cov/llvm-profdata, which ship
+            # in this component rather than as separate packages.
+            "llvm-tools"
           ];
           targets = [ lambdaTarget ];
         };

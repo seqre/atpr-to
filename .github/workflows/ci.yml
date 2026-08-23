@@ -52,9 +52,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Regenerate from lexicons/
-        run: cargo run --features codegen --bin codegen
+        run: cargo run -p atpr-server --features codegen --bin codegen
       - name: Fail if src/generated/ is stale
-        run: git diff --exit-code -- src/generated
+        run: git diff --exit-code -- crates/atpr-server/src/generated
 
   deny:
     name: cargo-deny
@@ -75,7 +75,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-lambda
       - name: Build release artifact
-        run: cargo lambda build --release --arm64
+        run: cargo lambda build --release --arm64 -p atpr-server
       - name: Report artifact size
         run: ls -l target/lambda/atpr-to/bootstrap
 
@@ -97,8 +97,8 @@ jobs:
       # meant to make 100% attainable did nothing.
       - name: Generate coverage
         run: |
-          cargo llvm-cov \
-            --ignore-filename-regex 'src/generated|src/main|src/bin' \
+          cargo llvm-cov --workspace \
+            --ignore-filename-regex 'generated|src/bin|main\.rs' \
             --fail-under-lines 80 \
             --codecov \
             --output-path codecov.json

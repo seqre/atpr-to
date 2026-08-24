@@ -1,37 +1,40 @@
-//! End-to-end resolution tests: the router driven against a wiremock Slingshot.
+//! End-to-end resolution tests: the standalone redirect router driven against
+//! a wiremock Slingshot.
+//!
+//! These exercise exactly what `atpr-redirect` serves — no authenticator, no
+//! dashboard — which is also why they live in `atpr-core`: the same router is
+//! what `atpr-server` mounts its public routes from.
 
 use std::sync::Arc;
 
-use atpr_to::auth::FakeAuthenticator;
-use atpr_to::{router_with_state, AppState};
+use atpr_core::config::{BaseUrl, Config};
+use atpr_core::identity::http_client;
+use atpr_core::redirect::{router_with_state, ResolveState};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 use wiremock::matchers::{method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-/// Build an AppState pointing Slingshot at the given mock server URL.
-async fn test_state(slingshot_url: String) -> Arc<AppState<FakeAuthenticator>> {
-    state_with_timeout_ms(slingshot_url, None).await
+/// Build a `ResolveState` pointing Slingshot at the given mock server URL.
+fn test_state(slingshot_url: String) -> Arc<ResolveState> {
+    state_with_timeout_ms(slingshot_url, None)
 }
 
 /// As `test_state`, but with a shorter outbound timeout.
 ///
 /// Used to force a transport timeout without making the test sleep for the
 /// production 5s budget.
-async fn state_with_timeout_ms(
-    slingshot_url: String,
-    timeout_ms: Option<u64>,
-) -> Arc<AppState<FakeAuthenticator>> {
-    let mut config = atpr_to::config::Config {
+fn state_with_timeout_ms(slingshot_url: String, timeout_ms: Option<u64>) -> Arc<ResolveState> {
+    let mut config = Config {
         slingshot_url,
-        ..atpr_to::config::Config::default()
+        ..Config::default()
     };
     if let Some(ms) = timeout_ms {
         config.http_timeout_ms = std::num::NonZeroU64::new(ms).expect("timeout must be nonzero");
     }
-    let http = atpr_to::http_client(&config);
-    atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http)
+    let http = http_client(&config);
+    Arc::new(ResolveState::new(config, http))
 }
 
 #[tokio::test]
@@ -67,7 +70,7 @@ async fn test_resolve_via_slingshot_happy_path() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -122,7 +125,7 @@ async fn test_errors_are_not_cached() {
         .mount(&mock)
         .await;
 
-    let state = state_with_timeout_ms(mock.uri(), Some(200)).await;
+    let state = state_with_timeout_ms(mock.uri(), Some(200));
     let response = router_with_state(state)
         .oneshot(
             Request::builder()
@@ -149,17 +152,16 @@ async fn test_request_timeout_returns_504() {
         .mount(&mock)
         .await;
 
-    let mut config = atpr_to::config::Config {
+    let mut config = Config {
         slingshot_url: mock.uri(),
-        ..atpr_to::config::Config::default()
+        ..Config::default()
     };
     // Well above the request budget, so the server-side layer is unambiguously
     // what fires — not the outbound client timeout.
     config.http_timeout_ms = std::num::NonZeroU64::new(20_000).unwrap();
     config.request_timeout_ms = std::num::NonZeroU64::new(200).unwrap();
-    let http = atpr_to::http_client(&config);
-    let state =
-        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+    let http = http_client(&config);
+    let state = Arc::new(ResolveState::new(config, http));
 
     let started = std::time::Instant::now();
     let response = router_with_state(state)
@@ -207,15 +209,14 @@ async fn test_request_timeout_is_an_html_page_for_a_browser() {
         .mount(&mock)
         .await;
 
-    let mut config = atpr_to::config::Config {
+    let mut config = Config {
         slingshot_url: mock.uri(),
-        ..atpr_to::config::Config::default()
+        ..Config::default()
     };
     config.http_timeout_ms = std::num::NonZeroU64::new(20_000).unwrap();
     config.request_timeout_ms = std::num::NonZeroU64::new(200).unwrap();
-    let http = atpr_to::http_client(&config);
-    let state =
-        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+    let http = http_client(&config);
+    let state = Arc::new(ResolveState::new(config, http));
 
     let response = router_with_state(state)
         .oneshot(
@@ -249,17 +250,25 @@ async fn test_request_timeout_is_an_html_page_for_a_browser() {
 #[tokio::test]
 async fn test_loopback_does_not_send_hsts() {
     let mock = MockServer::start().await;
-    let mut config = atpr_to::config::Config {
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock)
+        .await;
+    let mut config = Config {
         slingshot_url: mock.uri(),
-        ..atpr_to::config::Config::default()
+        ..Config::default()
     };
-    config.base_url = atpr_to::config::BaseUrl::parse("http://localhost:9000").unwrap();
-    let http = atpr_to::http_client(&config);
-    let state =
-        atpr_to::build_state_with(config, FakeAuthenticator::new("did:plc:testdid123"), http);
+    config.base_url = BaseUrl::parse("http://localhost:9000").unwrap();
+    let http = http_client(&config);
+    let state = Arc::new(ResolveState::new(config, http));
 
     let response = router_with_state(state)
-        .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
 
@@ -285,7 +294,7 @@ async fn test_resolve_slingshot_down_falls_back() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -331,7 +340,7 @@ async fn test_resolve_record_not_found() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -379,7 +388,7 @@ async fn test_xrpc_400_record_not_found_is_a_404_not_a_502() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -431,7 +440,7 @@ async fn test_other_xrpc_400s_are_not_read_as_a_missing_record() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -473,7 +482,7 @@ async fn test_an_unresolvable_handle_is_a_404_that_names_the_handle() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -547,7 +556,7 @@ async fn test_code_containing_404_is_not_treated_as_not_found() {
         .mount(&mock)
         .await;
 
-    let state = state_with_timeout_ms(mock.uri(), Some(300)).await;
+    let state = state_with_timeout_ms(mock.uri(), Some(300));
     let app = router_with_state(state);
 
     let response = app
@@ -584,7 +593,7 @@ async fn test_handle_not_found_is_404() {
         .mount(&mock)
         .await;
 
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -644,7 +653,7 @@ async fn test_dangerous_scheme_is_not_redirected_to() {
         "file:///etc/passwd",
     ] {
         let mock = mock_serving_record_url(destination).await;
-        let state = test_state(mock.uri()).await;
+        let state = test_state(mock.uri());
         let app = router_with_state(state);
 
         let response = app
@@ -669,85 +678,11 @@ async fn test_dangerous_scheme_is_not_redirected_to() {
     }
 }
 
-/// Regression test for bug #3, the info-page half.
-///
-/// `info.html` renders the destination into an `<a href>`. Askama escapes
-/// characters, not schemes, so escaping was never a defence here.
-#[tokio::test]
-async fn test_dangerous_scheme_never_reaches_an_href() {
-    let mock = mock_serving_record_url("javascript:alert(document.cookie)").await;
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/evil/info")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let body = String::from_utf8_lossy(&body);
-    assert!(
-        !body.contains("javascript:"),
-        "destination scheme leaked into the rendered page: {body}"
-    );
-}
-
-/// The same guarantee on the other body a browser can get here.
-///
-/// The request above sends no `Accept`, so it is answered with JSON. A real
-/// browser sends one and is answered with `templates/error.html` instead —
-/// a second rendering path, reached by exactly the visitor this matters for.
-#[tokio::test]
-async fn test_dangerous_scheme_never_reaches_an_href_as_html() {
-    let mock = mock_serving_record_url("javascript:alert(document.cookie)").await;
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/evil/info")
-                .header(
-                    "accept",
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                )
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    assert_eq!(
-        response.headers().get("content-type").unwrap(),
-        "text/html; charset=utf-8",
-        "a browser should be getting the page, or this test proves nothing"
-    );
-
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let body = String::from_utf8_lossy(&body);
-    assert!(
-        !body.contains("javascript:"),
-        "destination scheme leaked into the error page: {body}"
-    );
-}
-
 /// The read path must still accept ordinary destinations.
 #[tokio::test]
 async fn test_https_destination_still_resolves() {
     let mock = mock_serving_record_url("https://example.com/target").await;
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -772,7 +707,7 @@ async fn test_https_destination_still_resolves() {
 #[tokio::test]
 async fn test_unmatched_path_has_a_body() {
     let mock = MockServer::start().await;
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -795,7 +730,7 @@ async fn test_unmatched_path_has_a_body() {
 #[tokio::test]
 async fn test_resolve_invalid_handle() {
     let mock = MockServer::start().await;
-    let state = test_state(mock.uri()).await;
+    let state = test_state(mock.uri());
     let app = router_with_state(state);
 
     let response = app
@@ -810,145 +745,4 @@ async fn test_resolve_invalid_handle() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-}
-
-#[tokio::test]
-async fn test_info_page_happy_path() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
-        .and(query_param("handle", "alice.test"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
-        )
-        .mount(&mock)
-        .await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "uri": "at://did:plc:testdid123/to.atpr.link/abc123",
-            "cid": "bafycid",
-            "value": {
-                "$type": "to.atpr.link",
-                "url": "https://example.com/target",
-                "updatedAt": "2024-01-15T10:00:00Z"
-            }
-        })))
-        .mount(&mock)
-        .await;
-
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/abc123/info")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .unwrap();
-    let html = String::from_utf8(body.to_vec()).expect("the page is UTF-8");
-
-    // Restored: these assertions were deleted with the old frontend and left as
-    // a TODO. They are about what the page *carries*, not how it looks, so they
-    // do not pin the redesign to any particular markup.
-    assert!(
-        html.contains("https://example.com/target"),
-        "the destination must appear on the page"
-    );
-    assert!(
-        html.contains("<svg"),
-        "the QR code must be rendered inline, not linked"
-    );
-    assert!(
-        html.contains("2024-01-15T10:00:00Z"),
-        "the machine-readable date must survive, in `datetime`"
-    );
-    assert!(
-        html.contains("15 January 2024"),
-        "and the visible date must be one a person would read: {html}"
-    );
-    assert!(
-        html.contains("alice.test") && html.contains("abc123"),
-        "the short link's own identity must appear"
-    );
-}
-
-#[tokio::test]
-async fn test_info_page_not_found() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.identity.resolveHandle"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
-        )
-        .mount(&mock)
-        .await;
-
-    Mock::given(method("GET"))
-        .and(path("/xrpc/com.atproto.repo.getRecord"))
-        .respond_with(ResponseTemplate::new(404))
-        .mount(&mock)
-        .await;
-
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/nosuchcode/info")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_info_page_slingshot_error() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("GET"))
-        .respond_with(ResponseTemplate::new(500))
-        .mount(&mock)
-        .await;
-
-    let state = test_state(mock.uri()).await;
-    let app = router_with_state(state);
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/@alice.test/abc123/info")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    // Not 200, and not a panic: the preview page has to fail as an error rather
-    // than render half a link. Which error depends on how far resolution gets —
-    // under test the relay's 500 sends it to the direct path, where
-    // `alice.test` does not resolve, so it lands on the handle 404.
-    assert!(
-        response.status().is_client_error() || response.status().is_server_error(),
-        "got {}",
-        response.status()
-    );
 }

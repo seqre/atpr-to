@@ -8,11 +8,10 @@ use axum::response::{Html, IntoResponse, Response};
 use jacquard_common::types::string::Handle;
 
 use crate::api::shortlink::qr_svg_inline;
-use crate::auth::Authenticator;
 use crate::domain::ShortCode;
 use crate::error::AppError;
 use crate::resolver::LinkResolver;
-use crate::AppState;
+use atpr_core::redirect::ResolveState;
 
 /// When a link was last changed, in both the forms the page needs.
 ///
@@ -75,8 +74,8 @@ fn human_date(iso: &str) -> String {
 /// directly — so the two can no longer disagree about whether a link exists or
 /// what it points at.
 #[tracing::instrument(skip(state), fields(handle = %handle, code = %code))]
-pub async fn info<A: Authenticator>(
-    State(state): State<Arc<AppState<A>>>,
+pub async fn info(
+    State(state): State<Arc<ResolveState>>,
     Path((handle, code)): Path<(String, String)>,
 ) -> Result<Response, AppError> {
     let parsed_handle: Handle =

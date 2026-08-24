@@ -19,7 +19,7 @@ const DEFAULT_LOCAL_PORT: u16 = 9000;
 async fn main() -> Result<(), Error> {
     tracing::init_default_subscriber();
 
-    let router = atpr_to::router().await;
+    let router = atpr_server::router().await;
 
     if std::env::var_os("AWS_LAMBDA_FUNCTION_NAME").is_some() {
         return run(router).await;

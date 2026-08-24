@@ -6,8 +6,8 @@
 //! layers that synthesise their own responses, and whether the headers those
 //! layers set survive the body swap.
 
-use atpr_to::auth::FakeAuthenticator;
-use atpr_to::router_with_state;
+use atpr_server::auth::FakeAuthenticator;
+use atpr_server::router_with_state;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
@@ -16,12 +16,12 @@ use wiremock::MockServer;
 /// A router whose upstreams are unreachable — nothing here resolves a link.
 async fn test_router() -> axum::Router {
     let mock = MockServer::start().await;
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
-        ..atpr_to::config::Config::default()
+        ..atpr_server::config::Config::default()
     };
-    let http = atpr_to::http_client(&config);
-    router_with_state(atpr_to::build_state_with(
+    let http = atpr_core::identity::http_client(&config);
+    router_with_state(atpr_server::build_state_with(
         config,
         FakeAuthenticator::new("did:plc:testdid123"),
         http,
@@ -162,12 +162,12 @@ async fn test_upstream_detail_does_not_reach_the_page() {
         .mount(&mock)
         .await;
 
-    let config = atpr_to::config::Config {
+    let config = atpr_server::config::Config {
         slingshot_url: mock.uri(),
-        ..atpr_to::config::Config::default()
+        ..atpr_server::config::Config::default()
     };
-    let http = atpr_to::http_client(&config);
-    let response = router_with_state(atpr_to::build_state_with(
+    let http = atpr_core::identity::http_client(&config);
+    let response = router_with_state(atpr_server::build_state_with(
         config,
         FakeAuthenticator::new("did:plc:testdid123"),
         http,

@@ -18,16 +18,23 @@ use jacquard_lexicon::codegen::CodeGenerator;
 use jacquard_lexicon::corpus::LexiconCorpus;
 
 fn main() {
-    let output_dir = Path::new("src/generated");
+    // Anchor on the crate, not the process CWD: in a workspace, `cargo run`
+    // executes from the workspace root, where `src/generated` and `lexicons/`
+    // do not exist — the first workspace build silently regenerated an empty
+    // tree in a stray root-level src/.
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
+    let manifest_dir = Path::new(&manifest_dir);
+    let output_dir = manifest_dir.join("src/generated");
+    let lexicons_dir = manifest_dir.join("../../lexicons");
 
     if output_dir.exists() {
-        std::fs::remove_dir_all(output_dir).expect("failed to clean generated dir");
+        std::fs::remove_dir_all(&output_dir).expect("failed to clean generated dir");
     }
 
-    let corpus = LexiconCorpus::load_from_dir("lexicons/").expect("failed to load lexicons");
+    let corpus = LexiconCorpus::load_from_dir(&lexicons_dir).expect("failed to load lexicons");
     let codegen = CodeGenerator::new(&corpus, "crate::generated");
     codegen
-        .write_to_disk(output_dir)
+        .write_to_disk(&output_dir)
         .expect("failed to generate code");
 
     // Codegen emits a crate root as `lib.rs`; this is a module, not a crate.
@@ -47,7 +54,7 @@ fn main() {
 
     // Codegen assumes it is generating a crate root, so builder types resolve as
     // `crate::builder_types`. Under `crate::generated` they are one level deeper.
-    fix_builder_paths(output_dir);
+    fix_builder_paths(&output_dir);
 
     println!("regenerated {}", output_dir.display());
 }

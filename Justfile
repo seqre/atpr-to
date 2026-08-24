@@ -4,19 +4,20 @@ default:
 
 # Build release binary for Lambda (arm64)
 build:
-    cargo lambda build --release --arm64
+    cargo lambda build --release --arm64 -p atpr-server
 
 # Run tests
 test:
     cargo test
 
-# Regenerate src/generated/ from lexicons/ (checked into git — commit the result)
+# Regenerate crates/atpr-server/src/generated/ from lexicons/
+# (checked into git — commit the result)
 codegen:
-    cargo run --features codegen --bin codegen
+    cargo run -p atpr-server --features codegen --bin codegen
 
 # Fail if src/generated/ is stale relative to lexicons/
 codegen-check: codegen
-    git diff --exit-code -- src/generated
+    git diff --exit-code -- crates/atpr-server/src/generated
 
 # Audit dependencies and licences
 deny:
@@ -52,12 +53,20 @@ logs:
 local:
     cargo lambda watch
 
-# Run locally as a plain HTTP server on 127.0.0.1:9000 (no cargo-lambda needed)
+# Run the main server locally as a plain HTTP server on 127.0.0.1:9000
+# (no cargo-lambda needed)
 #
 # `main.rs` picks this path whenever AWS_LAMBDA_FUNCTION_NAME is unset, so
 # there is no flag to pass and no way to start the wrong one by accident.
 run:
-    ATPR_PORT=9000 cargo run
+    ATPR_PORT=9000 cargo run -p atpr-server
+
+# Run the standalone self-hostable redirect server on 127.0.0.1:8080
+#
+# Serves only GET /@{handle}/{code} and /health — no OAuth, no dashboard.
+# Override the address with ATPR__BIND_ADDR; see README for self-hosting.
+run-redirect:
+    cargo run -p atpr-redirect
 
 # Generate test coverage report (requires cargo-llvm-cov)
 #
@@ -67,4 +76,4 @@ run:
 # --ignore-filename-regex and #[coverage(off)] -- so the 25 markers that were
 # supposed to make 100% attainable did nothing at all.
 coverage:
-    cargo llvm-cov --ignore-filename-regex 'src/generated|src/main|src/bin' --fail-under-lines 80 --html
+    cargo llvm-cov --workspace --ignore-filename-regex 'generated|src/bin|main\.rs' --fail-under-lines 80 --html

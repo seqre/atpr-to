@@ -2,6 +2,7 @@
 name = "atpr-server"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "atpr.to — AT Protocol URL shortener (Lambda + local server)"
 default-run = "atpr-to"
 
@@ -23,7 +24,7 @@ required-features = ["codegen"]
 workspace = true
 
 [dependencies]
-atpr-core = { path = "../atpr-core" }
+atpr-core = { path = "../atpr-core", version = "0.1.0" }
 axum = { version = "0.8.9", features = ["macros"] }
 axum-extra = { version = "0.12", features = ["cookie"] }
 # Full jacquard surface: OAuth session, repo writes, identity resolution.

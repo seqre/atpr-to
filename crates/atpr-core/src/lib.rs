@@ -9,6 +9,12 @@
 //! serve this router with no OAuth, session store or PDS-write dependency at
 //! all, while `atpr-server` embeds the same state inside its own
 //! authenticator-carrying `AppState`.
+#![recursion_limit = "256"]
+// The AFIT resolver chain nests one opaque future inside another —
+// `Chained::resolve` → `Slingshot`/`Direct` → instrumented blocks — and
+// nightly trait solving evaluates that stack when proving axum's `Handler`
+// bound. The default depth of 128 overflows there (a phase-out warning that
+// `-D warnings` turns into an error); 256 lets the proof complete.
 
 pub mod config;
 pub mod domain;

@@ -2,6 +2,7 @@
 name = "atpr-core"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Shared read path for atpr.to: config, domain types, resolver, and the standalone redirect router"
 
 [lints]

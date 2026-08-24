@@ -73,6 +73,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # cargo-lambda cross-links the arm64 artifact with zig, which stopped
+      # shipping on hosted runners — without this the build dies at link time.
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.14.1
       - uses: taiki-e/install-action@cargo-lambda
       - name: Build release artifact
         run: cargo lambda build --release --arm64 -p atpr-server

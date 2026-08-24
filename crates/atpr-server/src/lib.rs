@@ -8,6 +8,10 @@
 //!
 //! `missing_docs` is enforced via `[lints.rust]` in `Cargo.toml` so that local
 //! builds and CI agree without either restating the lint.
+#![recursion_limit = "256"]
+// Same reason as atpr-core: the PDS store's AFIT futures (putRecord with its
+// swap-record precondition, listRecords paging) overflow nightly's default
+// trait-solving depth while proving `Send`.
 extern crate alloc;
 
 /// HTTP adapters: handlers and extractors.

@@ -2,6 +2,7 @@
 name = "atpr-redirect"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 description = "Standalone self-hostable redirect server for atpr.to short links"
 
 [[bin]]
@@ -12,7 +13,7 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-atpr-core = { path = "../atpr-core" }
+atpr-core = { path = "../atpr-core", version = "0.1.0" }
 anyhow = "1"
 axum = { version = "0.8.9", features = ["macros"] }
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }

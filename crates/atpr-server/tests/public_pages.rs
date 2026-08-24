@@ -268,3 +268,37 @@ async fn test_info_page_slingshot_error() {
         response.status()
     );
 }
+
+/// The health probe mounted under the JSON API prefix. `atpr-core` pins the
+/// probe's status-code contract against a bare `ResolveState`; this drives it
+/// through the server's `AppState` adapter, so the delegation cannot silently
+/// break.
+#[tokio::test]
+async fn test_health_route_through_the_app_state_adapter() {
+    let mock = MockServer::start().await;
+    Mock::given(method("GET"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({ "did": "did:plc:testdid123" })),
+        )
+        .mount(&mock)
+        .await;
+
+    let state = test_state(mock.uri()).await;
+    let response = router_with_state(state)
+        .oneshot(
+            Request::builder()
+                .uri("/api/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "ok");
+}

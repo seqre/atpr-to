@@ -75,7 +75,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # cargo-lambda cross-links the arm64 artifact with zig, which stopped
       # shipping on hosted runners — without this the build dies at link time.
-      - uses: mlugg/setup-zig@v1
+      # (mlugg/setup-zig fetches from third-party mirrors that were returning
+      # 404/503s; this action downloads from ziglang.org itself.)
+      - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.14.1
       - uses: taiki-e/install-action@cargo-lambda
